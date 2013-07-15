@@ -1,9 +1,9 @@
 #include <vector>
 #include <iostream>
-#include <memory>
 #include <map>
-#include <chrono>
 #include <cmath>
+
+#include <boost/timer/timer.hpp>
 
 #include <vigra/multi_array.hxx>
 #include <vigra/hdf5impex.hxx>
@@ -53,7 +53,7 @@ int main() {
     vigra::MultiArray<5, vigra::UInt8> data;
     f.readAndResize("volume/data", data);
 
-    auto data3 = data.bind<0>(0).bind<3>(0);
+    vigra::MultiArrayView<3, vigra::UInt8> data3 = data.bind<0>(0).bind<3>(0);
 
     std::cout << "building blocked array for data of shape = " << data3.shape() << std::endl;
 
@@ -67,7 +67,8 @@ int main() {
 
     typedef BlockedArray<3, unsigned char> B;
 
-    std::vector<std::pair<B::difference_type, B::difference_type> > bounds;
+    typedef std::vector<std::pair<B::difference_type, B::difference_type> > BoundsList;
+    BoundsList bounds;
     bounds.push_back(std::make_pair(B::difference_type(0,0,0), B::difference_type(100,100,100)));
     bounds.push_back(std::make_pair(B::difference_type(0,0,0), B::difference_type(100,200,100)));
     bounds.push_back(std::make_pair(B::difference_type(0,0,0), B::difference_type(100,128,128)));
@@ -92,7 +93,7 @@ int main() {
             }
         }
         if(ok) {
-            auto x = random.uniformInt(3);
+            int x = random.uniformInt(3);
             q[x] = p[x]+1;
 
             bounds.push_back(std::make_pair(p,q));
@@ -105,35 +106,29 @@ int main() {
     }
 
     std::cout << "*** UNIT TEST ***" << std::endl;
-    using namespace std::chrono;
     
-    for(const auto& pq : bounds) {
-        const auto p = pq.first;
-        const auto q = pq.second;
+    BOOST_FOREACH(BoundsList::value_type pq, bounds) {
+        const B::difference_type p = pq.first;
+        const B::difference_type q = pq.second;
         std::cout << "* unit test read from " << p << " to " << q << " (" << std::sqrt((double)((q-p)[0]*(q-p)[1]*(q-p)[2])) << "^2" << ")" << std::endl;
 
         //read blocked
-        high_resolution_clock::time_point t1 = high_resolution_clock::now();
-        auto smallBlock = dataBlocked.readSubarray(p,q);
-        high_resolution_clock::time_point t2 = high_resolution_clock::now();
-        duration<double> diff1 = duration_cast<duration<double>>(t2 - t1);
+        boost::timer::cpu_timer t1;
+        vigra::MultiArray<3, vigra::UInt8> smallBlock = dataBlocked.readSubarray(p,q);
+        std::cout << "  write blocked: " << t1.format(10, "%w sec.") << std::endl;
 
         CHECK_OP(smallBlock.shape(),==,data3.subarray(p, q).shape()," ");
 
-        t1 = high_resolution_clock::now();
         vigra::MultiArrayView<3, vigra::UInt8> referenceBlock(data3.subarray(p,q));
-        t2 = high_resolution_clock::now();
-        duration<double> diff2 = duration_cast<duration<double>>(t2 - t1);
-        std::cout << "  read blocked: " << diff1.count() << std::endl;
 
         checkArraysEqual(smallBlock, referenceBlock);
     }
     std::cout << "END: UNIT TEST" << std::endl;
     
     
-    for(const auto& pq : bounds) {
-        const auto p = pq.first;
-        const auto q = pq.second;
+    BOOST_FOREACH(BoundsList::value_type pq, bounds) {
+        const B::difference_type p = pq.first;
+        const B::difference_type q = pq.second;
         std::cout << "* unit test write from " << p << " to " << q << " (" << std::sqrt((double)((q-p)[0]*(q-p)[1]*(q-p)[2])) << "^2" << ")" << std::endl;
        
         vigra::MultiArray<3, vigra::UInt8> a(q-p);
@@ -141,22 +136,20 @@ int main() {
             a[i] = random.uniformInt(256);
         }
         
-        high_resolution_clock::time_point t1 = high_resolution_clock::now();
+        boost::timer::cpu_timer t1;
         dataBlocked.writeSubarray(p,q, a);
-        high_resolution_clock::time_point t2 = high_resolution_clock::now();
-        duration<double> diff1 = duration_cast<duration<double>>(t2 - t1);
-        std::cout << "  write blocked: " << diff1.count() << " sec." << std::endl;
+        std::cout << "  write blocked: " << t1.format(10, "%w sec.") << std::endl;
         
         data3.subarray(p,q) = a;
         
-        checkArraysEqual(data3, dataBlocked.readSubarray({0,0,0}, {100,1024,1024}));
+        checkArraysEqual(data3, dataBlocked.readSubarray(B::difference_type(), data3.shape()));
         
     }
 
     B::difference_type p(10,20,30);
     B::difference_type q(90,800,666);
-    auto smallBlock = dataBlocked.readSubarray(p,q);
-    auto img = smallBlock.bind<0>(smallBlock.shape(0)/2); 
+    vigra::MultiArray<3, vigra::UInt8> smallBlock = dataBlocked.readSubarray(p,q);
+    vigra::MultiArrayView<2, vigra::UInt8> img = smallBlock.bind<0>(smallBlock.shape(0)/2); 
     vigra::BImage image(img.shape(0), img.shape(1));
     for(int i=0; i<img.shape(0); ++i) {
     for(int j=0; j<img.shape(1); ++j) {

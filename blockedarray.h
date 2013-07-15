@@ -1,6 +1,9 @@
 #ifndef BLOCKEDARRAY_H
 #define BLOCKEDARRAY_H
 
+#include <boost/shared_ptr.hpp>
+#include <boost/foreach.hpp>
+
 #include "compressedarray.h"
 
 template<int N, class T>
@@ -8,14 +11,17 @@ class BlockedArray {
     public:
     typedef vigra::TinyVector<unsigned int, N> BlockCoord;
     typedef typename vigra::MultiArrayView<N,T>::difference_type difference_type;
+    typedef typename std::vector<BlockCoord> BlockList;
+    typedef vigra::MultiArrayView<N,T> view_type;
+    typedef std::map<BlockCoord, boost::shared_ptr<CompressedArray<N, T> > > BlocksMap;
 
     BlockedArray(typename vigra::MultiArrayShape<N>::type blockShape, const vigra::MultiArrayView<N, T>& a)
         : blockShape_(blockShape)
         , shape_(a.shape())
     {
-        auto bb = blocks(BlockCoord(), a.shape());
+        const BlockList bb = blocks(BlockCoord(), a.shape());
 
-        for(auto x : bb) {
+        BOOST_FOREACH(BlockCoord x, bb) {
             std::cout << x << std::endl;
 
             difference_type p;
@@ -24,7 +30,7 @@ class BlockedArray {
                 p[i] = blockShape_[i]*x[i];
                 q[i] = std::min( blockShape_[i]*(x[i]+1), a.shape(i) );
             }
-            auto v = a.subarray(p, q);
+            view_type v = a.subarray(p, q);
             addBlock(x, v);
         }
     }
@@ -33,14 +39,14 @@ class BlockedArray {
         vigra::MultiArray<N,T> block(blockShape_);
         block.subarray(difference_type(), a.shape()) = a;
 
-        std::unique_ptr<CompressedArray<N, T> > ca(new CompressedArray<N, T>(block));
+        boost::shared_ptr<CompressedArray<N, T> > ca(new CompressedArray<N, T>(block));
         std::cout << "  comp. ratio " << ca->compressionRatio() << std::endl;
-        blocks_[c] = std::move(ca);
+        blocks_[c] = ca; //TODO: use std::move here
     }
 
     std::vector<BlockCoord> blocks(difference_type p, difference_type q) const {
-        const auto blockP = blockGivenCoordinateP(p);
-        const auto blockQ = blockGivenCoordinateQ(q);
+        const BlockCoord blockP = blockGivenCoordinateP(p);
+        const BlockCoord blockQ = blockGivenCoordinateQ(q);
 
         std::vector<BlockCoord> ret;
 
@@ -89,10 +95,10 @@ class BlockedArray {
     }
 
     void writeSubarray(difference_type p, difference_type q, const vigra::MultiArrayView<N, T>& a) {
-        const auto bb = blocks(p, q);
+        const BlockList bb = blocks(p, q);
         const BlockCoord blockP = blockGivenCoordinateP(p);
         
-        for(auto blockCoor : bb) {
+        BOOST_FOREACH(BlockCoord blockCoor, bb) {
             difference_type bp, bq;
             blockBounds(blockCoor, bp, bq);
             
@@ -124,29 +130,28 @@ class BlockedArray {
                 read_q[k] = read_p[k]+(withinBlock_q-withinBlock_p)[k];
             }
             
-            auto it = blocks_.find(blockCoor);
-            const auto toWrite = a.subarray(read_p, read_q);
+            typename BlocksMap::const_iterator it = blocks_.find(blockCoor);
+            const view_type toWrite = a.subarray(read_p, read_q);
             
             it->second->writeArray(withinBlock_p, withinBlock_q, toWrite);
-            
-            //CHECK_OP((it->second->readArray().subarray(withinBlock_p, withinBlock_q)(0,0,0)),==,toWrite(0,0,0)," ");
-            //CHECK_OP((it->second->readArray().subarray(withinBlock_p, withinBlock_q)(1,1,1)),==,toWrite(1,1,1)," ");
         }
     }
 
     vigra::MultiArray<N, T> readSubarray(difference_type p, difference_type q) const {
+        using vigra::MultiArray;
+        
         #ifdef DEBUG_PRINTS
         std::cout << "readSubarray(" << p << ", " << q << ")" << std::endl;
         #endif
 
         //find affected blocks
-        const auto bb = blocks(p, q);
+        const BlockList bb = blocks(p, q);
 
         const BlockCoord blockP = blockGivenCoordinateP(p);
 
         vigra::MultiArray<N,T> a(q-p);
 
-        for(auto blockCoor : bb) {
+        BOOST_FOREACH(BlockCoord blockCoor, bb) {
             
             difference_type bp, bq;
             blockBounds(blockCoor, bp, bq);
@@ -191,11 +196,11 @@ class BlockedArray {
             #endif
 
             //read in the current block and extract the appropriate subarray            
-            auto it = blocks_.find(blockCoor);
+            typename BlocksMap::const_iterator it = blocks_.find(blockCoor);
             #if DEBUG_CHECKS
             if(it==blocks_.end()) { throw std::runtime_error("badder"); }
             #endif
-            auto v = it->second->readArray();
+            MultiArray<N,T> v = it->second->readArray();
 
             #ifdef DEBUG_PRINTS
             std::cout << "    v.shape = " << v.shape() << std::endl;
@@ -207,7 +212,7 @@ class BlockedArray {
             }
             #endif
 
-            const auto w = v.subarray(withinBlock_p, withinBlock_q);
+            const view_type w = v.subarray(withinBlock_p, withinBlock_q);
 
             #ifdef DEBUG_PRINTS
             std::cout << "    read w with shape = " << w.shape() << std::endl;
@@ -255,7 +260,7 @@ class BlockedArray {
     private:
     typename vigra::MultiArrayShape<N>::type blockShape_;
     typename vigra::MultiArrayShape<N>::type shape_;
-    std::map<BlockCoord, std::unique_ptr<CompressedArray<N, T> > > blocks_;
+    BlocksMap blocks_;
 };
 
 #endif /* BLOCKEDARRAY_H */

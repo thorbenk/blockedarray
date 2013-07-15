@@ -1,9 +1,11 @@
 #ifndef COMPRESSEDARRAY_H
 #define COMPRESSEDARRAY_H
 
-#include "snappy.h"
+#include <boost/foreach.hpp>
 
 #include <vigra/multi_array.hxx>
+
+#include "snappy.h"
 
 template<int N, class T>
 class CompressedArray {
@@ -22,12 +24,36 @@ class CompressedArray {
     ~CompressedArray() {
         delete[] data_;
     }
+    
+    CompressedArray(const CompressedArray &other)
+        : data_(0)
+        , compressedSizeBytes_(other.compressedSizeBytes_)
+        , isCompressed_(other.isCompressed)
+        , shape_(other.shape_)
+    {
+        data_ = new char[other.currentSizeBytes()];
+        std::copy(other.data_, other.data_+other.currentSizeBytes(), data_);
+    }
+    
+    CompressedArray& operator=(const CompressedArray& other) {
+        if (this != &other) {
+            delete[] data_;
+            data_ = 0;
+            compressedSizeBytes_ = other.compressedSizeBytes_;
+            isCompressed_ = other.isCompressed_;
+            shape_ = other.shape_;
+            
+            data_ = new char[other.currentSizeBytes()];
+            std::copy(other.data_, other.data_+other.currentSizeBytes(), data_);
+        }
+        return *this;
+    }
 
     bool isCompressed() const { return isCompressed_; }
 
     size_t uncompressedSize() const {
         size_t s = 1;
-        for(auto x : shape_) { s *= x; }
+        BOOST_FOREACH(typename difference_type::size_type x, shape_) { s *= x; }
         return s;
     }
 
@@ -108,9 +134,7 @@ class CompressedArray {
 
     size_t size() const {
         size_t ret = 1;
-        for(auto x: shape_) {
-            ret *= x;
-        }
+        BOOST_FOREACH(typename difference_type::size_type x, shape_) { ret *= x; }
         return ret;
     }
 
