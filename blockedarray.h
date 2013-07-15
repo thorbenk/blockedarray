@@ -1,6 +1,8 @@
 #ifndef BLOCKEDARRAY_H
 #define BLOCKEDARRAY_H
 
+#include <map>
+
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
 
@@ -110,8 +112,10 @@ class BlockedArray {
     /**
      * read array 'a' into from region of interest [p, q)
      */
-    vigra::MultiArray<N, T> readSubarray(difference_type p, difference_type q) const {
+    void readSubarray(difference_type p, difference_type q, vigra::MultiArrayView<N, T>& out) const {
         using vigra::MultiArray;
+        
+        vigra_precondition(out.shape()==q-p,"shape differ");
         
         #ifdef DEBUG_PRINTS
         std::cout << "readSubarray(" << p << ", " << q << ")" << std::endl;
@@ -121,8 +125,6 @@ class BlockedArray {
         const BlockList bb = blocks(p, q);
 
         const BlockCoord blockP = blockGivenCoordinateP(p);
-
-        vigra::MultiArray<N,T> a(q-p);
 
         BOOST_FOREACH(BlockCoord blockCoor, bb) {
             
@@ -222,16 +224,13 @@ class BlockedArray {
                 const int d = blockCoor[k] - blockP[k];
                 CHECK_OP(write_p[k],>=,0," ");
                 CHECK_OP(write_q[k],>,write_p[k]," ");
-                CHECK_OP(write_q[k],<=,a.shape(k)," ");
+                CHECK_OP(write_q[k],<=,out.shape(k)," ");
             }
             #endif
 
-            a.subarray(write_p, write_q) = w;
+            out.subarray(write_p, write_q) = w;
 
         }
-
-        return a;
-
     }
     
     private:

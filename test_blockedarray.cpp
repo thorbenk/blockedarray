@@ -113,7 +113,9 @@ int main() {
     
     //read outside of dataset
     //should return array full of zeros
-    vigra::MultiArray<3, vigra::UInt8> outside = dataBlocked.readSubarray(outsideP, outsideQ);
+    
+    vigra::MultiArray<3, vigra::UInt8> outside(outsideQ-outsideP);
+    dataBlocked.readSubarray(outsideP, outsideQ, outside);
    
     std::fill(outside.begin(), outside.end(), 42);
     dataBlocked.writeSubarray(outsideP, outsideQ, outside);
@@ -127,7 +129,8 @@ int main() {
 
         //read blocked
         boost::timer::cpu_timer t1;
-        vigra::MultiArray<3, vigra::UInt8> smallBlock = dataBlocked.readSubarray(p,q);
+        vigra::MultiArray<3, vigra::UInt8> smallBlock(q-p);
+        dataBlocked.readSubarray(p,q, smallBlock);
         std::cout << "  read blocked: " << t1.format(10, "%w sec.") << std::endl;
 
         CHECK_OP(smallBlock.shape(),==,data3.subarray(p, q).shape()," ");
@@ -155,13 +158,16 @@ int main() {
         
         data3.subarray(p,q) = a;
         
-        checkArraysEqual(data3, dataBlocked.readSubarray(B::difference_type(), data3.shape()));
+        vigra::MultiArray<3, vigra::UInt8> r(data3.shape());
+        dataBlocked.readSubarray(B::difference_type(), data3.shape(), r);
+        checkArraysEqual(data3, r); 
         
     }
 
     B::difference_type p(10,20,30);
     B::difference_type q(90,800,666);
-    vigra::MultiArray<3, vigra::UInt8> smallBlock = dataBlocked.readSubarray(p,q);
+    vigra::MultiArray<3, vigra::UInt8> smallBlock(q-p);
+    dataBlocked.readSubarray(p,q, smallBlock);
     vigra::MultiArrayView<2, vigra::UInt8> img = smallBlock.bind<0>(smallBlock.shape(0)/2); 
     vigra::BImage image(img.shape(0), img.shape(1));
     for(int i=0; i<img.shape(0); ++i) {

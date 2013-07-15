@@ -27,3 +27,4 @@ target_link_libraries(test_compressedarray
 )
 
 add_subdirectory(thirdparty)
+add_subdirectory(blockedarray)
