@@ -56,14 +56,15 @@ int main() {
     vigra::MultiArrayView<3, vigra::UInt8> data3 = data.bind<0>(0).bind<3>(0);
 
     std::cout << "building blocked array for data of shape = " << data3.shape() << std::endl;
-
     //vigra::MultiArrayShape<3>::type blockShape(37,66,87);
     //vigra::MultiArrayShape<3>::type blockShape(128,128,128);
     vigra::MultiArrayShape<3>::type blockShape(32,32,32);
-
     BlockedArray<3, unsigned char> dataBlocked(blockShape, data3);
 
-    std::cout << data3.shape() << std::endl;
+    std::cout << "average compression ratio: " << dataBlocked.averageCompressionRatio() << std::endl;
+    std::cout << "current size: "
+              << static_cast<double>(dataBlocked.sizeBytes())/(1024.0*1024.0)
+              << " MB" << std::endl;
 
     typedef BlockedArray<3, unsigned char> B;
 
@@ -127,7 +128,7 @@ int main() {
         //read blocked
         boost::timer::cpu_timer t1;
         vigra::MultiArray<3, vigra::UInt8> smallBlock = dataBlocked.readSubarray(p,q);
-        std::cout << "  write blocked: " << t1.format(10, "%w sec.") << std::endl;
+        std::cout << "  read blocked: " << t1.format(10, "%w sec.") << std::endl;
 
         CHECK_OP(smallBlock.shape(),==,data3.subarray(p, q).shape()," ");
 

@@ -67,7 +67,7 @@ class CompressedArray {
         size_t r;
         snappy::GetUncompressedLength(data_, compressedSizeBytes_, &r);
         if(r != size()*sizeof(T)) {
-            throw std::runtime_error("bad bad bad");
+            throw std::runtime_error("CompressedArray::uncompress: error");
         }
         snappy::RawUncompress(data_, compressedSizeBytes_, a);
         delete[] data_;
@@ -96,7 +96,9 @@ class CompressedArray {
             char* d = new char[compressedSizeBytes_];
 
             snappy::RawCompress(data_, uncompressedSizeBytes(), d, &outputLength);
-            if(outputLength != compressedSizeBytes_) { throw std::runtime_error("bad"); }
+            if(outputLength != compressedSizeBytes_) {
+                throw std::runtime_error("CompressedArray::compress error");
+            }
             delete[] data_;
             data_ = d;
             isCompressed_ = true;

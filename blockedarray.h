@@ -6,32 +6,54 @@
 
 #include "compressedarray.h"
 
-template<int N, class T>
+template<int N, class T, class BLOCK = CompressedArray<N,T> >
 class BlockedArray {
     public:
     typedef vigra::TinyVector<unsigned int, N> BlockCoord;
     typedef typename vigra::MultiArrayView<N,T>::difference_type difference_type;
     typedef typename std::vector<BlockCoord> BlockList;
     typedef vigra::MultiArrayView<N,T> view_type;
-    typedef std::map<BlockCoord, boost::shared_ptr<CompressedArray<N, T> > > BlocksMap;
+    typedef boost::shared_ptr<BLOCK> BlockPtr; 
+    typedef std::map<BlockCoord, BlockPtr> BlocksMap;
+    
+    BlockedArray(typename vigra::MultiArrayShape<N>::type blockShape)
+        : blockShape_(blockShape)
+    {
+    }
 
     BlockedArray(typename vigra::MultiArrayShape<N>::type blockShape, const vigra::MultiArrayView<N, T>& a)
         : blockShape_(blockShape)
     {
-        const BlockList bb = blocks(BlockCoord(), a.shape());
-
-        BOOST_FOREACH(BlockCoord x, bb) {
-            std::cout << x << std::endl;
-
-            difference_type p;
-            difference_type q;
-            for(int i=0; i<N; ++i) {
-                p[i] = blockShape_[i]*x[i];
-                q[i] = std::min( blockShape_[i]*(x[i]+1), a.shape(i) );
-            }
-            view_type v = a.subarray(p, q);
-            addBlock(x, v);
+        writeSubarray(difference_type(), a.shape(), a);
+    }
+   
+    /**
+     * returns the average compression ratio of all blocks currently in use
+     */
+    double averageCompressionRatio() {
+        double avg = 0.0;
+        BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
+            avg += b.second->compressionRatio();
         }
+        return avg / blocks_.size();
+    }
+   
+    /**
+     *  returns the total number of blocks currently in use
+     */
+    size_t numBlocks() const {
+        return blocks_.size();
+    }
+    
+    /**
+     * returns the total size of all currently allocated blocks in bytes
+     */
+    size_t sizeBytes() const {
+        size_t bytes = 0;
+        BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
+            bytes += b.second->currentSizeBytes();
+        }
+        return bytes;
     }
 
     /**
@@ -214,14 +236,13 @@ class BlockedArray {
     
     private:
         
-    void addBlock(BlockCoord c, vigra::MultiArrayView<N, T>& a) {
+    BlockPtr addBlock(BlockCoord c, vigra::MultiArrayView<N, T>& a) {
         vigra::MultiArray<N,T> block(blockShape_);
         block.subarray(difference_type(), a.shape()) = a;
 
-        boost::shared_ptr<CompressedArray<N, T> > ca(new CompressedArray<N, T>(block));
-        std::cout << "  comp. ratio " << ca->compressionRatio() << std::endl;
+        BlockPtr ca(new BLOCK(block));
         blocks_[c] = ca; //TODO: use std::move here
-        std::cout << "done adding block" << std::endl;
+        return ca;
     }
 
     std::vector<BlockCoord> blocks(difference_type p, difference_type q) const {
