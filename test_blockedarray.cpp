@@ -10,13 +10,6 @@
 #include <vigra/impex.hxx>
 #include <vigra/random.hxx>
 
-#include "blockedarray.h"
-
-//TODO: use alignas to allocate char arrays
-
-#undef DEBUG_CHECKS
-#undef DEBUG_PRINTS
-
 #define CHECK_OP(a,op,b,message) \
     if(!  static_cast<bool>( a op b )   ) { \
        std::stringstream s; \
@@ -27,6 +20,13 @@
        s << "in file " << __FILE__ << ", line " << __LINE__ << "\n"; \
        throw std::runtime_error(s.str()); \
     }
+
+#define DEBUG_CHECKS 1
+#undef DEBUG_PRINTS
+
+#include "blockedarray.h"
+
+//TODO: use alignas to allocate char arrays
 
 template<class Array1, class Array2>
 void checkArraysEqual(const Array1& a, const Array2& b) {
@@ -106,6 +106,18 @@ int main() {
     }
 
     std::cout << "*** UNIT TEST ***" << std::endl;
+   
+    B::difference_type outsideP(4000,5000,6000);
+    B::difference_type outsideQ(4200,5020,6030);
+    
+    //read outside of dataset
+    //should return array full of zeros
+    vigra::MultiArray<3, vigra::UInt8> outside = dataBlocked.readSubarray(outsideP, outsideQ);
+   
+    std::fill(outside.begin(), outside.end(), 42);
+    dataBlocked.writeSubarray(outsideP, outsideQ, outside);
+    
+    //CHECK_OP(dataBlocked.readSubarray(outsideP, outsideQ)(0,0,0),==,42," ");
     
     BOOST_FOREACH(BoundsList::value_type pq, bounds) {
         const B::difference_type p = pq.first;

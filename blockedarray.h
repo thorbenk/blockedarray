@@ -17,7 +17,6 @@ class BlockedArray {
 
     BlockedArray(typename vigra::MultiArrayShape<N>::type blockShape, const vigra::MultiArrayView<N, T>& a)
         : blockShape_(blockShape)
-        , shape_(a.shape())
     {
         const BlockList bb = blocks(BlockCoord(), a.shape());
 
@@ -42,6 +41,7 @@ class BlockedArray {
         boost::shared_ptr<CompressedArray<N, T> > ca(new CompressedArray<N, T>(block));
         std::cout << "  comp. ratio " << ca->compressionRatio() << std::endl;
         blocks_[c] = ca; //TODO: use std::move here
+        std::cout << "done adding block" << std::endl;
     }
 
     std::vector<BlockCoord> blocks(difference_type p, difference_type q) const {
@@ -74,13 +74,13 @@ class BlockedArray {
 
     BlockCoord blockGivenCoordinateP(difference_type p) const {
         BlockCoord c;
-        for(int i=0; i<N; ++i) { c[i] = std::min(p[i]/blockShape_[i], shape_[i]/blockShape_[i]); }
+        for(int i=0; i<N; ++i) { c[i] = p[i]/blockShape_[i]; }
         return c;
     }
 
     BlockCoord blockGivenCoordinateQ(difference_type q) const {
         BlockCoord c;
-        for(int i=0; i<N; ++i) { c[i] = std::min((q[i]-1)/blockShape_[i], shape_[i]/blockShape_[i]) + 1; }
+        for(int i=0; i<N; ++i) { c[i] = (q[i]-1)/blockShape_[i] + 1; }
         return c;
     }
 
@@ -130,9 +130,14 @@ class BlockedArray {
                 read_q[k] = read_p[k]+(withinBlock_q-withinBlock_p)[k];
             }
             
-            typename BlocksMap::const_iterator it = blocks_.find(blockCoor);
-            const view_type toWrite = a.subarray(read_p, read_q);
+            typename BlocksMap::iterator it = blocks_.find(blockCoor);
             
+            if(it == blocks_.end()) {
+                vigra::MultiArray<N,T> emptyBlock(blockShape_);
+                addBlock(blockCoor, emptyBlock);
+                it = blocks_.find(blockCoor);
+            }
+            const view_type toWrite = a.subarray(read_p, read_q);
             it->second->writeArray(withinBlock_p, withinBlock_q, toWrite);
         }
     }
@@ -197,9 +202,13 @@ class BlockedArray {
 
             //read in the current block and extract the appropriate subarray            
             typename BlocksMap::const_iterator it = blocks_.find(blockCoor);
-            #if DEBUG_CHECKS
-            if(it==blocks_.end()) { throw std::runtime_error("badder"); }
-            #endif
+            
+            if(it==blocks_.end()) {
+                //this block does not exist.
+                //do nothing
+                continue;
+            }
+            
             MultiArray<N,T> v = it->second->readArray();
 
             #ifdef DEBUG_PRINTS
@@ -259,7 +268,6 @@ class BlockedArray {
 
     private:
     typename vigra::MultiArrayShape<N>::type blockShape_;
-    typename vigra::MultiArrayShape<N>::type shape_;
     BlocksMap blocks_;
 };
 
