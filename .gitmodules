@@ -1,0 +1,3 @@
+[submodule "thirdparty/snappy"]
+	path = thirdparty/snappy
+	url = https://github.com/spurious/snappy-mirror.git
