@@ -34,66 +34,9 @@ class BlockedArray {
         }
     }
 
-    void addBlock(BlockCoord c, vigra::MultiArrayView<N, T>& a) {
-        vigra::MultiArray<N,T> block(blockShape_);
-        block.subarray(difference_type(), a.shape()) = a;
-
-        boost::shared_ptr<CompressedArray<N, T> > ca(new CompressedArray<N, T>(block));
-        std::cout << "  comp. ratio " << ca->compressionRatio() << std::endl;
-        blocks_[c] = ca; //TODO: use std::move here
-        std::cout << "done adding block" << std::endl;
-    }
-
-    std::vector<BlockCoord> blocks(difference_type p, difference_type q) const {
-        const BlockCoord blockP = blockGivenCoordinateP(p);
-        const BlockCoord blockQ = blockGivenCoordinateQ(q);
-
-        std::vector<BlockCoord> ret;
-
-        BlockCoord x = blockP;
-        int dim=N-1;
-        ret.push_back(x);
-        while(dim >= 0) {
-            while(dim >= 0) {
-                if(x[dim] >= blockQ[dim]-1) {
-                    x[dim] = blockP[dim];
-                    --dim;
-                    continue;
-                } else {
-                    ++x[dim];
-                    ret.push_back(x);
-                    break;
-                }
-            }
-            if(dim >= 0) {
-                dim = N-1;
-            }
-        }
-        return ret;
-    }
-
-    BlockCoord blockGivenCoordinateP(difference_type p) const {
-        BlockCoord c;
-        for(int i=0; i<N; ++i) { c[i] = p[i]/blockShape_[i]; }
-        return c;
-    }
-
-    BlockCoord blockGivenCoordinateQ(difference_type q) const {
-        BlockCoord c;
-        for(int i=0; i<N; ++i) { c[i] = (q[i]-1)/blockShape_[i] + 1; }
-        return c;
-    }
-
-    void blockBounds(BlockCoord c, difference_type&p, difference_type& q) const {
-        for(int i=0; i<N; ++i) {
-            p[i] = blockShape_[i]*c[i];
-            q[i] = blockShape_[i]*(c[i]+1);
-            #ifdef DEBUG_CHECKS
-            CHECK_OP(q[i],>,p[i]," "); 
-            #endif
-        }
-    }
-
+    /**
+     * write array 'a' into the region of interest [p, q)
+     */
     void writeSubarray(difference_type p, difference_type q, const vigra::MultiArrayView<N, T>& a) {
         const BlockList bb = blocks(p, q);
         const BlockCoord blockP = blockGivenCoordinateP(p);
@@ -142,6 +85,9 @@ class BlockedArray {
         }
     }
 
+    /**
+     * read array 'a' into from region of interest [p, q)
+     */
     vigra::MultiArray<N, T> readSubarray(difference_type p, difference_type q) const {
         using vigra::MultiArray;
         
@@ -265,8 +211,71 @@ class BlockedArray {
         return a;
 
     }
-
+    
     private:
+        
+    void addBlock(BlockCoord c, vigra::MultiArrayView<N, T>& a) {
+        vigra::MultiArray<N,T> block(blockShape_);
+        block.subarray(difference_type(), a.shape()) = a;
+
+        boost::shared_ptr<CompressedArray<N, T> > ca(new CompressedArray<N, T>(block));
+        std::cout << "  comp. ratio " << ca->compressionRatio() << std::endl;
+        blocks_[c] = ca; //TODO: use std::move here
+        std::cout << "done adding block" << std::endl;
+    }
+
+    std::vector<BlockCoord> blocks(difference_type p, difference_type q) const {
+        const BlockCoord blockP = blockGivenCoordinateP(p);
+        const BlockCoord blockQ = blockGivenCoordinateQ(q);
+
+        std::vector<BlockCoord> ret;
+
+        BlockCoord x = blockP;
+        int dim=N-1;
+        ret.push_back(x);
+        while(dim >= 0) {
+            while(dim >= 0) {
+                if(x[dim] >= blockQ[dim]-1) {
+                    x[dim] = blockP[dim];
+                    --dim;
+                    continue;
+                } else {
+                    ++x[dim];
+                    ret.push_back(x);
+                    break;
+                }
+            }
+            if(dim >= 0) {
+                dim = N-1;
+            }
+        }
+        return ret;
+    }
+
+    BlockCoord blockGivenCoordinateP(difference_type p) const {
+        BlockCoord c;
+        for(int i=0; i<N; ++i) { c[i] = p[i]/blockShape_[i]; }
+        return c;
+    }
+
+    BlockCoord blockGivenCoordinateQ(difference_type q) const {
+        BlockCoord c;
+        for(int i=0; i<N; ++i) { c[i] = (q[i]-1)/blockShape_[i] + 1; }
+        return c;
+    }
+
+    void blockBounds(BlockCoord c, difference_type&p, difference_type& q) const {
+        for(int i=0; i<N; ++i) {
+            p[i] = blockShape_[i]*c[i];
+            q[i] = blockShape_[i]*(c[i]+1);
+            #ifdef DEBUG_CHECKS
+            CHECK_OP(q[i],>,p[i]," "); 
+            #endif
+        }
+    }
+
+    // members
+    
     typename vigra::MultiArrayShape<N>::type blockShape_;
     BlocksMap blocks_;
 };
