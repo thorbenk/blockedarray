@@ -17,6 +17,7 @@ add_library(_blockedarray SHARED
 )
 target_link_libraries(_blockedarray
     snappy
+    ${PYTHON_LIBRARY}
     ${Boost_PYTHON_LIBRARIES}
     ${VIGRA_NUMPY_CORE_LIBRARY}
     ${VIGRA_NUMPY_IMPEX_LIBRARY}
