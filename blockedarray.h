@@ -134,7 +134,7 @@ class BlockedArray {
         BOOST_FOREACH(BlockCoord blockCoor, bb) {
             typename BlocksMap::iterator it = blocks_.find(blockCoor);
             if(it == blocks_.end()) { continue; }
-            blocks_.setDirty(dirty);
+            it->second->setDirty(dirty);
         }
     }
     
@@ -147,7 +147,7 @@ class BlockedArray {
         BOOST_FOREACH(BlockCoord blockCoor, bb) {
             typename BlocksMap::iterator it = blocks_.find(blockCoor);
             if(it == blocks_.end()) { continue; }
-            if(it->isDirty()) {
+            if(it->second->isDirty()) {
                 dB.push_back(blockCoor);
             }
         }

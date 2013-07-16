@@ -53,6 +53,21 @@ struct PyBlockedArray {
         sliceToPQ(sl, p, q);
         ba.writeSubarray(p, q, a);
     }
+    
+    boost::python::tuple dirtyBlocks(typename BA::difference_type p, typename BA::difference_type q) {
+        typename BA::BlocksList bL = dirtyBlocks(p, q);
+        vigra::NumpyArray<2, vigra::UInt32> start(vigra::Shape2(bL.size(), N));
+        vigra::NumpyArray<2, vigra::UInt32> stop(vigra::Shape2(bL.size(), N));
+        for(int i=0; i<bL.size(); ++i) {
+            typename BA::difference_type pp, qq;
+            blockBounds(bL[i], pp, qq);
+            for(int j=0; j<N; ++j) {
+                start(i,j) = pp[j];
+                stop(i,j) = pp[j];
+            }
+        }
+        return boost::python::make_tuple(start, stop);
+    }
 };
 
 template<int N, class T>
@@ -71,6 +86,8 @@ void export_blockedArray() {
         .def("__getitem__", registerConverters(&PyBlockedArray<N,T>::getitem))
         .def("__setitem__", registerConverters(&PyBlockedArray<N,T>::setitem))
         .def("deleteSubarray", registerConverters(&BA::deleteSubarray))
+        .def("setDirty", registerConverters(&BA::setDirty))
+        .def("dirtyBlocks", registerConverters(&BA::dirtyBlocks))
     ;
 }
 
