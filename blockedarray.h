@@ -28,7 +28,7 @@ class BlockedArray {
     {
         writeSubarray(difference_type(), a.shape(), a);
     }
-   
+    
     /**
      * returns the average compression ratio of all blocks currently in use
      */
@@ -106,6 +106,11 @@ class BlockedArray {
             }
             const view_type toWrite = a.subarray(read_p, read_q);
             it->second->writeArray(withinBlock_p, withinBlock_q, toWrite);
+            
+            if(withinBlock_p == difference_type() && withinBlock_q == blockShape_) {
+                it->second->setDirty(false);
+            }
+            
         }
     }
    
@@ -120,6 +125,35 @@ class BlockedArray {
             blocks_.erase(it);
         }
     }
+   
+    /**
+     * set all blocks that intersect the ROI [p,q) to be flagged as 'dirty'
+     */
+    void setDirty(difference_type p, difference_type q, bool dirty) {
+        const BlockList bb = blocks(p, q);
+        BOOST_FOREACH(BlockCoord blockCoor, bb) {
+            typename BlocksMap::iterator it = blocks_.find(blockCoor);
+            if(it == blocks_.end()) { continue; }
+            blocks_.setDirty(dirty);
+        }
+    }
+    
+    /**
+     * get a list of all blocks within the ROI [p,q) that are marked as dirty
+     */
+    BlockList dirtyBlocks(difference_type p, difference_type q) {
+        BlockList dB;
+        const BlockList bb = blocks(p, q);
+        BOOST_FOREACH(BlockCoord blockCoor, bb) {
+            typename BlocksMap::iterator it = blocks_.find(blockCoor);
+            if(it == blocks_.end()) { continue; }
+            if(it->isDirty()) {
+                dB.push_back(blockCoor);
+            }
+        }
+        return dB;
+    }
+    
 
     /**
      * read array 'a' into from region of interest [p, q)

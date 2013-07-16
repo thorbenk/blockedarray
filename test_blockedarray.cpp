@@ -77,6 +77,16 @@ struct FillRandom<float, Iter> {
     }
 };
 
+template<>
+template<class Iter>
+struct FillRandom<double, Iter> {
+    static void fillRandom(Iter a, Iter b) {
+        vigra::RandomMT19937 random;
+        for(; a!=b; ++a) {
+            *a = random.uniform();
+        }
+    }
+};
 
 template<int N, class T>
 void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
@@ -191,9 +201,13 @@ void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
 int main() {
    
     std::cout << "* uint8" << std::endl;
-    test<3, vigra::UInt8>(vigra::Shape3(200,300,400), vigra::Shape3(22,33,44), 10);
-    std::cout << "* float" << std::endl;
-    test<3, float>(vigra::Shape3(200,300,400), vigra::Shape3(22,33,44), 10);
+    test<3, vigra::UInt8>(vigra::Shape3(200,300,400), vigra::Shape3(22,33,44), 40);
+    std::cout << "* float32" << std::endl;
+    test<3, float>(vigra::Shape3(200,300,400), vigra::Shape3(22,33,44), 40);
+    std::cout << "* float64" << std::endl;
+    test<3, double>(vigra::Shape3(200,300,400), vigra::Shape3(22,33,44), 40);
+    std::cout << "* uint32" << std::endl;
+    test<3, vigra::UInt32>(vigra::Shape3(200,300,400), vigra::Shape3(22,33,44), 40);
     
     return 0;
     

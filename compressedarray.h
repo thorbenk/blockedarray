@@ -14,7 +14,12 @@ class CompressedArray {
     typedef typename vigra::MultiArray<N, T>::difference_type difference_type;
         
     CompressedArray(const vigra::MultiArrayView<N, T, vigra::UnstridedArrayTag>& a)
-        : data_(0), isCompressed_(false), compressedSizeBytes_(0), shape_(a.shape()) {
+        : data_(0)
+        , isCompressed_(false)
+        , compressedSizeBytes_(0)
+        , shape_(a.shape())
+        , isDirty_(false)
+    {
         data_ = new char[a.size()];
         std::copy(a.begin(), a.end(), data_);
 
@@ -25,11 +30,15 @@ class CompressedArray {
         delete[] data_;
     }
     
+    bool isDirty() const { return isDirty_; }
+    void setDirty(bool dirty) { isDirty_ = dirty; }
+    
     CompressedArray(const CompressedArray &other)
         : data_(0)
         , compressedSizeBytes_(other.compressedSizeBytes_)
         , isCompressed_(other.isCompressed)
         , shape_(other.shape_)
+        , isDirty_(false)
     {
         data_ = new char[other.currentSizeBytes()];
         std::copy(other.data_, other.data_+other.currentSizeBytes(), data_);
@@ -42,6 +51,7 @@ class CompressedArray {
             compressedSizeBytes_ = other.compressedSizeBytes_;
             isCompressed_ = other.isCompressed_;
             shape_ = other.shape_;
+            isDirty_ = other.isDirty_;
             
             data_ = new char[other.currentSizeBytes()];
             std::copy(other.data_, other.data_+other.currentSizeBytes(), data_);
@@ -161,6 +171,8 @@ class CompressedArray {
 
     bool isCompressed_;
     typename vigra::MultiArray<N, T>::difference_type shape_;
+    
+    bool isDirty_;
 };
 
 #endif /* COMPRESSEDARRAY_H */
