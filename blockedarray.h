@@ -18,11 +18,19 @@ class BlockedArray {
     typedef boost::shared_ptr<BLOCK> BlockPtr; 
     typedef std::map<BlockCoord, BlockPtr> BlocksMap;
     
+    /**
+     * construct a new BlockedArray with given 'blockShape'
+     * 
+     * post condition: numBlocks() == 0
+     */
     BlockedArray(typename vigra::MultiArrayShape<N>::type blockShape)
         : blockShape_(blockShape)
     {
     }
 
+    /**
+     * construct a new BlockedArray with given 'blockShape' and initialize with data 'a'
+     */
     BlockedArray(typename vigra::MultiArrayShape<N>::type blockShape, const vigra::MultiArrayView<N, T>& a)
         : blockShape_(blockShape)
     {
@@ -60,6 +68,9 @@ class BlockedArray {
 
     /**
      * write array 'a' into the region of interest [p, q)
+     * 
+     * If a block is _completely_ overwritten, its state is set to NOT DIRTY.
+     * Otherwise (if a block is only partially overwritten), it dirty state remains UNCHANGED.
      */
     void writeSubarray(difference_type p, difference_type q, const vigra::MultiArrayView<N, T>& a) {
         const BlockList bb = blocks(p, q);
@@ -140,6 +151,8 @@ class BlockedArray {
     
     /**
      * get a list of all blocks within the ROI [p,q) that are marked as dirty
+     * 
+     * Returns: list of block coordinates which are dirty
      */
     BlockList dirtyBlocks(difference_type p, difference_type q) {
         BlockList dB;
@@ -157,9 +170,14 @@ class BlockedArray {
     }
 
     /**
-     * read array 'a' into from region of interest [p, q)
+     * read array 'a' into 'out' from region of interest [p, q)
+     * 
+     * If any of the needed blocks does not exist, 'out' will have
+     * zeros at the corresponding locations.
      */
     void readSubarray(difference_type p, difference_type q, vigra::MultiArrayView<N, T>& out) const {
+        //make sure to initialize the array with zeros
+        //if a block does not exist, we assume missing values of zero
         std::fill(out.begin(), out.end(), 0);
         
         using vigra::MultiArray;
@@ -282,6 +300,9 @@ class BlockedArray {
         }
     }
     
+    /**
+     * compute the block bounds [p,q) given a block coordinate 'c'
+     */
     void blockBounds(BlockCoord c, difference_type&p, difference_type& q) const {
         for(int i=0; i<N; ++i) {
             p[i] = blockShape_[i]*c[i];

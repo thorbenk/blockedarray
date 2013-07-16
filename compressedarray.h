@@ -12,7 +12,12 @@ class CompressedArray {
     public:
     
     typedef typename vigra::MultiArray<N, T>::difference_type difference_type;
-        
+    
+    /**
+     * construct a CompressedArray from the data 'a'
+     * 
+     * The array will be immediately stored compressed.
+     */
     CompressedArray(const vigra::MultiArrayView<N, T, vigra::UnstridedArrayTag>& a)
         : data_(0)
         , isCompressed_(false)
@@ -26,13 +31,9 @@ class CompressedArray {
         compress();
     }
 
-    ~CompressedArray() {
-        delete[] data_;
-    }
-    
-    bool isDirty() const { return isDirty_; }
-    void setDirty(bool dirty) { isDirty_ = dirty; }
-    
+    /**
+     * copy constructor
+     */
     CompressedArray(const CompressedArray &other)
         : data_(0)
         , compressedSizeBytes_(other.compressedSizeBytes_)
@@ -43,7 +44,10 @@ class CompressedArray {
         data_ = new char[other.currentSizeBytes()];
         std::copy(other.data_, other.data_+other.currentSizeBytes(), data_);
     }
-    
+   
+    /**
+     * assignment operator
+     */
     CompressedArray& operator=(const CompressedArray& other) {
         if (this != &other) {
             delete[] data_;
@@ -59,24 +63,53 @@ class CompressedArray {
         return *this;
     }
 
+    /**
+     * destructor
+     */
+    ~CompressedArray() {
+        delete[] data_;
+    }
+   
+    /**
+     * returns whether this array is marked as dirty 
+     */
+    bool isDirty() const { return isDirty_; }
+    
+    /**
+     * set the dirty flag of this array 
+     */
+    void setDirty(bool dirty) { isDirty_ = dirty; }
+    
+    /**
+     * returns whether this array is currently stored in compressed form
+     */
     bool isCompressed() const { return isCompressed_; }
 
+    /**
+     * returns the uncompressed size (in number of elements T, _not_ in bytes)
+     */
     size_t uncompressedSize() const {
         size_t s = 1;
         BOOST_FOREACH(typename difference_type::size_type x, shape_) { s *= x; }
         return s;
     }
 
+    /**
+     * returns the compressed size (in number of elements T, _not_ in bytes)
+     */
     size_t compressedSize() const { return compressedSizeBytes_/sizeof(T); }
 
+    /**
+     * ensures that this array's data is stored uncompressed
+     */
     void uncompress() {
         if(!isCompressed_) {
             return;
         }
-        char* a = new char[size()*sizeof(T)];
+        char* a = new char[uncompressedSize()*sizeof(T)];
         size_t r;
         snappy::GetUncompressedLength(data_, compressedSizeBytes_, &r);
-        if(r != size()*sizeof(T)) {
+        if(r != uncompressedSize()*sizeof(T)) {
             throw std::runtime_error("CompressedArray::uncompress: error");
         }
         snappy::RawUncompress(data_, compressedSizeBytes_, a);
@@ -85,6 +118,9 @@ class CompressedArray {
         isCompressed_ = false;
     }
 
+    /**
+     * ensures that this array's data is stored compressed
+     */
     void compress() {
         if(isCompressed_) {
             return;
@@ -115,17 +151,23 @@ class CompressedArray {
         }
     }
 
+    /**
+     * returns (potentially after uncompressing) this array's data
+     */
     vigra::MultiArray<N,T> readArray() const {
         vigra::MultiArray<N,T> a(shape_);
         if(isCompressed_) {
             snappy::RawUncompress((char*)data_, compressedSizeBytes_, (char*)a.data());
         }
         else {
-            std::copy(data_, data_+size(), a.data());
+            std::copy(data_, data_+uncompressedSize(), a.data());
         }
         return a;
     }
-    
+   
+    /**
+     * write the array 'a' into the region of interest [p,q)
+     */
     void writeArray(difference_type p, difference_type q, const vigra::MultiArray<N,T>& a) {
         #ifdef DEBUG_CHECKS
         for(int k=0; k<N; ++k) {
@@ -144,22 +186,29 @@ class CompressedArray {
         }
     }
 
-    size_t size() const {
-        size_t ret = 1;
-        BOOST_FOREACH(typename difference_type::size_type x, shape_) { ret *= x; }
-        return ret;
-    }
-
+    /**
+     * returns the size of the array in memory (in bytes)
+     */
     size_t currentSizeBytes() const {
         if(isCompressed_) {
             return compressedSize() * sizeof(T);
         }
         return uncompressedSize() * sizeof(T);
     }
+    
+    /**
+     * returns the size of the array when uncompressed (in bytes)
+     */
     size_t uncompressedSizeBytes() const {
-        return size()*sizeof(T);
+        return uncompressedSize()*sizeof(T);
     }
 
+    /**
+     * returns the compression ratio
+     * 
+     * Note that this is only valid if compress() has been called at least once on the
+     * current data.
+     */
     double compressionRatio() const {
         return compressedSizeBytes_/((double)uncompressedSizeBytes());
     }

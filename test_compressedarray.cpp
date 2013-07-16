@@ -18,7 +18,7 @@ int main() {
 
     CompressedArray<1, int> c(test);
     std::cout << "after constructor" << std::endl;
-    std::cout << "  size           " << c.size() << std::endl;
+    std::cout << "  size           " << c.uncompressedSize() << std::endl;
     std::cout << "  is compressed? " << c.isCompressed() << std::endl; 
     std::cout << "  size in bytes: " << c.currentSizeBytes() << std::endl;
 
