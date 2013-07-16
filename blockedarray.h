@@ -146,19 +146,22 @@ class BlockedArray {
         const BlockList bb = blocks(p, q);
         BOOST_FOREACH(BlockCoord blockCoor, bb) {
             typename BlocksMap::iterator it = blocks_.find(blockCoor);
-            if(it == blocks_.end()) { continue; }
-            if(it->second->isDirty()) {
+            if(it == blocks_.end()) {
+                dB.push_back(blockCoor);
+            }
+            else if(it->second->isDirty()) {
                 dB.push_back(blockCoor);
             }
         }
         return dB;
     }
-    
 
     /**
      * read array 'a' into from region of interest [p, q)
      */
     void readSubarray(difference_type p, difference_type q, vigra::MultiArrayView<N, T>& out) const {
+        std::fill(out.begin(), out.end(), 0);
+        
         using vigra::MultiArray;
         
         vigra_precondition(out.shape()==q-p,"shape differ");
@@ -279,6 +282,16 @@ class BlockedArray {
         }
     }
     
+    void blockBounds(BlockCoord c, difference_type&p, difference_type& q) const {
+        for(int i=0; i<N; ++i) {
+            p[i] = blockShape_[i]*c[i];
+            q[i] = blockShape_[i]*(c[i]+1);
+            #ifdef DEBUG_CHECKS
+            CHECK_OP(q[i],>,p[i]," "); 
+            #endif
+        }
+    }
+    
     private:
         
     BlockPtr addBlock(BlockCoord c, vigra::MultiArrayView<N, T>& a) {
@@ -328,16 +341,6 @@ class BlockedArray {
         BlockCoord c;
         for(int i=0; i<N; ++i) { c[i] = (q[i]-1)/blockShape_[i] + 1; }
         return c;
-    }
-
-    void blockBounds(BlockCoord c, difference_type&p, difference_type& q) const {
-        for(int i=0; i<N; ++i) {
-            p[i] = blockShape_[i]*c[i];
-            q[i] = blockShape_[i]*(c[i]+1);
-            #ifdef DEBUG_CHECKS
-            CHECK_OP(q[i],>,p[i]," "); 
-            #endif
-        }
     }
 
     // members

@@ -88,12 +88,26 @@ struct FillRandom<double, Iter> {
     }
 };
 
+template<>
+template<class Iter>
+struct FillRandom<vigra::Int64, Iter> {
+    static void fillRandom(Iter a, Iter b) {
+        vigra::RandomMT19937 random;
+        for(; a!=b; ++a) {
+            *a = random.uniformInt(5000);
+        }
+    }
+};
+
 template<int N, class T>
 void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
           typename vigra::MultiArray<N,T>::difference_type blockShape,
           int nSamples = 100,
           int verbose = false
 ) {
+    if(verbose) {
+        std::cout << "TEST" << std::endl;
+    }
     typedef BlockedArray<N,T> BA;
     typedef typename BA::difference_type diff_t;
     
@@ -109,19 +123,21 @@ void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
     while(bounds.size() < nSamples) {
         diff_t p, q;
         for(int i=0; i<N; ++i) { p[i] = random.uniformInt(theData.shape(i)); }
-        for(int i=0; i<N; ++i) { q[i] = p[i]+2+random.uniformInt(theData.shape(i)-p[i]-2); }
+        for(int i=0; i<N; ++i) { q[i] = p[i]+1+random.uniformInt(theData.shape(i)-p[i]); }
+        
+        std::cout << bounds.size() << " : " << p << ", " << q << std::endl;
 
         bool ok = true;
         for(int i=0; i<N; ++i) {
             if(p[i] < 0 || p[i] >= theData.shape(i) || q[i] < 0 || q[i] > theData.shape(i)) {
                 ok = false;
             }
-            if(!(q[i] > p[i]+1)) {
+            if(!(q[i] >= p[i]+1)) {
                 ok = false;
             }
         }
         if(ok) {
-            int x = random.uniformInt(3);
+            int x = random.uniformInt(N);
             q[x] = p[x]+1;
 
             bounds.push_back(std::make_pair(p,q));
@@ -199,7 +215,9 @@ void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
 }
 
 int main() {
-   
+    std::cout << "* int64" << std::endl;
+    test<5, vigra::Int64>(vigra::Shape5(1,200,300,400,1), vigra::Shape5(1,22,33,44,1), 40, true);
+    
     std::cout << "* uint8" << std::endl;
     test<3, vigra::UInt8>(vigra::Shape3(200,300,400), vigra::Shape3(22,33,44), 40);
     std::cout << "* float32" << std::endl;
@@ -208,6 +226,8 @@ int main() {
     test<3, double>(vigra::Shape3(200,300,400), vigra::Shape3(22,33,44), 40);
     std::cout << "* uint32" << std::endl;
     test<3, vigra::UInt32>(vigra::Shape3(200,300,400), vigra::Shape3(22,33,44), 40);
+    std::cout << "* int64" << std::endl;
+    test<3, vigra::Int64>(vigra::Shape3(200,300,400), vigra::Shape3(22,33,44), 40);
     
     return 0;
     

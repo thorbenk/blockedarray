@@ -54,19 +54,69 @@ struct PyBlockedArray {
         ba.writeSubarray(p, q, a);
     }
     
-    boost::python::tuple dirtyBlocks(typename BA::difference_type p, typename BA::difference_type q) {
-        typename BA::BlocksList bL = dirtyBlocks(p, q);
+    static boost::python::tuple dirtyBlocks(BA& ba, typename BA::difference_type p, typename BA::difference_type q) {
+        typename BA::BlockList bL = ba.dirtyBlocks(p, q);
         vigra::NumpyArray<2, vigra::UInt32> start(vigra::Shape2(bL.size(), N));
         vigra::NumpyArray<2, vigra::UInt32> stop(vigra::Shape2(bL.size(), N));
         for(int i=0; i<bL.size(); ++i) {
             typename BA::difference_type pp, qq;
-            blockBounds(bL[i], pp, qq);
+            ba.blockBounds(bL[i], pp, qq);
             for(int j=0; j<N; ++j) {
                 start(i,j) = pp[j];
-                stop(i,j) = pp[j];
+                stop(i,j) = qq[j];
             }
         }
         return boost::python::make_tuple(start, stop);
+    }
+};
+
+template<class T>
+struct DtypeName {
+    static void dtypeName() {
+        throw std::runtime_error("not specialized");
+    }
+};
+
+template<>
+struct DtypeName<vigra::UInt8> {
+    static std::string dtypeName() {
+        return "uint8";
+    }
+};
+template<>
+struct DtypeName<float> {
+    static std::string dtypeName() {
+        return "float32";
+    }
+};
+template<>
+struct DtypeName<double> {
+    static std::string dtypeName() {
+        return "float64";
+    }
+};
+template<>
+struct DtypeName<vigra::UInt32> {
+    static std::string dtypeName() {
+        return "uint32";
+    }
+};
+template<>
+struct DtypeName<vigra::UInt64> {
+    static std::string dtypeName() {
+        return "uint64";
+    }
+};
+template<>
+struct DtypeName<vigra::Int64> {
+    static std::string dtypeName() {
+        return "int64";
+    }
+};
+template<>
+struct DtypeName<vigra::Int32> {
+    static std::string dtypeName() {
+        return "int32";
     }
 };
 
@@ -77,7 +127,9 @@ void export_blockedArray() {
     using namespace boost::python;
     using namespace vigra;
     
-    class_<BA>("BlockedArray", init<typename BA::difference_type>())
+    std::stringstream name; name << "BlockedArray" << N << DtypeName<T>::dtypeName();
+    
+    class_<BA>(name.str().c_str(), init<typename BA::difference_type>())
         .def("averageCompressionRatio", registerConverters(&BA::averageCompressionRatio))
         .def("numBlocks", registerConverters(&BA::numBlocks))
         .def("sizeBytes", registerConverters(&BA::sizeBytes))
@@ -87,10 +139,29 @@ void export_blockedArray() {
         .def("__setitem__", registerConverters(&PyBlockedArray<N,T>::setitem))
         .def("deleteSubarray", registerConverters(&BA::deleteSubarray))
         .def("setDirty", registerConverters(&BA::setDirty))
-        .def("dirtyBlocks", registerConverters(&BA::dirtyBlocks))
+        .def("dirtyBlocks", registerConverters(&PyBlockedArray<N,T>::dirtyBlocks))
     ;
 }
 
 void export_blockedArray() {
+    export_blockedArray<2, vigra::UInt8>();
     export_blockedArray<3, vigra::UInt8>();
+    export_blockedArray<4, vigra::UInt8>();
+    export_blockedArray<5, vigra::UInt8>();
+    
+    export_blockedArray<2, vigra::UInt32>();
+    export_blockedArray<3, vigra::UInt32>();
+    export_blockedArray<4, vigra::UInt32>();
+    export_blockedArray<5, vigra::UInt32>();
+    
+    export_blockedArray<2, vigra::Int64>();
+    export_blockedArray<3, vigra::Int64>();
+    export_blockedArray<4, vigra::Int64>();
+    export_blockedArray<5, vigra::Int64>();
+    
+    export_blockedArray<2, float>();
+    export_blockedArray<3, float>();
+    export_blockedArray<4, float>();
+    export_blockedArray<5, float>();
+    
 }  
