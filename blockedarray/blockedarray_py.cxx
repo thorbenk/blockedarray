@@ -17,14 +17,14 @@ struct PyBlockedArray {
     
     static void readSubarray(BA& ba,
                              typename BA::difference_type p, typename BA::difference_type q,
-                             vigra::NumpyArray<3, unsigned char> out
+                             vigra::NumpyArray<N, T> out
     ) {
         ba.readSubarray(p, q, out);
     }
     
     static void writeSubarray(BA& ba,
                               typename BA::difference_type p, typename BA::difference_type q,
-                              vigra::NumpyArray<3, unsigned char> a
+                              vigra::NumpyArray<N, T> a
     ) {
         ba.writeSubarray(p, q, a);
     }
@@ -47,6 +47,12 @@ struct PyBlockedArray {
         ba.readSubarray(p, q, out);
         return out;
     }
+    
+    static void setitem(BA& ba, boost::python::tuple sl, vigra::NumpyArray<N,T> a) {
+        typename BA::difference_type p,q;
+        sliceToPQ(sl, p, q);
+        ba.writeSubarray(p, q, a);
+    }
 };
 
 
@@ -64,6 +70,7 @@ void export_blockedArray() {
         .def("writeSubarray", registerConverters(&PyBlockedArray<N,T>::writeSubarray))
         .def("readSubarray", registerConverters(&PyBlockedArray<N,T>::readSubarray))
         .def("__getitem__", registerConverters(&PyBlockedArray<N,T>::getitem))
+        .def("__setitem__", registerConverters(&PyBlockedArray<N,T>::setitem))
     ;
 }
 

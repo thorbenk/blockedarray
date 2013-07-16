@@ -22,3 +22,7 @@ ba.readSubarray(p, q, a_read)
 print a_read
 
 print ba[5:40, 6:50, 8:60]
+
+ba[5:40, 6:50, 8:60] = numpy.ones(a.shape, a.dtype)
+
+print ba[5:40, 6:50, 8:60]
