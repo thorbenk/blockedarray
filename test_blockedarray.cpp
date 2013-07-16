@@ -55,7 +55,6 @@ struct FillRandom {
     }
 };
 
-template<>
 template<class Iter>
 struct FillRandom<vigra::UInt8, Iter> {
     static void fillRandom(Iter a, Iter b) {
@@ -66,7 +65,6 @@ struct FillRandom<vigra::UInt8, Iter> {
     }
 };
 
-template<>
 template<class Iter>
 struct FillRandom<float, Iter> {
     static void fillRandom(Iter a, Iter b) {
@@ -77,7 +75,6 @@ struct FillRandom<float, Iter> {
     }
 };
 
-template<>
 template<class Iter>
 struct FillRandom<double, Iter> {
     static void fillRandom(Iter a, Iter b) {
@@ -88,7 +85,6 @@ struct FillRandom<double, Iter> {
     }
 };
 
-template<>
 template<class Iter>
 struct FillRandom<vigra::Int64, Iter> {
     static void fillRandom(Iter a, Iter b) {
