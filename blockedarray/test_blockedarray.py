@@ -13,9 +13,6 @@ a *= 42
 print a.shape, a.dtype, type(a)
 
 b = numpy.zeros((10,10,10), dtype=numpy.uint8)
-test(b)
-
-#ba.test(b);
 
 ba.writeSubarray(p, q, a)
 
@@ -23,3 +20,5 @@ a_read = numpy.zeros(a.shape, a.dtype)
 ba.readSubarray(p, q, a_read)
 
 print a_read
+
+print ba[5:40, 6:50, 8:60]
