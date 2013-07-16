@@ -108,6 +108,18 @@ class BlockedArray {
             it->second->writeArray(withinBlock_p, withinBlock_q, toWrite);
         }
     }
+   
+    /**
+     * deletes all blocks which contain the region of interest [p,q)
+     */
+    void deleteSubarray(difference_type p, difference_type q) {
+        const BlockList bb = blocks(p, q);
+        BOOST_FOREACH(BlockCoord blockCoor, bb) {
+            typename BlocksMap::iterator it = blocks_.find(blockCoor);
+            if(it == blocks_.end()) { continue; }
+            blocks_.erase(it);
+        }
+    }
 
     /**
      * read array 'a' into from region of interest [p, q)

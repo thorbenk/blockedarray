@@ -55,7 +55,6 @@ struct PyBlockedArray {
     }
 };
 
-
 template<int N, class T>
 void export_blockedArray() {
     typedef BlockedArray<N, T> BA;
@@ -71,6 +70,7 @@ void export_blockedArray() {
         .def("readSubarray", registerConverters(&PyBlockedArray<N,T>::readSubarray))
         .def("__getitem__", registerConverters(&PyBlockedArray<N,T>::getitem))
         .def("__setitem__", registerConverters(&PyBlockedArray<N,T>::setitem))
+        .def("deleteSubarray", registerConverters(&BA::deleteSubarray))
     ;
 }
 
