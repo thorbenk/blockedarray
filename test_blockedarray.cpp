@@ -48,7 +48,155 @@ void checkArraysEqual(const Array1& a, const Array2& b) {
     }
 }
 
+template<class T, class Iter>
+struct FillRandom {
+    static void fillRandom(Iter a, Iter b) {
+        throw std::runtime_error("not specialized");
+    }
+};
+
+template<>
+template<class Iter>
+struct FillRandom<vigra::UInt8, Iter> {
+    static void fillRandom(Iter a, Iter b) {
+        vigra::RandomMT19937 random;
+        for(; a!=b; ++a) {
+            *a = random.uniformInt(256);
+        }
+    }
+};
+
+template<>
+template<class Iter>
+struct FillRandom<float, Iter> {
+    static void fillRandom(Iter a, Iter b) {
+        vigra::RandomMT19937 random;
+        for(; a!=b; ++a) {
+            *a = random.uniform();
+        }
+    }
+};
+
+
+template<int N, class T>
+void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
+          typename vigra::MultiArray<N,T>::difference_type blockShape,
+          int nSamples = 100,
+          int verbose = false
+) {
+    typedef BlockedArray<N,T> BA;
+    typedef typename BA::difference_type diff_t;
+    
+    vigra::MultiArray<N,T> theData(dataShape);
+    FillRandom<T, typename vigra::MultiArray<N,T>::iterator>::fillRandom(theData.begin(), theData.end());
+    
+    BA blockedArray(blockShape, theData);
+    
+    typedef std::vector<std::pair<diff_t, diff_t> > BoundsList;
+    BoundsList bounds;
+    
+    vigra::RandomMT19937 random;
+    while(bounds.size() < nSamples) {
+        diff_t p, q;
+        for(int i=0; i<N; ++i) { p[i] = random.uniformInt(theData.shape(i)); }
+        for(int i=0; i<N; ++i) { q[i] = p[i]+2+random.uniformInt(theData.shape(i)-p[i]-2); }
+
+        bool ok = true;
+        for(int i=0; i<N; ++i) {
+            if(p[i] < 0 || p[i] >= theData.shape(i) || q[i] < 0 || q[i] > theData.shape(i)) {
+                ok = false;
+            }
+            if(!(q[i] > p[i]+1)) {
+                ok = false;
+            }
+        }
+        if(ok) {
+            int x = random.uniformInt(3);
+            q[x] = p[x]+1;
+
+            bounds.push_back(std::make_pair(p,q));
+        }
+    }
+    
+    //
+    // test read access of ROI
+    //
+    int n = 0;
+    BOOST_FOREACH(typename BoundsList::value_type pq, bounds) {
+        const diff_t p= pq.first;
+        const diff_t q = pq.second;
+        
+        if(verbose) {
+            std::cout << "* unit test read from " << p << " to " << q << " (" << std::sqrt((double)((q-p)[0]*(q-p)[1]*(q-p)[2])) << "^2" << ")" << std::endl;
+        }
+        else {
+            std::cout << "read: " << n << " of " << nSamples << "             \r" << std::flush;
+        }
+
+        //read blocked
+        boost::timer::cpu_timer t1;
+        vigra::MultiArray<N, T> smallBlock(q-p);
+        blockedArray.readSubarray(p,q, smallBlock);
+        if(verbose) std::cout << "  read blocked: " << t1.format(10, "%w sec.") << std::endl;
+
+        CHECK_OP(smallBlock.shape(),==,theData.subarray(p, q).shape()," ");
+
+        vigra::MultiArrayView<N, T> referenceBlock(theData.subarray(p,q));
+
+        checkArraysEqual(smallBlock, referenceBlock);
+        ++n;
+    }
+    if(!verbose) { std::cout << std::endl; }
+    
+    //
+    // test write access of ROI
+    //
+    n = 0;
+    BOOST_FOREACH(typename BoundsList::value_type pq, bounds) {
+        const diff_t p = pq.first;
+        const diff_t q = pq.second;
+        
+        if(verbose) {
+            std::cout << "* unit test write from " << p << " to " << q << " (" << std::sqrt((double)((q-p)[0]*(q-p)[1]*(q-p)[2])) << "^2" << ")" << std::endl;
+        }
+        else {
+            std::cout << "write: " << n << " of " << nSamples << "             \r" << std::flush;
+        }
+       
+        vigra::MultiArray<N, T> a(q-p);
+        for(int i=0; i<a.size(); ++i) {
+            a[i] = random.uniformInt(256);
+        }
+        
+        boost::timer::cpu_timer t1;
+        blockedArray.writeSubarray(p,q, a);
+        if(verbose) std::cout << "  write blocked: " << t1.format(10, "%w sec.") << std::endl;
+        
+        theData.subarray(p,q) = a;
+        
+        vigra::MultiArray<N, T> r(theData.shape());
+        blockedArray.readSubarray(diff_t(), theData.shape(), r);
+        checkArraysEqual(theData, r); 
+        ++n;
+    }
+    if(!verbose) { std::cout << std::endl; }
+   
+    //
+    // delete array
+    //
+    blockedArray.deleteSubarray(diff_t(), theData.shape());
+    CHECK_OP(blockedArray.numBlocks(),==,0," ");
+}
+
 int main() {
+   
+    std::cout << "* uint8" << std::endl;
+    test<3, vigra::UInt8>(vigra::Shape3(200,300,400), vigra::Shape3(22,33,44), 10);
+    std::cout << "* float" << std::endl;
+    test<3, float>(vigra::Shape3(200,300,400), vigra::Shape3(22,33,44), 10);
+    
+    return 0;
+    
     vigra::HDF5File f("/home/tkroeger/datasets/snemi2013/test-input/test-input.h5", vigra::HDF5File::Open);
     vigra::MultiArray<5, vigra::UInt8> data;
     f.readAndResize("volume/data", data);
