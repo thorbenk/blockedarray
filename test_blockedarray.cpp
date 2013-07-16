@@ -211,6 +211,7 @@ int main() {
     
     return 0;
     
+#if 0
     vigra::HDF5File f("/home/tkroeger/datasets/snemi2013/test-input/test-input.h5", vigra::HDF5File::Open);
     vigra::MultiArray<5, vigra::UInt8> data;
     f.readAndResize("volume/data", data);
@@ -339,6 +340,7 @@ int main() {
     }
     
     vigra::exportImage(srcImageRange(image), vigra::ImageExportInfo("/tmp/t.jpg").setCompression("90"));
+#endif
 
     return 0;
 }
