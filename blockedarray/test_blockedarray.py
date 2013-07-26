@@ -3,7 +3,7 @@ import numpy
 import vigra
 
 blockShape = (20,30,40)
-ba = BlockedArray(blockShape)
+ba = BlockedArray3uint8(blockShape)
 
 p = (5,6,8)
 q = (40,50,60)

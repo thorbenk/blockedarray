@@ -192,11 +192,13 @@ class OpArrayCacheCpp(OpCache):
                 reconfigure = True
             self._origBlockShape = newBShape
             self._blockShape = newBShape
+
            
             inputSlot = self.inputs["Input"]
             self.outputs["Output"].meta.assignFrom(inputSlot.meta)
 
-        shape = self.Output.meta.shape
+        shape = self.outputs["Output"].meta.shape
+
         if reconfigure and shape is not None:
             self._lock.acquire()
             if self.Input.meta.dtype == numpy.uint32:
@@ -207,15 +209,15 @@ class OpArrayCacheCpp(OpCache):
                 t = "float32"
             elif self.Input.meta.dtype == numpy.int64: 
                 t = "int64"
+            elif self.Input.meta.dtype == numpy.uint8:
+                t = "uint8"
             else:
-                print self.Input.meta.dtype, "tttttt^^^"
-                raise RuntimeError("%r" % self.Input.meta.dtype)
+                raise RuntimeError("dtype %r not supported" % self.Input.meta.dtype)
             cls = "BlockedArray%d%s" % (len(self._blockShape), t)
             self.b = eval(cls)(self._blockShape)
             self.b.setDirty(tuple([0]*len(self._blockShape)), self.Input.meta.shape, True)
             
             self._lock.release()
-        print "set up of b, ^^^^^^^^^^^^^^^^^^^^^^^^"
 
     def propagateDirty(self, slot, subindex, roi):
         shape = self.Output.meta.shape
@@ -297,14 +299,15 @@ class OpArrayCacheCpp(OpCache):
         self._running += 1
 
         bp, bq = self.b.dirtyBlocks(start, stop)
-        print bp, bq
+        
+        #print "there are %d dirty blocks" % bp.shape[0]
 
-        print "gggggg"
         if not self._fixed:
             reqs = []
+            sh = self.outputs["Output"].meta.shape
             for i in range(bp.shape[0]):
                 bStart = tuple([int(t) for t in bp[i,:]])
-                bStop  = tuple([int(t) for t in bq[i,:]])
+                bStop  = tuple([int(t) for t in numpy.minimum(bq[i,:], sh)])
                 key = roiToSlice(bStart, bStop)
                 req = self.Input[key]
                 reqs.append((req, bStart, bStop))
@@ -312,12 +315,12 @@ class OpArrayCacheCpp(OpCache):
                 r.wait()
             for r, bStart, bStop in reqs:
                 x = r.wait()
-                print "xxxxx ", x.ravel()[0]
-                print bStart, type(bStart), bStop, type(bStop)
                 self.b.writeSubarray(bStart, bStop, r.wait())
-           
-        print result.shape, result.dtype, result.ravel()[0]
+        
+        t1 = time.time()
         self.b.readSubarray(start, stop, result)
+        
+        #print "read subarray took %f" % (time.time()-t1)
             
         self._lock.release()
         
@@ -333,7 +336,7 @@ class OpArrayCacheCpp(OpCache):
         
         self._lock.acquire()
         print "***", start, stop, value.shape
-        self.b.writeArray(start, stop, value)
+        self.b.writeSubarray(start, stop, value)
         self._lock.release()
 
     #def _executeCleanBlocks(self, slot, subindex, roi, destination):

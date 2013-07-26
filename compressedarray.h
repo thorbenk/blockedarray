@@ -28,7 +28,7 @@ class CompressedArray {
         data_ = new char[a.size()];
         std::copy(a.begin(), a.end(), data_);
 
-        compress();
+        //compress();
     }
 
     /**
@@ -154,15 +154,15 @@ class CompressedArray {
     /**
      * returns (potentially after uncompressing) this array's data
      */
-    vigra::MultiArray<N,T> readArray() const {
-        vigra::MultiArray<N,T> a(shape_);
+    void readArray(vigra::MultiArrayView<N,T>& a) const {
+        vigra_precondition(a.shape() == shape_, "shapes differ");
         if(isCompressed_) {
+            throw std::runtime_error("no compression allowed");
             snappy::RawUncompress((char*)data_, compressedSizeBytes_, (char*)a.data());
         }
         else {
             std::copy(data_, data_+uncompressedSize(), a.data());
         }
-        return a;
     }
    
     /**
@@ -212,6 +212,8 @@ class CompressedArray {
     double compressionRatio() const {
         return compressedSizeBytes_/((double)uncompressedSizeBytes());
     }
+
+    typename vigra::MultiArray<N, T>::difference_type shape() const { return shape_; }
 
     private:
     char* data_;

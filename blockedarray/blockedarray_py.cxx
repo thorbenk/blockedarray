@@ -9,6 +9,8 @@
 #include <vigra/numpy_array.hxx>
 #include <vigra/numpy_array_converters.hxx>
 
+//#define DEBUG_PRINTS
+
 #include "blockedarray.h"
 
 template<int N, class T>

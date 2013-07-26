@@ -5,6 +5,9 @@
 
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
+#include <boost/timer/timer.hpp>
+
+#include <vigra/timing.hxx>
 
 #include "compressedarray.h"
 
@@ -25,6 +28,7 @@ class BlockedArray {
      */
     BlockedArray(typename vigra::MultiArrayShape<N>::type blockShape)
         : blockShape_(blockShape)
+        , tmpBlock_(blockShape)
     {
     }
 
@@ -176,24 +180,33 @@ class BlockedArray {
      * zeros at the corresponding locations.
      */
     void readSubarray(difference_type p, difference_type q, vigra::MultiArrayView<N, T>& out) const {
+        using vigra::MultiArrayView;
+        using boost::timer::cpu_timer;
+        
+        cpu_timer startMethod;
+        const long double sec = 1000000000.0L;
+
         //make sure to initialize the array with zeros
         //if a block does not exist, we assume missing values of zero
         std::fill(out.begin(), out.end(), 0);
         
-        using vigra::MultiArray;
-        
         vigra_precondition(out.shape()==q-p,"shape differ");
         
-        #ifdef DEBUG_PRINTS
-        std::cout << "readSubarray(" << p << ", " << q << ")" << std::endl;
-        #endif
-
         //find affected blocks
         const BlockList bb = blocks(p, q);
 
+        #ifdef DEBUG_PRINTS
+        std::cout << "readSubarray(" << p << ", " << q << ")" << std::endl;
+        std::cout << "  there are " << bb.size() << " blocks" << std::endl;
+        #endif
+
         const BlockCoord blockP = blockGivenCoordinateP(p);
 
+        double timeWritearray = 0.0;
+        double timeReadarray  = 0.0;
+
         BOOST_FOREACH(BlockCoord blockCoor, bb) {
+            cpu_timer startLoop;
             
             difference_type bp, bq;
             blockBounds(blockCoor, bp, bq);
@@ -245,8 +258,14 @@ class BlockedArray {
                 //do nothing
                 continue;
             }
+
+            USETICTOC
+           
+            TIC
+            it->second->readArray(tmpBlock_);
+            timeReadarray += TOCN;
             
-            MultiArray<N,T> v = it->second->readArray();
+            MultiArrayView<N,T> v(tmpBlock_);
 
             #ifdef DEBUG_PRINTS
             std::cout << "    v.shape = " << v.shape() << std::endl;
@@ -295,9 +314,21 @@ class BlockedArray {
             }
             #endif
 
+
+            //std::cout << "writing to " << write_p << ", " << write_q << std::flush;
+            //boost::timer::cpu_timer t; 
+            TIC
             out.subarray(write_p, write_q) = w;
+            timeWritearray += TOCN;
+            //double e = t.elapsed().user / sec;
+            //std::cout << " ... " << std::setprecision(20) << e << " sec." << std::endl;
+
+            //std::cout << "one loop iteration took" << std::setprecision(20) << startLoop.elapsed().user/sec << " sec." << std::endl;
 
         }
+        //std::cout << "c++ readSubarray took " << std::setprecision(20) << startMethod.elapsed().user/sec << " sec." << std::endl;
+        //std::cout << "  writeSubarray took " << timeWritearray << " msec." << std::endl;
+        //std::cout << "  readArray() took " << timeReadarray << " msec." << std::endl;
     }
     
     /**
@@ -368,6 +399,9 @@ class BlockedArray {
     
     typename vigra::MultiArrayShape<N>::type blockShape_;
     BlocksMap blocks_;
+   
+    //for temporary storage of a block, to avoid repeated allocations
+    mutable vigra::MultiArray<N,T> tmpBlock_;
 };
 
 #endif /* BLOCKEDARRAY_H */

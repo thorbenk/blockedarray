@@ -19,8 +19,10 @@ target_link_libraries(_blockedarray
     snappy
     ${PYTHON_LIBRARY}
     ${Boost_PYTHON_LIBRARIES}
+    ${Boost_TIMER_LIBRARY}
     ${VIGRA_NUMPY_CORE_LIBRARY}
     ${VIGRA_NUMPY_IMPEX_LIBRARY}
+    rt
 )
 set_target_properties(_blockedarray PROPERTIES
     PREFIX ""

@@ -32,7 +32,8 @@ int main() {
     std::cout << "  size in bytes: " << c.currentSizeBytes() << std::endl;
     std::cout << "  is compressed? " << c.isCompressed() << std::endl; 
 
-    vigra::MultiArray<1, int> d = c.readArray();
+    vigra::MultiArray<1, int> d(c.shape());
+    c.readArray(d);
 
     std::cout << d[0] << std::endl;
     std::cout << d[1] << std::endl;
