@@ -112,6 +112,58 @@ void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataSh
     }
 }
 
+BOOST_AUTO_TEST_CASE( dirtyness3 ) {
+    typedef vigra::MultiArray<3, int> Array;
+    using vigra::Shape3;
+   
+    Array data(Shape3(10,30,40));
+    std::fill(data.begin(), data.end(), 42);
+   
+    CompressedArray<3, int> ca(data);
+ 
+    ca.setDirty(true);
+    BOOST_CHECK(ca.isDirty(0,0));
+    BOOST_CHECK(ca.isDirty(0,3));
+    BOOST_CHECK(ca.isDirty(1,0));
+    BOOST_CHECK(ca.isDirty(1,3));
+    BOOST_CHECK(ca.isDirty(2,0));
+    BOOST_CHECK(ca.isDirty(2,3));
+    ca.setDirty(false);
+    BOOST_CHECK(!ca.isDirty(0,0));
+    BOOST_CHECK(!ca.isDirty(0,3));
+    BOOST_CHECK(!ca.isDirty(1,0));
+    BOOST_CHECK(!ca.isDirty(1,3));
+    BOOST_CHECK(!ca.isDirty(2,0));
+    BOOST_CHECK(!ca.isDirty(2,3));
+    ca.setDirty(3,7, true);
+    BOOST_CHECK(ca.isDirty(3,7));
+    ca.setDirty(3,7, false);
+    BOOST_CHECK(!ca.isDirty(3,7));
+    
+    ca.setDirty(true);
+    
+    {
+        Shape3 p(4,0,0), q(5,30,40); //write a 2D slice
+        ca.writeArray(p,q, data.subarray(p,q));
+        BOOST_CHECK(ca.isDirty());
+        BOOST_CHECK(!ca.isDirty(0, 4));
+    }
+  
+    {
+        Shape3 p(0,6,0), q(10,7,40); //write a 2D slice
+        ca.writeArray(p,q, data.subarray(p,q));
+        BOOST_CHECK(ca.isDirty());
+        BOOST_CHECK(!ca.isDirty(1, 6));
+    }
+    
+    for(int i=0; i<10; ++i) {
+        Shape3 p(i,0,0), q(i+1,30,40); //write a 2D slice
+        ca.writeArray(p,q, data.subarray(p,q));
+        BOOST_CHECK(!ca.isDirty(0, i));
+    }
+    BOOST_CHECK(!ca.isDirty());
+}
+
 BOOST_AUTO_TEST_CASE( testDim1 ) {   
     testCompressedArray<1, vigra::UInt8 >(vigra::Shape1(20));
     testCompressedArray<1, vigra::UInt16>(vigra::Shape1(20));

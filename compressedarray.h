@@ -104,7 +104,10 @@ class CompressedArray {
     /**
      * set the dirty flag of this array 
      */
-    void setDirty(bool dirty) { isDirty_ = dirty; }
+    void setDirty(bool dirty) { 
+        isDirty_ = dirty;
+        std::fill(dirtyDimensions_.begin(), dirtyDimensions_.end(), dirty);
+    }
     
     bool isDirty(int dimension, int slice) const {
         size_t n=0;
@@ -239,18 +242,29 @@ class CompressedArray {
         if(p == difference_type() && q == shape_) {
             //the whole block gets overwritten
             setDirty(false);
+            std::fill(dirtyDimensions_.begin(), dirtyDimensions_.end(), false);
         }
         
         for(int d=0; d<N; ++d) {
             //all dimension (except d) should have full extent
-            bool dd = true;
+            bool fullExtent = true;
             for(int dim=0; dim<N; ++dim) {
                 if(dim == d) continue;
-                dd = dd && (p[dim] == 0 && q[dim] == shape_[dim]);
+                fullExtent &= (p[dim] == 0 && q[dim] == shape_[dim]);
             }
-            if(dd) {
+            if(fullExtent) {
+                bool allClean = true;
                 for(int s=0; s<shape_[d]; ++s) {
-                    setDirty(d, s, (d>=p[d] && d<q[d]));
+                    bool sliceClean = (s>=p[d] && s<q[d]); 
+                    if(sliceClean) {
+                        setDirty(d, s, false);
+                    }
+                    allClean &= !isDirty(d,s);
+                }
+                if(allClean) {
+                    std::fill(dirtyDimensions_.begin(), dirtyDimensions_.end(), false);
+                    setDirty(false);
+                    break;
                 }
             }
         }
