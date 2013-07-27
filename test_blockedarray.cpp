@@ -4,7 +4,7 @@
 #include <cmath>
 
 #define BOOST_TEST_DYN_LINK
-#define BOOST_TEST_MODULE TestCompressedArray
+#define BOOST_TEST_MODULE TestBlockedArray
 #include <boost/test/unit_test.hpp>
 
 #include <boost/timer/timer.hpp>
