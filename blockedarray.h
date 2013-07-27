@@ -133,25 +133,6 @@ class BlockedArray {
             }
             const view_type toWrite = a.subarray(read_p, read_q);
             it->second->writeArray(withinBlock_p, withinBlock_q, toWrite);
-           
-            if(withinBlock_p == difference_type() && withinBlock_q == blockShape_) {
-                it->second->setDirty(false);
-            }
-            
-            for(int d=0; d<N; ++d) {
-                //all dimension (except d) should have full extent
-                bool dd = true;
-                for(int dim=0; dim<N; ++dim) {
-                    if(dim == d) continue;
-                    dd = dd && (withinBlock_p[dim] == 0 && withinBlock_q[dim] == blockShape_[dim]);
-                }
-                if(dd) {
-                    for(int s=0; s<blockShape_[d]; ++s) {
-                        it->second->setDirty(d, s, (d>=withinBlock_p[d] && d<withinBlock_q[d]));
-                    }
-                }
-            }
-            
         }
     }
    
@@ -377,6 +358,7 @@ class BlockedArray {
         block.subarray(difference_type(), a.shape()) = a;
 
         BlockPtr ca(new BLOCK(block));
+        ca->setDirty(true);
         blocks_[c] = ca; //TODO: use std::move here
         return ca;
     }

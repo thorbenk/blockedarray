@@ -231,6 +231,30 @@ class CompressedArray {
         if(wasCompressed) {
             compress();
         }
+
+        //
+        //keep track of dirtyness
+        //
+        
+        if(p == difference_type() && q == shape_) {
+            //the whole block gets overwritten
+            setDirty(false);
+        }
+        
+        for(int d=0; d<N; ++d) {
+            //all dimension (except d) should have full extent
+            bool dd = true;
+            for(int dim=0; dim<N; ++dim) {
+                if(dim == d) continue;
+                dd = dd && (p[dim] == 0 && q[dim] == shape_[dim]);
+            }
+            if(dd) {
+                for(int s=0; s<shape_[d]; ++s) {
+                    setDirty(d, s, (d>=p[d] && d<q[d]));
+                }
+            }
+        }
+        
     }
     
     /**
