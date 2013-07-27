@@ -14,20 +14,27 @@ void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataSh
     FillRandom<T, typename vigra::MultiArray<N,T>::iterator>::fillRandom(theData.begin(), theData.end());
     
     typedef CompressedArray<N, T> CA;
+    
+    {
+        CA e; //empty
+        BOOST_CHECK(!e.isCompressed());
+        BOOST_CHECK_EQUAL(e.compressedSize(), 0);
+        BOOST_CHECK(!e.isDirty());
+    }
 
-    //std::cout << "read" << std::endl;
-    //read
+    //std::cout << "construct" << std::endl;
     CA ca(theData);
     BOOST_CHECK(!ca.isDirty());
     BOOST_CHECK(!ca.isCompressed());
     BOOST_CHECK_EQUAL(ca.compressedSize(), 0);
     BOOST_CHECK_EQUAL(ca.shape(), theData.shape());
+    
+    //std::cout << "read" << std::endl;
     vigra::MultiArray<N,T> r(dataShape);
     ca.readArray(r);
     BOOST_CHECK(arraysEqual(theData, r)); 
     
     //std::cout << "compress & uncompress" << std::endl;
-    //compress & uncompress
     ca.compress();
     std::fill(r.begin(), r.end(), 0);
     ca.readArray(r);
@@ -43,14 +50,12 @@ void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataSh
     BOOST_CHECK(arraysEqual(theData, r)); 
 
     //std::cout << "compress & read" << std::endl;
-    //compress and read
     ca.compress();
     BOOST_CHECK(ca.isCompressed());
     ca.readArray(r);
     BOOST_CHECK(arraysEqual(theData, r)); 
     
     //std::cout << "copy-construct" << std::endl;
-    //copy-construct
     {
         CA ca2(ca);
         vigra::MultiArray<N,T> r1(dataShape);
@@ -61,7 +66,6 @@ void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataSh
     }
    
     //std::cout << "assignment" << std::endl;
-    //assignment
     {
         CA ca2;
         ca2 = ca;
