@@ -37,6 +37,7 @@ class BlockedArray {
      */
     BlockedArray(typename vigra::MultiArrayShape<N>::type blockShape, const vigra::MultiArrayView<N, T>& a)
         : blockShape_(blockShape)
+        , tmpBlock_(blockShape)
     {
         writeSubarray(difference_type(), a.shape(), a);
     }
@@ -87,6 +88,7 @@ class BlockedArray {
             //compute within-block coordinates
             difference_type withinBlock_p;
             difference_type withinBlock_q;
+            
             for(int k=0; k<N; ++k) {
                 if(bp[k] <= p[k] && p[k] < bq[k]) {
                     withinBlock_p[k] = p[k]%blockShape_[k];
@@ -112,6 +114,16 @@ class BlockedArray {
                 read_q[k] = read_p[k]+(withinBlock_q-withinBlock_p)[k];
             }
             
+            #ifdef DEBUG_PRINTS
+            std::cout << "blockCoor=" << blockCoor << std::endl;
+            std::cout << "bp = " << bp << std::endl;
+            std::cout << "bq = " << bq << std::endl;
+            std::cout << "withinBlock_p = " << withinBlock_p << std::endl;
+            std::cout << "withinBlock_q = " << withinBlock_q << std::endl;
+            std::cout << "read_p = " << read_p << std::endl;
+            std::cout << "read_q = " << read_q << std::endl;
+            #endif
+            
             typename BlocksMap::iterator it = blocks_.find(blockCoor);
             
             if(it == blocks_.end()) {
@@ -121,9 +133,23 @@ class BlockedArray {
             }
             const view_type toWrite = a.subarray(read_p, read_q);
             it->second->writeArray(withinBlock_p, withinBlock_q, toWrite);
-            
+           
             if(withinBlock_p == difference_type() && withinBlock_q == blockShape_) {
                 it->second->setDirty(false);
+            }
+            
+            for(int d=0; d<N; ++d) {
+                //all dimension (except d) should have full extent
+                bool dd = true;
+                for(int dim=0; dim<N; ++dim) {
+                    if(dim == d) continue;
+                    dd = dd && (withinBlock_p[dim] == 0 && withinBlock_q[dim] == blockShape_[dim]);
+                }
+                if(dd) {
+                    for(int s=0; s<blockShape_[d]; ++s) {
+                        it->second->setDirty(d, s, (d>=withinBlock_p[d] && d<withinBlock_q[d]));
+                    }
+                }
             }
             
         }

@@ -7,28 +7,52 @@
 
 #include "snappy.h"
 
+#define CEIL_INT_DIV(a, b) ((a+b-1)/b)
+
+#ifdef DEBUG_CHECKS
+#define CHECK_OP(a,op,b,message) \
+    if(!  static_cast<bool>( a op b )   ) { \
+       std::stringstream s; \
+       s << "Error: "<< message <<"\n";\
+       s << "check :  " << #a <<#op <<#b<< "  failed:\n"; \
+       s << #a " = "<<a<<"\n"; \
+       s << #b " = "<<b<<"\n"; \
+       s << "in file " << __FILE__ << ", line " << __LINE__ << "\n"; \
+       throw std::runtime_error(s.str()); \
+    }     
+#endif
+
 template<int N, class T>
 class CompressedArray {
     public:
     
     typedef typename vigra::MultiArray<N, T>::difference_type difference_type;
     
+    CompressedArray()
+        : data_(0)
+        , isCompressed_(false)
+        , compressedSize_(0)
+        , isDirty_(false)
+    {}
+    
     /**
      * construct a CompressedArray from the data 'a'
-     * 
-     * The array will be immediately stored compressed.
      */
     CompressedArray(const vigra::MultiArrayView<N, T, vigra::UnstridedArrayTag>& a)
         : data_(0)
         , isCompressed_(false)
-        , compressedSizeBytes_(0)
+        , compressedSize_(0)
         , shape_(a.shape())
         , isDirty_(false)
     {
-        data_ = new char[a.size()];
+        data_ = new T[a.size()];
         std::copy(a.begin(), a.end(), data_);
-
-        //compress();
+        
+        size_t n = 0;
+        for(int d=0; d<N; ++d) {
+            n += a.shape(d);
+        }
+        dirtyDimensions_.resize(n);
     }
 
     /**
@@ -36,13 +60,14 @@ class CompressedArray {
      */
     CompressedArray(const CompressedArray &other)
         : data_(0)
-        , compressedSizeBytes_(other.compressedSizeBytes_)
-        , isCompressed_(other.isCompressed)
+        , compressedSize_(other.compressedSize_)
+        , isCompressed_(other.isCompressed_)
         , shape_(other.shape_)
         , isDirty_(false)
+        , dirtyDimensions_(other.dirtyDimensions_)
     {
-        data_ = new char[other.currentSizeBytes()];
-        std::copy(other.data_, other.data_+other.currentSizeBytes(), data_);
+        data_ = new T[other.currentSize()];
+        std::copy(other.data_, other.data_+other.currentSize(), data_);
     }
    
     /**
@@ -52,13 +77,14 @@ class CompressedArray {
         if (this != &other) {
             delete[] data_;
             data_ = 0;
-            compressedSizeBytes_ = other.compressedSizeBytes_;
+            compressedSize_ = other.compressedSize_;
             isCompressed_ = other.isCompressed_;
             shape_ = other.shape_;
             isDirty_ = other.isDirty_;
+            dirtyDimensions_ = other.dirtyDimensions_;
             
-            data_ = new char[other.currentSizeBytes()];
-            std::copy(other.data_, other.data_+other.currentSizeBytes(), data_);
+            data_ = new T[other.currentSize()];
+            std::copy(other.data_, other.data_+other.currentSize(), data_);
         }
         return *this;
     }
@@ -80,6 +106,18 @@ class CompressedArray {
      */
     void setDirty(bool dirty) { isDirty_ = dirty; }
     
+    bool isDirty(int dimension, int slice) const {
+        size_t n=0;
+        for(int d=0; d<dimension-1; ++d) n += shape_[d];
+        return dirtyDimensions_[n+slice];
+    }
+    
+    void setDirty(int dimension, int slice, bool dirty) {
+        size_t n=0;
+        for(int d=0; d<dimension-1; ++d) n += shape_[d];
+        dirtyDimensions_[n+slice] = dirty;
+    }
+    
     /**
      * returns whether this array is currently stored in compressed form
      */
@@ -97,7 +135,7 @@ class CompressedArray {
     /**
      * returns the compressed size (in number of elements T, _not_ in bytes)
      */
-    size_t compressedSize() const { return compressedSizeBytes_/sizeof(T); }
+    size_t compressedSize() const { return compressedSize_; }
 
     /**
      * ensures that this array's data is stored uncompressed
@@ -106,13 +144,13 @@ class CompressedArray {
         if(!isCompressed_) {
             return;
         }
-        char* a = new char[uncompressedSize()*sizeof(T)];
+        T* a = new T[uncompressedSize()];
         size_t r;
-        snappy::GetUncompressedLength(data_, compressedSizeBytes_, &r);
+        snappy::GetUncompressedLength(reinterpret_cast<char*>(data_), compressedSize_*sizeof(T), &r);
         if(r != uncompressedSize()*sizeof(T)) {
             throw std::runtime_error("CompressedArray::uncompress: error");
         }
-        snappy::RawUncompress(data_, compressedSizeBytes_, a);
+        snappy::RawUncompress(reinterpret_cast<char*>(data_), compressedSize_*sizeof(T), reinterpret_cast<char*>(a));
         delete[] data_;
         data_ = a;
         isCompressed_ = false;
@@ -126,23 +164,28 @@ class CompressedArray {
             return;
         }
 
-        if(compressedSizeBytes_ == 0) {
+        if(compressedSize_ == 0) {
             //this is the first time
-            char* d = new char[snappy::MaxCompressedLength(uncompressedSizeBytes())];
+            
+            const size_t M = snappy::MaxCompressedLength(uncompressedSizeBytes());
+            size_t l = CEIL_INT_DIV(M, sizeof(T));
+            T* d = new T[l];
             size_t outLength;
-            snappy::RawCompress(data_, uncompressedSizeBytes(), d, &outLength);
-            data_ = new char[outLength];
+            snappy::RawCompress(reinterpret_cast<char*>(data_), uncompressedSizeBytes(),
+                                reinterpret_cast<char*>(d), &outLength);
+            outLength = CEIL_INT_DIV(outLength, sizeof(T));
+            data_ = new T[outLength];
             std::copy(d, d+outLength, data_);
             delete[] d;
             isCompressed_ = true;
-            compressedSizeBytes_ = outLength;
+            compressedSize_ = outLength;
         }
         else {
             size_t outputLength;
-            char* d = new char[compressedSizeBytes_];
-
-            snappy::RawCompress(data_, uncompressedSizeBytes(), d, &outputLength);
-            if(outputLength != compressedSizeBytes_) {
+            T* d = new T[compressedSize_];
+            snappy::RawCompress(reinterpret_cast<char*>(data_), uncompressedSizeBytes(),
+                                reinterpret_cast<char *>(d), &outputLength);
+            if(CEIL_INT_DIV(outputLength, sizeof(T)) != compressedSize_) {
                 throw std::runtime_error("CompressedArray::compress error");
             }
             delete[] data_;
@@ -154,11 +197,15 @@ class CompressedArray {
     /**
      * returns (potentially after uncompressing) this array's data
      */
-    void readArray(vigra::MultiArrayView<N,T>& a) const {
+    void readArray(vigra::MultiArray<N,T>& a) const {
         vigra_precondition(a.shape() == shape_, "shapes differ");
         if(isCompressed_) {
-            throw std::runtime_error("no compression allowed");
-            snappy::RawUncompress((char*)data_, compressedSizeBytes_, (char*)a.data());
+            size_t r;
+            snappy::GetUncompressedLength(reinterpret_cast<char *>(data_), compressedSize_*sizeof(T), &r);
+            if(r != uncompressedSize()*sizeof(T) || a.size()*sizeof(T) != r) {
+                throw std::runtime_error("CompressedArray::uncompress: error");
+            }
+            snappy::RawUncompress(reinterpret_cast<char*>(data_), compressedSize_*sizeof(T), reinterpret_cast<char*>(a.data()));
         }
         else {
             std::copy(data_, data_+uncompressedSize(), a.data());
@@ -168,7 +215,7 @@ class CompressedArray {
     /**
      * write the array 'a' into the region of interest [p,q)
      */
-    void writeArray(difference_type p, difference_type q, const vigra::MultiArray<N,T>& a) {
+    void writeArray(difference_type p, difference_type q, const vigra::MultiArrayView<N,T>& a) {
         #ifdef DEBUG_CHECKS
         for(int k=0; k<N; ++k) {
             CHECK_OP(q[k]-p[k],==,a.shape(k)," ");
@@ -178,12 +225,22 @@ class CompressedArray {
         if(isCompressed_) {
             uncompress();
         }
-        compressedSizeBytes_ = 0; //we are writing new data, need to recompute compressed size
+        compressedSize_ = 0; //we are writing new data, need to recompute compressed size
         vigra::MultiArrayView<N,T> oldA(shape_, (T*)data_);
         oldA.subarray(p,q) = a;
         if(wasCompressed) {
             compress();
         }
+    }
+    
+    /**
+     * returns the size of the array (in elements T)
+     */
+    size_t currentSize() const {
+        if(isCompressed_) {
+            return compressedSize_;
+        }
+        return uncompressedSize();
     }
 
     /**
@@ -210,20 +267,18 @@ class CompressedArray {
      * current data.
      */
     double compressionRatio() const {
-        return compressedSizeBytes_/((double)uncompressedSizeBytes());
+        return compressedSize_*sizeof(T)/((double)uncompressedSizeBytes());
     }
-
-    typename vigra::MultiArray<N, T>::difference_type shape() const { return shape_; }
+    
+    difference_type shape() const { return shape_; }
 
     private:
-    char* data_;
-
-    size_t compressedSizeBytes_;
-
-    bool isCompressed_;
-    typename vigra::MultiArray<N, T>::difference_type shape_;
-    
-    bool isDirty_;
+    T*              data_;
+    size_t          compressedSize_;
+    bool            isCompressed_;
+    difference_type shape_;
+    bool            isDirty_;
+    std::vector<bool> dirtyDimensions_;
 };
 
 #endif /* COMPRESSEDARRAY_H */

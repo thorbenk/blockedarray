@@ -77,13 +77,17 @@ if __name__ == "__main__":
     opCacheSliced.Input.connect(opProvider.Output)
    
     #these are the actual values in pixel classification
-    blockDimsX = { 't' : (1,1), 'z' : (128,256), 'y' : (128,256), 'x' : (1,1), 'c' : (100, 100) }
-    blockDimsY = { 't' : (1,1), 'z' : (128,256), 'y' : (1,1), 'x' : (128,256), 'c' : (100,100) }
-    blockDimsZ = { 't' : (1,1), 'z' : (1,1), 'y' : (128,256), 'x' : (128,256), 'c' : (100,100) }
+    #blockDimsX = { 't' : (1,1), 'z' : (128,256), 'y' : (128,256), 'x' : (1,1), 'c' : (100, 100) }
+    #blockDimsY = { 't' : (1,1), 'z' : (128,256), 'y' : (1,1), 'x' : (128,256), 'c' : (100,100) }
+    #blockDimsZ = { 't' : (1,1), 'z' : (1,1), 'y' : (128,256), 'x' : (128,256), 'c' : (100,100) }
     
     #blockDimsX = { 't' : (1,1), 'z' : (32,32), 'y' : (32,32), 'x' : (1,1), 'c' : (32,32) }
     #blockDimsY = { 't' : (1,1), 'z' : (32,32), 'y' : (1,1), 'x' : (32,32), 'c' : (32,32) }
     #blockDimsZ = { 't' : (1,1), 'z' : (1,1), 'y' : (32,32), 'x' : (32,32), 'c' : (32,32) }
+    
+    blockDimsX = { 't' : (1,1), 'z' : (32,32), 'y' : (32,32), 'x' : (32,32), 'c' : (32,32) }
+    blockDimsY = { 't' : (1,1), 'z' : (32,32), 'y' : (32,32), 'x' : (32,32), 'c' : (32,32) }
+    blockDimsZ = { 't' : (1,1), 'z' : (32,32), 'y' : (32,32), 'x' : (32,32), 'c' : (32,32) }
     
     axisOrder=['t', 'x', 'y', 'z', 'c']
     innerBlockShapeX = tuple( blockDimsX[k][0] for k in axisOrder )
@@ -92,10 +96,10 @@ if __name__ == "__main__":
     outerBlockShapeY = tuple( blockDimsY[k][1] for k in axisOrder )
     innerBlockShapeZ = tuple( blockDimsZ[k][0] for k in axisOrder )
     outerBlockShapeZ = tuple( blockDimsZ[k][1] for k in axisOrder )
+    
     opCacheSliced.innerBlockShape.setValue( (innerBlockShapeX, innerBlockShapeY, innerBlockShapeZ) )
     opCacheSliced.outerBlockShape.setValue( (outerBlockShapeX, outerBlockShapeY, outerBlockShapeZ) )
-    #opCacheSliced.innerBlockShape.setValue(blockShape)
-    #opCacheSliced.outerBlockShape.setValue(outerBlockShape)
+    
     opCacheSliced.fixAtCurrent.setValue(False)
 
     #C++ cache
