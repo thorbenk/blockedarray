@@ -148,15 +148,15 @@ void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
 }
 
 BOOST_AUTO_TEST_CASE( dim3_uint8 ) {   
-    test<3, vigra::UInt8>(vigra::Shape3(89,166,123), vigra::Shape3(22,33,44), 50);
+    test<3, vigra::UInt8>(vigra::Shape3(89,66,77), vigra::Shape3(22,11,9), 50);
 }
 BOOST_AUTO_TEST_CASE( dim3_float32 ) {   
-    test<3, float>(vigra::Shape3(75,100,200), vigra::Shape3(22,11,15), 50);
+    test<3, float>(vigra::Shape3(75,89,111), vigra::Shape3(22,11,15), 50);
 }
 BOOST_AUTO_TEST_CASE( dim5_float32 ) {   
     test<5, float>(vigra::Shape5(1,75,100,200,1), vigra::Shape5(1,22,11,15,1), 50);
     test<5, float>(vigra::Shape5(3,75,33,67,1), vigra::Shape5(2,22,11,15,1), 50);
 }
 BOOST_AUTO_TEST_CASE( dim3_int64 ) {   
-    test<3, vigra::Int64>(vigra::Shape3(200,300,100), vigra::Shape3(22,33,44), 50);
+    test<3, vigra::Int64>(vigra::Shape3(100,88,50), vigra::Shape3(13,23,7), 50);
 }

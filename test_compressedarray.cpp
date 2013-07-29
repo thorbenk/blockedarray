@@ -166,31 +166,31 @@ BOOST_AUTO_TEST_CASE( dirtyness3 ) {
 
 BOOST_AUTO_TEST_CASE( testDim1 ) {   
     testCompressedArray<1, vigra::UInt8 >(vigra::Shape1(20));
-    testCompressedArray<1, vigra::UInt16>(vigra::Shape1(20));
-    testCompressedArray<1, vigra::UInt32>(vigra::Shape1(20));
-    testCompressedArray<1, vigra::UInt64>(vigra::Shape1(20));
-    testCompressedArray<1, vigra::Int32 >(vigra::Shape1(20));
-    testCompressedArray<1, float        >(vigra::Shape1(20));
-    testCompressedArray<1, vigra::Int64 >(vigra::Shape1(20));
+    testCompressedArray<1, vigra::UInt16>(vigra::Shape1(21));
+    testCompressedArray<1, vigra::UInt32>(vigra::Shape1(22));
+    testCompressedArray<1, vigra::UInt64>(vigra::Shape1(23));
+    testCompressedArray<1, vigra::Int32 >(vigra::Shape1(24));
+    testCompressedArray<1, float        >(vigra::Shape1(25));
+    testCompressedArray<1, vigra::Int64 >(vigra::Shape1(26));
 }
     
 BOOST_AUTO_TEST_CASE( testDim2 ) {   
     testCompressedArray<2, vigra::UInt8 >(vigra::Shape2(20,30));
-    testCompressedArray<2, vigra::UInt32>(vigra::Shape2(20,30));
-    testCompressedArray<2, float        >(vigra::Shape2(20,30));
-    testCompressedArray<2, vigra::Int64 >(vigra::Shape2(20,30));
+    testCompressedArray<2, vigra::UInt32>(vigra::Shape2(21,31));
+    testCompressedArray<2, float        >(vigra::Shape2(25,32));
+    testCompressedArray<2, vigra::Int64 >(vigra::Shape2(22,33));
 }
     
 BOOST_AUTO_TEST_CASE( testDim3 ) {   
-    testCompressedArray<3, vigra::UInt8 >(vigra::Shape3(20,30,40));
-    testCompressedArray<3, vigra::UInt32>(vigra::Shape3(20,30,40));
-    testCompressedArray<3, float        >(vigra::Shape3(20,30,40));
-    testCompressedArray<3, vigra::Int64 >(vigra::Shape3(20,30,40));
+    testCompressedArray<3, vigra::UInt8 >(vigra::Shape3(24,31,45));
+    testCompressedArray<3, vigra::UInt32>(vigra::Shape3(25,32,44));
+    testCompressedArray<3, float        >(vigra::Shape3(26,34,43));
+    testCompressedArray<3, vigra::Int64 >(vigra::Shape3(27,38,41));
 }
     
 BOOST_AUTO_TEST_CASE( testDim5 ) {   
     testCompressedArray<5, vigra::UInt8 >(vigra::Shape5(2,20,30,4,1));
-    testCompressedArray<5, vigra::UInt32>(vigra::Shape5(2,20,30,4,1));
-    testCompressedArray<5, float        >(vigra::Shape5(2,20,30,4,1));
-    testCompressedArray<5, vigra::Int64 >(vigra::Shape5(2,20,30,4,1));
+    testCompressedArray<5, vigra::UInt32>(vigra::Shape5(2,18,35,3,1));
+    testCompressedArray<5, float        >(vigra::Shape5(2,23,31,2,1));
+    testCompressedArray<5, vigra::Int64 >(vigra::Shape5(2,15,30,5,1));
 }
