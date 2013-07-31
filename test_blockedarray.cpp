@@ -10,7 +10,7 @@
 #include <vigra/multi_array.hxx>
 #include <vigra/hdf5impex.hxx>
 #include <vigra/impex.hxx>
-#include <vigra/timimg.hxx>
+#include <vigra/timing.hxx>
 
 #define DEBUG_CHECKS 1
 #undef DEBUG_PRINTS

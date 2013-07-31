@@ -10,9 +10,16 @@ endif()
 
 configure_file(snappy/snappy-stubs-public.h.in ${CMAKE_CURRENT_BINARY_DIR}/snappy-stubs-public.h @ONLY)
 
-add_library(snappy STATIC
+set(SNAPPY_SRCS
     snappy/snappy.cc
     snappy/snappy-c.cc
     snappy/snappy-sinksource.cc
     snappy/snappy-stubs-internal.cc
 )
+
+if(WIN32)
+    add_library(snappy STATIC ${SNAPPY_SRCS})
+else()
+    add_library(snappy SHARED ${SNAPPY_SRCS})
+endif()
+
