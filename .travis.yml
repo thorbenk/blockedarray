@@ -1,0 +1,17 @@
+language: python
+python:
+   - "2.7"
+install:
+   - sudo apt-get install --assume-yes libhdf5-serial-dev libboost-python-dev libboost-chrono-dev libboost-timer-dev libboost-system-dev libboost-filesystem-dev libboost-test-dev
+   - sudo apt-get install -y libjpeg-dev libtiff4-dev libpng12-dev libhdf5-serial-dev cmake
+   - ln -s /usr/lib/python2.7/dist-packages/PyQt4/ $VIRTUAL_ENV/lib/python2.7/site-packages/
+   - ln -s /usr/lib/python2.7/dist-packages/sip.so $VIRTUAL_ENV/lib/python2.7/site-packages/
+   - ln -s /usr/lib/python2.7/dist-packages/sipdistutils.py $VIRTUAL_ENV/lib/python2.7/site-packages/
+   - ln -s /usr/lib/python2.7/dist-packages/sipconfig.py $VIRTUAL_ENV/lib/python2.7/site-packages/
+   - ln -s /usr/lib/python2.7/dist-packages/sipconfig_nd.py $VIRTUAL_ENV/lib/python2.7/site-packages/
+   - sudo sh .travis_scripts/install_vigra.sh $VIRTUAL_ENV
+   - mkdir build && cd build
+   - cmake -DCMAKE_BUILD_TYPE=Release ..
+   - make
+script:
+   - make test
