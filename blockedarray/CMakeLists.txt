@@ -27,8 +27,6 @@ target_link_libraries(_blockedarray
     snappy
     ${PYTHON_LIBRARY}
     ${Boost_PYTHON_LIBRARIES}
-    ${Boost_TIMER_LIBRARY}
-    ${Boost_CHRONO_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${HDF5_LIBRARY}
     ${HDF5_HL_LIBRARY}
