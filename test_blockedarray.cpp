@@ -7,11 +7,10 @@
 #define BOOST_TEST_MODULE TestBlockedArray
 #include <boost/test/unit_test.hpp>
 
-#include <boost/timer/timer.hpp>
-
 #include <vigra/multi_array.hxx>
 #include <vigra/hdf5impex.hxx>
 #include <vigra/impex.hxx>
+#include <vigra/timimg.hxx>
 
 #define DEBUG_CHECKS 1
 #undef DEBUG_PRINTS
@@ -88,11 +87,12 @@ void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
             std::cout << "read: " << n << " of " << nSamples << "             \r" << std::flush;
         }
 
+        USETICTOC
         //read blocked
-        boost::timer::cpu_timer t1;
+        TIC
         vigra::MultiArray<N, T> smallBlock(q-p);
         blockedArray.readSubarray(p,q, smallBlock);
-        if(verbose) std::cout << "  read blocked: " << t1.format(10, "%w sec.") << std::endl;
+        if(verbose) std::cout << "  read blocked: " << TOCS << std::endl;
 
         BOOST_CHECK_EQUAL(smallBlock.shape(),theData.subarray(p, q).shape());
 
@@ -125,9 +125,10 @@ void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
         //    a[i] = random.uniformInt(256);
         //}
         
-        boost::timer::cpu_timer t1;
+        USETICTOC
+        TIC
         blockedArray.writeSubarray(p,q, a);
-        if(verbose) std::cout << "  write blocked: " << t1.format(10, "%w sec.") << std::endl;
+        if(verbose) std::cout << "  write blocked: " << TOCS << std::endl;
         
         theData.subarray(p,q) = a;
         
