@@ -1,5 +1,6 @@
 set(Python_ADDITIONAL_VERSIONS 2.7)
 find_package(PythonLibs)
+find_package(Numpy REQUIRED)
 find_package(Boost COMPONENTS python REQUIRED)
 
 #
@@ -9,6 +10,7 @@ find_package(Boost COMPONENTS python REQUIRED)
 include_directories(
     ${PYTHON_INCLUDE_DIR}
     ${PROJECT_SOURCE_DIR}
+    ${PYTHON_NUMPY_INCLUDE_DIR}
 )
 
 add_library(_blockedarray SHARED
