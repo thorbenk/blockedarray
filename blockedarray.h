@@ -5,7 +5,6 @@
 
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
-#include <boost/timer/timer.hpp>
 
 #include <vigra/timing.hxx>
 
@@ -188,10 +187,6 @@ class BlockedArray {
      */
     void readSubarray(difference_type p, difference_type q, vigra::MultiArrayView<N, T>& out) const {
         using vigra::MultiArrayView;
-        using boost::timer::cpu_timer;
-        
-        cpu_timer startMethod;
-        const long double sec = 1000000000.0L;
 
         //make sure to initialize the array with zeros
         //if a block does not exist, we assume missing values of zero
@@ -213,8 +208,6 @@ class BlockedArray {
         double timeReadarray  = 0.0;
 
         BOOST_FOREACH(BlockCoord blockCoor, bb) {
-            cpu_timer startLoop;
-            
             difference_type bp, bq;
             blockBounds(blockCoor, bp, bq);
 
