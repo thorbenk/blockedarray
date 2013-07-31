@@ -177,6 +177,7 @@ class CompressedArray {
             snappy::RawCompress(reinterpret_cast<char*>(data_), uncompressedSizeBytes(),
                                 reinterpret_cast<char*>(d), &outLength);
             outLength = CEIL_INT_DIV(outLength, sizeof(T));
+            delete[] data_;
             data_ = new T[outLength];
             std::copy(d, d+outLength, data_);
             delete[] d;
