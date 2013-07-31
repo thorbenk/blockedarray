@@ -59,6 +59,36 @@ class Roi {
         return true;
     }
     
+    Roi<N-1> removeAxis(int axis) const {
+        Roi<N-1> ret;
+        int j=0;
+        for(int i=0; i<N; ++i) {
+            if(i == axis) continue;
+            ret.p[j] = p[i];
+            ret.q[j] = q[i];
+            ++j;
+        }
+        return ret;
+    }
+    
+    Roi<N+1> appendAxis(int from, int to) const {
+        Roi<N+1> ret;
+        std::copy(p.begin(), p.end(), ret.p.begin());
+        std::copy(q.begin(), q.end(), ret.q.begin());
+        ret.p[N] = from;
+        ret.q[N] = to;
+        return ret; 
+    }
+    
+    Roi<N+1> prependAxis(int from, int to) const {
+        Roi<N+1> ret;
+        std::copy(p.begin(), p.end(), ret.p.begin()+1);
+        std::copy(q.begin(), q.end(), ret.q.begin()+1);
+        ret.p[0] = from;
+        ret.q[0] = to;
+        return ret; 
+    }
+    
     V p;
     V q;
 };
@@ -84,6 +114,8 @@ template<int N>
 class Blocking {
     public:
     typedef typename Roi<N>::V V;
+    
+    typedef std::pair<V, Roi<N> > Pair;
         
     Blocking() {}
     
@@ -179,22 +211,13 @@ void blockMerge(
     ArrayView ov2 = block2.subarray(intersection.p - roi2.p, intersection.q -roi2.p); 
     if(ov1.shape() != ov2.shape()) { throw std::runtime_error("err"); }
     
-    //std::cout << "merge " << roi1 << " and " << roi2 << " (intersect=" << intersection << "), offsets " << offset1 << ", " << offset2 << " | " << ov1.shape() << std::endl;
-    //std::cout << "  block1.subarray(" << intersection.p - roi1.p << ", " << intersection.q -roi1.p << std::endl; 
-    //std::cout << "  block2.subarray(" << intersection.p - roi2.p << ", " << intersection.q -roi2.p << std::endl;; 
-
     typename ArrayView::iterator it1 = ov1.begin();
     typename ArrayView::iterator it2 = ov2.begin();
     for(; it1 != ov1.end(); ++it1, ++it2) {
         int x = *it1+offset1;
         int y = *it2+offset2;
-        if(*it1 == 0) ufd.makeUnion(0,y);
-        if(*it2 == 0) ufd.makeUnion(x,0);
-        
-        //if(ufd.find(x) == ufd.find(y)) {
-        //    continue;
-        //}
-        
+        //if(*it1 == 0) ufd.makeUnion(0,y);
+        //if(*it2 == 0) ufd.makeUnion(x,0);
         ufd.makeUnion(x, y);
     }
 }
@@ -232,7 +255,7 @@ class BlockwiseThresholding {
         blocking_ = bb;
     }
     
-    void run(T threshold, const std::string hdf5file, const std::string&hdf5group) {
+    void run(T threshold, const std::string& hdf5file, const std::string& hdf5group) {
         using namespace vigra;
        
         HDF5File out(hdf5file, HDF5File::Open);
@@ -265,6 +288,77 @@ class BlockwiseThresholding {
     V shape_;
     V blockShape_;
     Blocking<N> blocking_;
+};
+
+/**
+ * Blockwise channel selector.
+ * 
+ * FIXME: Assumes channel is first axis
+ */
+template<int N, class T>
+class BlockwiseChannelSelector {
+    public:
+    
+    typedef typename Roi<N-1>::V V;
+    
+    BlockwiseChannelSelector(const std::string& hdf5file, const std::string& hdf5group, V blockShape)
+        : hdf5file_(hdf5file)
+        , hdf5group_(hdf5group)
+        , blockShape_(blockShape)
+    {
+        using vigra::HDF5File;
+        HDF5File f(hdf5file, HDF5File::OpenReadOnly);
+        vigra::ArrayVector<hsize_t> sh = f.getDatasetShape(hdf5group);
+        std::cout << "* blockwise channel selector on dataset with shape = " << sh << std::endl;
+        f.close();
+        vigra_precondition(sh.size() == N, "dataset shape is wrong");
+        std::copy(sh.begin()+1, sh.end(), shape_.begin());
+        std::cout << "  shape without channel: " << shape_ << std::endl;
+        Roi<N-1> roi(V(), shape_);
+        Blocking<N-1> bb(roi, blockShape, V());
+        std::cout << bb.numBlocks() << std::endl;
+        blocking_ = bb;
+    }
+    
+    void run(int channel, const std::string& hdf5file, const std::string& hdf5group) {
+        using namespace vigra;
+        using std::vector;
+        
+        HDF5File out(hdf5file, HDF5File::Open);
+        std::cout << hdf5file << ", " << hdf5group << ", " << shape_ << blockShape_ << std::endl;
+        
+        typename vigra::MultiArrayShape<N-1>::type sh, bShape;
+        
+        std::cout << hdf5group << ", " << shape_ << ", " << blockShape_ << std::endl;
+        out.createDataset<N-1, T>(hdf5group, shape_, 0, blockShape_, 6 /*compression*/);
+        int blockNum = 0;
+        
+        vector<typename Blocking<N-1>::Pair> blocks = blocking_.blocks();
+        
+        for(int i=0; i<blocks.size(); ++i) {
+            const Roi<N-1>& roi = blocks[i].second;
+            
+            std::cout << "  block " << i+1 << "/" << blocks.size() << "        \r" << std::flush;
+           
+            Roi<N> newRoi = roi.prependAxis(channel, channel+1);
+            
+            MultiArray<N, T> inBlock(newRoi.q - newRoi.p);
+            HDF5File in(hdf5file_, HDF5File::OpenReadOnly);
+            in.readBlock(hdf5group_, newRoi.p, newRoi.q-newRoi.p, inBlock);
+            in.close();
+            
+            out.writeBlock(hdf5group, roi.p, inBlock.template bind<0>(0));
+            ++blockNum;
+        }
+        out.close();
+    }
+    
+    private:
+    std::string hdf5file_;
+    std::string hdf5group_;
+    V shape_;
+    V blockShape_;
+    Blocking<N-1> blocking_;
 };
 
 /**
@@ -383,7 +477,7 @@ class BlockwiseConnectedComponents {
         size_t sizeBytesUncompressed = 0;
         
         for(size_t i=0; i<blockRois_.size(); ++i) {
-            std::cout << "  block " << i+1 << "/" << blockRois_.size() << "        \r" << std::flush;
+            std::cout << "  block " << i+1 << "/" << blockRois_.size() << " (#components: " << offsets[i] << ", curr compressed size: " << sizeBytes/(1024.0*1024.0) << " MB)                  \r" << std::flush;
             Roi<N>& block = blockRois_[i].second;
             //std::cout << "  - CC on block " << block << std::endl;
             
@@ -404,8 +498,10 @@ class BlockwiseConnectedComponents {
             //    0 /*bg label*/);
         
             //ccBlocks_[i] = cc;
+            
             ccBlocks_[i] = Compressed(cc);
             ccBlocks_[i].compress();
+            
             sizeBytes += ccBlocks_[i].currentSizeBytes();
             sizeBytesUncompressed += ccBlocks_[i].uncompressedSizeBytes();
             
@@ -414,7 +510,9 @@ class BlockwiseConnectedComponents {
         std::cout << std::endl;
         std::cout << "  " << sizeBytes/(1024.0*1024.0) << " MB (vs. " << sizeBytesUncompressed/(1024.0*1024.0) << "MB uncompressed)" << std::endl;
         
-        LabelType maxOffset = std::accumulate(offsets.begin(), offsets.end(), 0);
+        LabelType maxOffset = offsets[offsets.size()-1];
+        
+        std::cout << "  initialize union find datastructure with maxOffset = " << maxOffset << std::endl;
         UnionFindArray<LabelType> ufd(maxOffset);
         
         //
@@ -488,7 +586,7 @@ class BlockwiseConnectedComponents {
         
         std::cout << "* write " << hdf5file << "/" << hdf5group << std::endl;
         HDF5File out(hdf5file, HDF5File::Open);
-        out.createDataset<N, LabelType>(hdf5group, blockProvider_->shape(), 0, blockShape_, 9 /*compression*/);
+        out.createDataset<N, LabelType>(hdf5group, blockProvider_->shape(), 0, blockShape_, 1 /*compression*/);
         for(size_t i=0; i<blockRois_.size(); ++i) {
             std::cout << "  block " << i+1 << "/" << blockRois_.size() << "        \r" << std::flush;
             const Roi<N>& roi = blockRois_[i].second;

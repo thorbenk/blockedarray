@@ -42,12 +42,21 @@ struct ExportV<3, V> {
     }
 };
 
+template<class V>
+struct ExportV<4, V> {
+    static void export_() {
+        using namespace boost::python;
+        class_<V>("V", init<int, int, int, int>());
+    }
+};
+
 template<int N, class T>
 void blockwiseCC() {
     
     using namespace boost::python;
     typedef BlockwiseConnectedComponents<N, T> BCC;
     typedef BlockwiseThresholding<N, T> BWT;
+    typedef BlockwiseChannelSelector<N+1, T> BWCS;
     typedef PyBlockwiseConnectedComponents<N,T> PyBCC;
     typedef HDF5BlockProvider<N, T> HDF5BP_T;
    
@@ -66,6 +75,11 @@ void blockwiseCC() {
     class_<BWT>("BlockwiseThresholding",
         init<std::string, std::string, typename BWT::V>())
         .def("run", vigra::registerConverters(&BWT::run))
+    ;
+    
+    class_<BWCS>("BlockwiseChannelSelector",
+        init<std::string, std::string, typename BWCS::V>())
+        .def("run", vigra::registerConverters(&BWCS::run))
     ;
    
     class_<BlockProvider<N, T> >("BlockProvider", no_init);

@@ -33,7 +33,7 @@ def test3():
     img = vigra.impex.readImage("balls.jpg").view(numpy.ndarray).mean(axis=2)
     print img.min(), img.max(), img.mean()
     img = numpy.dstack([img]*50)
-
+    
     vigra.writeHDF5(img, "/tmp/img.h5", "img")
 
     bwt = dim3.BlockwiseThresholding("/tmp/img.h5", "img", dim3.V(10,100,100))
