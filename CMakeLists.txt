@@ -33,5 +33,13 @@ target_link_libraries(test_compressedarray
 )
 add_test("test_compressedarray" test_compressedarray)
 
+
+add_executable(test_blockedcc test_blockedcc.cpp)
+target_link_libraries(test_blockedcc
+    snappy
+    ${Boost_UNIT_TEST_FRAMEWORK_LIBRARY}
+)
+add_test("test_blockedcc" test_blockedcc)
+
 add_subdirectory(thirdparty)
 add_subdirectory(blockedarray)

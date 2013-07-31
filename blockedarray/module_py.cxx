@@ -7,6 +7,7 @@
 #include <vigra/numpy_array.hxx>
 
 #include "blockedarray_py.h"
+#include "blockwisecc_py.h"
 
 BOOST_PYTHON_MODULE_INIT(_blockedarray) {
     _import_array();
@@ -14,4 +15,5 @@ BOOST_PYTHON_MODULE_INIT(_blockedarray) {
     boost::python::numeric::array::set_module_and_type("numpy", "ndarray");
 
     export_blockedArray();
+    export_blockwiseCC();
 }  
