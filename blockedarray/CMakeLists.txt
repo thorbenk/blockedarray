@@ -16,17 +16,24 @@ add_library(_blockedarray SHARED
     blockedarray_py.cxx
     blockwisecc_py.cxx
 )
+
+if(WIN32)
+    set(RT_LIBRARY "")
+else()
+    set(RT_LIBRARY "rt")
+endif()
+
 target_link_libraries(_blockedarray
     snappy
     ${PYTHON_LIBRARY}
     ${Boost_PYTHON_LIBRARIES}
     ${Boost_TIMER_LIBRARY}
-    ${HDF5_CORE_LIBRARY}
+    ${Boost_CHRONO_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${HDF5_LIBRARY}
     ${HDF5_HL_LIBRARY}
     ${VIGRA_IMPEX_LIBRARY}
-    ${VIGRA_NUMPY_CORE_LIBRARY}
-    ${VIGRA_NUMPY_IMPEX_LIBRARY}
-    rt
+    ${RT_LIBRARY}
 )
 set_target_properties(_blockedarray PROPERTIES
     PREFIX ""

@@ -144,7 +144,7 @@ class Blocking {
         return c;
     }
     
-    Roi<N> addBlock(V x) {
+    void addBlock(V x) {
         Roi<N> r;
         for(int i=0; i<N; ++i) {
             r.p[i] = x[i]*blockShape_[i];
@@ -278,8 +278,8 @@ class BlockProvider {
     BlockProvider() {}
     virtual ~BlockProvider() {};
     
-    virtual V shape() const {};
-    virtual bool readBlock(Roi<N> roi, vigra::MultiArrayView<N,T>& block) const {};
+    virtual V shape() const { return V(); };
+    virtual bool readBlock(Roi<N> roi, vigra::MultiArrayView<N,T>& block) const { return true; };
 };
 
 /**
@@ -315,6 +315,7 @@ class HDF5BlockProvider : public BlockProvider<N,T> {
         HDF5File in(hdf5file_, HDF5File::OpenReadOnly);
         in.readBlock(hdf5group_, roi.p, roi.q-roi.p, block);
         in.close();
+        return true;
     }
     
     private:
