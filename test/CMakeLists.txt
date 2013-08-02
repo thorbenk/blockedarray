@@ -29,3 +29,7 @@ add_test("test_blocking" test_blocking)
 add_executable(test_hdf5blockedsource test_hdf5blockedsource.cpp)
 target_link_libraries(test_hdf5blockedsource ${VIGRA_IMPEX_LIBRARY} ${HDF5_LIBRARY} ${HDF5_HL_LIBRARY})
 add_test("test_hdf5blockedsource" test_hdf5blockedsource)
+
+add_executable(test_hdf5blockedsink test_hdf5blockedsink.cpp)
+target_link_libraries(test_hdf5blockedsink ${VIGRA_IMPEX_LIBRARY} ${HDF5_LIBRARY} ${HDF5_HL_LIBRARY})
+add_test("test_hdf5blockedsink" test_hdf5blockedsink)

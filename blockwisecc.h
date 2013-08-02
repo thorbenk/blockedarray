@@ -423,8 +423,8 @@ class BlockedSink {
         blockShape_ = shape;
     }
     
-    V shape() const { return V(); };
-    V blockShape() const { return V(); };
+    V shape() const { return shape_; };
+    V blockShape() const { return blockShape_; };
     
     virtual bool writeBlock(Roi<N> roi, const vigra::MultiArrayView<N,T>& block) const { return true; };
     
