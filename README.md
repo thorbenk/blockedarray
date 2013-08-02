@@ -55,13 +55,13 @@ installation
       make install
       ```
 
-Finally, to install `blockedarray`:
+- Finally, to install `blockedarray`:
 
-```bash
-mkdir build
-cd build
-cmake ..
-git submodule init
-git submodule update
-make
-```
+      ```bash
+      mkdir build
+      cd build
+      cmake ..
+      git submodule init
+      git submodule update
+      make
+      ```
