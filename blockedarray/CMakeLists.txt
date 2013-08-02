@@ -27,9 +27,7 @@ endif()
 
 target_link_libraries(_blockedarray
     snappy
-    ${PYTHON_LIBRARY}
     ${Boost_PYTHON_LIBRARIES}
-    ${Boost_SYSTEM_LIBRARY}
     ${HDF5_LIBRARY}
     ${HDF5_HL_LIBRARY}
     ${VIGRA_IMPEX_LIBRARY}

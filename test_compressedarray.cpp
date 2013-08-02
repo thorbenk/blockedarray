@@ -3,9 +3,7 @@
 #include "compressedarray.h"
 #include "test_utils.h"
 
-#define BOOST_TEST_DYN_LINK
-#define BOOST_TEST_MODULE TestCompressedArray
-#include <boost/test/unit_test.hpp>
+#include <vigra/unittest.hxx>
 
 template<int N, class T>
 void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataShape)
@@ -17,43 +15,43 @@ void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataSh
     
     {
         CA e; //empty
-        BOOST_CHECK(!e.isCompressed());
-        BOOST_CHECK_EQUAL(e.compressedSize(), 0);
-        BOOST_CHECK(!e.isDirty());
+        should(!e.isCompressed());
+        shouldEqual(e.compressedSize(), 0);
+        should(!e.isDirty());
     }
 
     //std::cout << "construct" << std::endl;
     CA ca(theData);
-    BOOST_CHECK(!ca.isDirty());
-    BOOST_CHECK(!ca.isCompressed());
-    BOOST_CHECK_EQUAL(ca.compressedSize(), 0);
-    BOOST_CHECK_EQUAL(ca.shape(), theData.shape());
+    should(!ca.isDirty());
+    should(!ca.isCompressed());
+    shouldEqual(ca.compressedSize(), 0);
+    shouldEqual(ca.shape(), theData.shape());
     
     //std::cout << "read" << std::endl;
     vigra::MultiArray<N,T> r(dataShape);
     ca.readArray(r);
-    BOOST_CHECK(arraysEqual(theData, r)); 
+    should(arraysEqual(theData, r)); 
     
     //std::cout << "compress & uncompress" << std::endl;
     ca.compress();
     std::fill(r.begin(), r.end(), 0);
     ca.readArray(r);
-    BOOST_CHECK(arraysEqual(theData, r)); 
+    should(arraysEqual(theData, r)); 
     
-    BOOST_CHECK(ca.isCompressed());
-    BOOST_CHECK(ca.compressedSize() > 0);
+    should(ca.isCompressed());
+    should(ca.compressedSize() > 0);
     ca.uncompress();
-    BOOST_CHECK(ca.compressedSize() > 0);
-    BOOST_CHECK(!ca.isCompressed());
+    should(ca.compressedSize() > 0);
+    should(!ca.isCompressed());
     std::fill(r.begin(), r.end(), 0);
     ca.readArray(r);
-    BOOST_CHECK(arraysEqual(theData, r)); 
+    should(arraysEqual(theData, r)); 
 
     //std::cout << "compress & read" << std::endl;
     ca.compress();
-    BOOST_CHECK(ca.isCompressed());
+    should(ca.isCompressed());
     ca.readArray(r);
-    BOOST_CHECK(arraysEqual(theData, r)); 
+    should(arraysEqual(theData, r)); 
     
     //std::cout << "copy-construct" << std::endl;
     {
@@ -62,7 +60,7 @@ void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataSh
         vigra::MultiArray<N,T> r2(dataShape);
         ca.readArray(r1);
         ca2.readArray(r2);
-        BOOST_CHECK(arraysEqual(r1, r2));
+        should(arraysEqual(r1, r2));
     }
    
     //std::cout << "assignment" << std::endl;
@@ -73,21 +71,21 @@ void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataSh
         vigra::MultiArray<N,T> r2(dataShape);
         ca.readArray(r1);
         ca2.readArray(r2);
-        BOOST_CHECK(arraysEqual(r1, r2));
+        should(arraysEqual(r1, r2));
     }
    
-    BOOST_CHECK(!ca.isDirty());
+    should(!ca.isDirty());
     ca.setDirty(true);
-    BOOST_CHECK(ca.isDirty());
+    should(ca.isDirty());
   
     {
         vigra::MultiArray<N,T> toWrite(ca.shape());
         std::fill(toWrite.begin(), toWrite.end(), 42);
         ca.writeArray(typename CA::difference_type(), ca.shape(), toWrite);
-        BOOST_CHECK(!ca.isDirty());
+        should(!ca.isDirty());
         std::fill(r.begin(), r.end(), 0);
         ca.readArray(r);
-        BOOST_CHECK(arraysEqual(r, toWrite));
+        should(arraysEqual(r, toWrite));
        
         ca.setDirty(true);
         //now, write only a subset of the data.
@@ -95,9 +93,9 @@ void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataSh
         std::fill(toWrite.begin(), toWrite.end(), 41);
         typename CA::difference_type end;
         std::fill(end.begin(), end.end(), 1);
-        BOOST_CHECK(ca.shape()[0] > 1);
+        should(ca.shape()[0] > 1);
         ca.writeArray(typename CA::difference_type(), end, toWrite.subarray(typename CA::difference_type(), end));
-        BOOST_CHECK(ca.isDirty());
+        should(ca.isDirty());
     }
     
     ca.compress();
@@ -108,11 +106,12 @@ void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataSh
         ca.writeArray(typename CA::difference_type(), ca.shape(), toWrite);
         std::fill(r.begin(), r.end(), 0);
         ca.readArray(r);
-        BOOST_CHECK(arraysEqual(r, toWrite));
+        should(arraysEqual(r, toWrite));
     }
 }
 
-BOOST_AUTO_TEST_CASE( dirtyness3 ) {
+struct CompressedArrayTest {
+void dirtyness3() {
     typedef vigra::MultiArray<3, int> Array;
     using vigra::Shape3;
    
@@ -122,49 +121,49 @@ BOOST_AUTO_TEST_CASE( dirtyness3 ) {
     CompressedArray<3, int> ca(data);
  
     ca.setDirty(true);
-    BOOST_CHECK(ca.isDirty(0,0));
-    BOOST_CHECK(ca.isDirty(0,3));
-    BOOST_CHECK(ca.isDirty(1,0));
-    BOOST_CHECK(ca.isDirty(1,3));
-    BOOST_CHECK(ca.isDirty(2,0));
-    BOOST_CHECK(ca.isDirty(2,3));
+    should(ca.isDirty(0,0));
+    should(ca.isDirty(0,3));
+    should(ca.isDirty(1,0));
+    should(ca.isDirty(1,3));
+    should(ca.isDirty(2,0));
+    should(ca.isDirty(2,3));
     ca.setDirty(false);
-    BOOST_CHECK(!ca.isDirty(0,0));
-    BOOST_CHECK(!ca.isDirty(0,3));
-    BOOST_CHECK(!ca.isDirty(1,0));
-    BOOST_CHECK(!ca.isDirty(1,3));
-    BOOST_CHECK(!ca.isDirty(2,0));
-    BOOST_CHECK(!ca.isDirty(2,3));
+    should(!ca.isDirty(0,0));
+    should(!ca.isDirty(0,3));
+    should(!ca.isDirty(1,0));
+    should(!ca.isDirty(1,3));
+    should(!ca.isDirty(2,0));
+    should(!ca.isDirty(2,3));
     ca.setDirty(3,7, true);
-    BOOST_CHECK(ca.isDirty(3,7));
+    should(ca.isDirty(3,7));
     ca.setDirty(3,7, false);
-    BOOST_CHECK(!ca.isDirty(3,7));
+    should(!ca.isDirty(3,7));
     
     ca.setDirty(true);
     
     {
         Shape3 p(4,0,0), q(5,30,40); //write a 2D slice
         ca.writeArray(p,q, data.subarray(p,q));
-        BOOST_CHECK(ca.isDirty());
-        BOOST_CHECK(!ca.isDirty(0, 4));
+        should(ca.isDirty());
+        should(!ca.isDirty(0, 4));
     }
   
     {
         Shape3 p(0,6,0), q(10,7,40); //write a 2D slice
         ca.writeArray(p,q, data.subarray(p,q));
-        BOOST_CHECK(ca.isDirty());
-        BOOST_CHECK(!ca.isDirty(1, 6));
+        should(ca.isDirty());
+        should(!ca.isDirty(1, 6));
     }
     
     for(int i=0; i<10; ++i) {
         Shape3 p(i,0,0), q(i+1,30,40); //write a 2D slice
         ca.writeArray(p,q, data.subarray(p,q));
-        BOOST_CHECK(!ca.isDirty(0, i));
+        should(!ca.isDirty(0, i));
     }
-    BOOST_CHECK(!ca.isDirty());
+    should(!ca.isDirty());
 }
 
-BOOST_AUTO_TEST_CASE( testDim1 ) {   
+void testDim1() {
     testCompressedArray<1, vigra::UInt8 >(vigra::Shape1(20));
     testCompressedArray<1, vigra::UInt16>(vigra::Shape1(21));
     testCompressedArray<1, vigra::UInt32>(vigra::Shape1(22));
@@ -174,23 +173,45 @@ BOOST_AUTO_TEST_CASE( testDim1 ) {
     testCompressedArray<1, vigra::Int64 >(vigra::Shape1(26));
 }
     
-BOOST_AUTO_TEST_CASE( testDim2 ) {   
+void testDim2() {
+    testCompressedArray<1, vigra::UInt8 >(vigra::Shape1(20));
     testCompressedArray<2, vigra::UInt8 >(vigra::Shape2(20,30));
     testCompressedArray<2, vigra::UInt32>(vigra::Shape2(21,31));
     testCompressedArray<2, float        >(vigra::Shape2(25,32));
     testCompressedArray<2, vigra::Int64 >(vigra::Shape2(22,33));
 }
     
-BOOST_AUTO_TEST_CASE( testDim3 ) {   
+void testDim3() {
+    testCompressedArray<1, vigra::UInt8 >(vigra::Shape1(20));
     testCompressedArray<3, vigra::UInt8 >(vigra::Shape3(24,31,45));
     testCompressedArray<3, vigra::UInt32>(vigra::Shape3(25,32,44));
     testCompressedArray<3, float        >(vigra::Shape3(26,34,43));
     testCompressedArray<3, vigra::Int64 >(vigra::Shape3(27,38,41));
 }
     
-BOOST_AUTO_TEST_CASE( testDim5 ) {   
+void testDim5() {
     testCompressedArray<5, vigra::UInt8 >(vigra::Shape5(2,20,30,4,1));
     testCompressedArray<5, vigra::UInt32>(vigra::Shape5(2,18,35,3,1));
     testCompressedArray<5, float        >(vigra::Shape5(2,23,31,2,1));
     testCompressedArray<5, vigra::Int64 >(vigra::Shape5(2,15,30,5,1));
+}
+}; /* struct CompressedArrayTest */
+
+struct CompressedArrayTestSuite : public vigra::test_suite {
+    CompressedArrayTestSuite()
+        : vigra::test_suite("BlockedArrayTestSuite")
+    {
+        add( testCase(&CompressedArrayTest::dirtyness3));
+        add( testCase(&CompressedArrayTest::testDim1));
+        add( testCase(&CompressedArrayTest::testDim2));
+        add( testCase(&CompressedArrayTest::testDim3));
+        add( testCase(&CompressedArrayTest::testDim5));
+    }
+};
+
+int main(int argc, char ** argv) {
+    CompressedArrayTestSuite test;
+    int failed = test.run(vigra::testsToBeExecuted(argc, argv));
+    std::cout << test.report() << std::endl;
+    return (failed != 0);
 }

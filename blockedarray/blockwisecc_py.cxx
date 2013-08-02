@@ -58,7 +58,7 @@ void blockwiseCC() {
     typedef BlockwiseThresholding<N, T> BWT;
     typedef BlockwiseChannelSelector<N+1, T> BWCS;
     typedef PyBlockwiseConnectedComponents<N,T> PyBCC;
-    typedef HDF5BlockProvider<N, T> HDF5BP_T;
+    typedef HDF5BlockedSource<N, T> HDF5BP_T;
    
     std::stringstream n; n << N;
     
@@ -74,23 +74,26 @@ void blockwiseCC() {
     
     class_<BWT>("BlockwiseThresholding",
         init<std::string, std::string, typename BWT::V>())
-        .def("run", vigra::registerConverters(&BWT::run))
+        .def("run", vigra::registerConverters(&BWT::run),
+             (arg("threshold"), arg("ifLower"), arg("ifHigher"), arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
     ;
-    
+        
     class_<BWCS>("BlockwiseChannelSelector",
         init<std::string, std::string, typename BWCS::V>())
-        .def("run", vigra::registerConverters(&BWCS::run))
+        .def("run", vigra::registerConverters(&BWCS::run),
+            (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
     ;
    
-    class_<BlockProvider<N, T> >("BlockProvider", no_init);
+    class_<BlockedSource<N, T> >("BlockedSource", no_init);
     
-    class_<HDF5BlockProvider<N, T>, bases<BlockProvider<N, T> > >("HDF5BlockProvider",
+    class_<HDF5BlockedSource<N, T>, bases<BlockedSource<N, T> > >("HDF5BlockedSource",
         init<std::string, std::string>())
     ;
     
     class_<BCC>("BlockwiseConnectedComponents",
-        init<BlockProvider<N, T>*, typename BCC::V>())
-        .def("writeResult", &BCC::writeResult)
+        init<BlockedSource<N, T>*, typename BCC::V>())
+        .def("writeResult", &BCC::writeResult,
+             (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
     ;
 }
 

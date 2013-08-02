@@ -3,14 +3,11 @@
 #include <map>
 #include <cmath>
 
-#define BOOST_TEST_DYN_LINK
-#define BOOST_TEST_MODULE TestBlockedArray
-#include <boost/test/unit_test.hpp>
-
 #include <vigra/multi_array.hxx>
 #include <vigra/hdf5impex.hxx>
 #include <vigra/impex.hxx>
 #include <vigra/timing.hxx>
+#include <vigra/unittest.hxx>
 
 #define DEBUG_CHECKS 1
 #undef DEBUG_PRINTS
@@ -37,14 +34,14 @@ void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
     
     {
         BA emptyArray(blockShape);
-        BOOST_CHECK_EQUAL(emptyArray.numBlocks(), 0);
-        BOOST_CHECK_EQUAL(emptyArray.sizeBytes(), 0);
+        shouldEqual(emptyArray.numBlocks(), 0);
+        shouldEqual(emptyArray.sizeBytes(), 0);
     }
     
     BA blockedArray(blockShape, theData);
-    BOOST_CHECK_CLOSE(blockedArray.averageCompressionRatio(), 0.0, 1E-10);
-    BOOST_CHECK(blockedArray.numBlocks() > 0);
-    BOOST_CHECK(blockedArray.sizeBytes() > 0);
+    shouldEqualTolerance(blockedArray.averageCompressionRatio(), 0.0, 1E-10);
+    should(blockedArray.numBlocks() > 0);
+    should(blockedArray.sizeBytes() > 0);
     
     typedef std::vector<std::pair<diff_t, diff_t> > BoundsList;
     BoundsList bounds;
@@ -94,11 +91,11 @@ void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
         blockedArray.readSubarray(p,q, smallBlock);
         if(verbose) std::cout << "  read blocked: " << TOCS << std::endl;
 
-        BOOST_CHECK_EQUAL(smallBlock.shape(),theData.subarray(p, q).shape());
+        shouldEqual(smallBlock.shape(),theData.subarray(p, q).shape());
 
         vigra::MultiArray<N, T> referenceBlock(theData.subarray(p,q));
 
-        BOOST_CHECK(arraysEqual(smallBlock, referenceBlock));
+        should(arraysEqual(smallBlock, referenceBlock));
         ++n;
     }
     if(!verbose) { std::cout << std::endl; }
@@ -135,7 +132,7 @@ void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
         vigra::MultiArray<N, T> r(theData.shape());
         blockedArray.readSubarray(diff_t(), theData.shape(), r);
         
-        BOOST_CHECK(arraysEqual(theData, r)); 
+        should(arraysEqual(theData, r)); 
         ++n;
     }
     if(!verbose) { std::cout << std::endl; }
@@ -145,19 +142,39 @@ void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
     //
     blockedArray.deleteSubarray(diff_t(), theData.shape());
     
-    BOOST_CHECK_EQUAL(blockedArray.numBlocks(),0);
+    shouldEqual(blockedArray.numBlocks(),0);
 }
 
-BOOST_AUTO_TEST_CASE( dim3_uint8 ) {   
+struct BlockedArrayTest {
+void dim3_uint8() {
     test<3, vigra::UInt8>(vigra::Shape3(89,66,77), vigra::Shape3(22,11,9), 50);
 }
-BOOST_AUTO_TEST_CASE( dim3_float32 ) {   
+void dim3_float32() {
     test<3, float>(vigra::Shape3(75,89,111), vigra::Shape3(22,11,15), 50);
 }
-BOOST_AUTO_TEST_CASE( dim5_float32 ) {   
+void dim5_float32() {
     test<5, float>(vigra::Shape5(1,75,100,200,1), vigra::Shape5(1,22,11,15,1), 50);
     test<5, float>(vigra::Shape5(3,75,33,67,1), vigra::Shape5(2,22,11,15,1), 50);
 }
-BOOST_AUTO_TEST_CASE( dim3_int64 ) {   
+void dim3_int64() {
     test<3, vigra::Int64>(vigra::Shape3(100,88,50), vigra::Shape3(13,23,7), 50);
+}
+}; /* struct CompressedArrayTest */
+
+struct BlockedArrayTestSuite : public vigra::test_suite {
+    BlockedArrayTestSuite()
+        : vigra::test_suite("BlockedArrayTestSuite")
+    {
+        add( testCase(&BlockedArrayTest::dim3_uint8));
+        add( testCase(&BlockedArrayTest::dim3_float32));
+        add( testCase(&BlockedArrayTest::dim5_float32));
+        add( testCase(&BlockedArrayTest::dim3_int64));
+    }
+};
+
+int main(int argc, char ** argv) {
+    BlockedArrayTestSuite test;
+    int failed = test.run(vigra::testsToBeExecuted(argc, argv));
+    std::cout << test.report() << std::endl;
+    return (failed != 0);
 }

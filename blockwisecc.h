@@ -40,6 +40,13 @@ class Roi {
      * Constructs an empty region of interest
      */
     Roi() {} 
+   
+    /**
+     * equality
+     */
+    bool operator==(const Roi<N>& other) {
+        return other.p == p && other.q == q;
+    }
     
     /**
      * intersection of this Roi with 'other'
@@ -58,7 +65,17 @@ class Roi {
         }
         return true;
     }
+   
+    /**
+     * extent of this region of interest 
+     */
+    V shape() const {
+        return q-p;
+    }
     
+    /**
+     * remove the 'axis'-th dimension (counting from 0) 
+     */
     Roi<N-1> removeAxis(int axis) const {
         Roi<N-1> ret;
         int j=0;
@@ -70,7 +87,11 @@ class Roi {
         }
         return ret;
     }
-    
+   
+    /**
+     * append a dimension/axis at the end, for which the region of interest
+     * lies in [from, to) 
+     */
     Roi<N+1> appendAxis(int from, int to) const {
         Roi<N+1> ret;
         std::copy(p.begin(), p.end(), ret.p.begin());
@@ -79,7 +100,11 @@ class Roi {
         ret.q[N] = to;
         return ret; 
     }
-    
+     
+    /**
+     * prepend a dimension/axis at the beginning, for which the region of interest
+     * lies in [from, to) 
+     */
     Roi<N+1> prependAxis(int from, int to) const {
         Roi<N+1> ret;
         std::copy(p.begin(), p.end(), ret.p.begin()+1);
@@ -97,14 +122,6 @@ template<int N>
 std::ostream& operator<<(std::ostream& o, const Roi<N>& roi) {
     o << roi.p << " -- " << roi.q;
     return o; 
-}
-
-template<class Array>
-void pprint(const Array& a) {
-    for(int jj=0; jj<a.shape(1); ++jj){
-    for(int ii=0; ii<a.shape(0); ++ii){
-        std::cout << a(ii,jj) << " "; }
-        std::cout << std::endl; }
 }
 
 /**
@@ -255,12 +272,16 @@ class BlockwiseThresholding {
         blocking_ = bb;
     }
     
-    void run(T threshold, const std::string& hdf5file, const std::string& hdf5group) {
+    /**
+     * Applies thresholding 'threshold'  to the image. If a pixel value is greater than 'threshold',
+     * it is assigned the 'ifLower' value, otherwise the 'ifHigher' value. 
+     */
+    void run(T threshold, vigra::UInt8 ifLower, vigra::UInt8 ifHigher, const std::string& hdf5file, const std::string& hdf5group, int compression = 1) {
         using namespace vigra;
        
         HDF5File out(hdf5file, HDF5File::Open);
         std::cout << hdf5file << ", " << hdf5group << ", " << shape_ << blockShape_ << std::endl;
-        out.createDataset<N, UInt8>(hdf5group, shape_, 0, blockShape_, 9 /*compression*/);
+        out.createDataset<N, UInt8>(hdf5group, shape_, 0, blockShape_, compression);
         
         std::pair<V, Roi<N> > p;
         int blockNum = 0;
@@ -273,8 +294,12 @@ class BlockwiseThresholding {
             in.close();
             
             MultiArray<N, UInt8> outBlock(inBlock.shape());
-            transformMultiArray(srcMultiArrayRange(inBlock), destMultiArray(outBlock),
-                                Threshold<T, UInt8>(std::numeric_limits<T>::min(), threshold, 1, 0));
+            T* a     = inBlock.data();
+            UInt8* b = outBlock.data();
+            for(size_t k=0; k<inBlock.size(); ++k) {
+                *b = (*a > threshold) ? ifHigher : ifLower;
+                ++a; ++b;
+            }
             out.writeBlock(hdf5group, roi.p, outBlock);
             ++blockNum;
         }
@@ -320,9 +345,11 @@ class BlockwiseChannelSelector {
         blocking_ = bb;
     }
     
-    void run(int channel, const std::string& hdf5file, const std::string& hdf5group) {
+    void run(int channel, const std::string& hdf5file, const std::string& hdf5group, int compression = 1) {
         using namespace vigra;
         using std::vector;
+        
+        vigra_precondition(compression >= 1 && compression <= 9, "compression must be >= 1 and <= 9");
         
         HDF5File out(hdf5file, HDF5File::Open);
         std::cout << hdf5file << ", " << hdf5group << ", " << shape_ << blockShape_ << std::endl;
@@ -330,7 +357,7 @@ class BlockwiseChannelSelector {
         typename vigra::MultiArrayShape<N-1>::type sh, bShape;
         
         std::cout << hdf5group << ", " << shape_ << ", " << blockShape_ << std::endl;
-        out.createDataset<N-1, T>(hdf5group, shape_, 0, blockShape_, 6 /*compression*/);
+        out.createDataset<N-1, T>(hdf5group, shape_, 0, blockShape_, compression);
         int blockNum = 0;
         
         vector<typename Blocking<N-1>::Pair> blocks = blocking_.blocks();
@@ -365,27 +392,57 @@ class BlockwiseChannelSelector {
  * Interface to obtain a block of data given a region of interest
  */
 template<int N, class T>
-class BlockProvider {
+class BlockedSource {
     public:
     typedef typename Roi<N>::V V;
         
-    BlockProvider() {}
-    virtual ~BlockProvider() {};
+    BlockedSource() {}
+    virtual ~BlockedSource() {};
     
     virtual V shape() const { return V(); };
     virtual bool readBlock(Roi<N> roi, vigra::MultiArrayView<N,T>& block) const { return true; };
+};
+
+
+/**
+ * Interface to write a block of data given a region of interest
+ */
+template<int N, class T>
+class BlockedSink {
+    public:
+    typedef typename Roi<N>::V V;
+        
+    BlockedSink() {}
+    virtual ~BlockedSink() {};
+   
+    void setShape(V shape) {
+        shape_ = shape; 
+    }
+    
+    void setBlockShape(V shape) {
+        blockShape_ = shape;
+    }
+    
+    V shape() const { return V(); };
+    V blockShape() const { return V(); };
+    
+    virtual bool writeBlock(Roi<N> roi, const vigra::MultiArrayView<N,T>& block) const { return true; };
+    
+    protected:
+    V shape_;
+    V blockShape_;
 };
 
 /**
  * Read a block of data from a HDF5File
  */
 template<int N, class T>
-class HDF5BlockProvider : public BlockProvider<N,T> {
+class HDF5BlockedSource : public BlockedSource<N,T> {
     public:
-    typedef typename BlockProvider<N,T>::V V;
+    typedef typename BlockedSource<N,T>::V V;
     
-    HDF5BlockProvider(const std::string& hdf5file, const std::string& hdf5group)
-        : BlockProvider<N,T>()
+    HDF5BlockedSource(const std::string& hdf5file, const std::string& hdf5group)
+        : BlockedSource<N,T>()
         , hdf5file_(hdf5file)
         , hdf5group_(hdf5group)
     {
@@ -415,6 +472,46 @@ class HDF5BlockProvider : public BlockProvider<N,T> {
     private:
     std::string hdf5file_;
     std::string hdf5group_;
+};
+
+/**
+ * Write a block of data to a HDF5File
+ */
+template<int N, class T>
+class HDF5BlockedSink : public BlockedSink<N,T> {
+    public:
+    typedef typename BlockedSink<N,T>::V V;
+
+    HDF5BlockedSink(const std::string& hdf5file, const std::string& hdf5group, int compression = 1)
+        : BlockedSink<N,T>()
+        , hdf5file_(hdf5file)
+        , hdf5group_(hdf5group)
+        , compression_(compression)
+        , fileCreated_(false)
+    {
+        vigra_precondition(compression >= 1 && compression <= 9, "compression must be >= 1 and <= 9");
+    }
+
+    virtual bool writeBlock(Roi<N> roi, vigra::MultiArrayView<N,T>& block) const {
+        using namespace vigra;
+        if(!fileCreated_) {
+            std::cout << "* write " << hdf5file_ << "/" << hdf5group_ << std::endl;
+            HDF5File out(hdf5file_, HDF5File::Open);
+            out.createDataset<N, T>(hdf5group_, this->shape(), 0, this->blockShape(), compression_);
+            out.close();
+        }
+        
+        HDF5File out(hdf5file_, HDF5File::Open);
+        out.writeBlock(hdf5group_, roi.p, block);
+        out.close();
+    }
+        
+    private:
+    std::string hdf5file_;
+    std::string hdf5group_;
+    int compression_;
+    V shape_;
+    bool fileCreated_;
 };
 
 /**
@@ -451,7 +548,7 @@ class BlockwiseConnectedComponents {
     
     typedef CompressedArray<N,LabelType> Compressed;
         
-    BlockwiseConnectedComponents(BlockProvider<N,T>* blockProvider, V blockShape)
+    BlockwiseConnectedComponents(BlockedSource<N,T>* blockProvider, V blockShape)
         : blockProvider_(blockProvider)
         , blockShape_(blockShape)
     {
@@ -581,12 +678,14 @@ class BlockwiseConnectedComponents {
         
     }
     
-    void writeResult(const std::string& hdf5file, const std::string& hdf5group) {
+    void writeResult(const std::string& hdf5file, const std::string& hdf5group, int compression = 1) {
         using namespace vigra;
+        
+        vigra_precondition(compression >= 1 && compression <= 9, "compression must be >= 1 and <= 9");
         
         std::cout << "* write " << hdf5file << "/" << hdf5group << std::endl;
         HDF5File out(hdf5file, HDF5File::Open);
-        out.createDataset<N, LabelType>(hdf5group, blockProvider_->shape(), 0, blockShape_, 1 /*compression*/);
+        out.createDataset<N, LabelType>(hdf5group, blockProvider_->shape(), 0, blockShape_, compression);
         for(size_t i=0; i<blockRois_.size(); ++i) {
             std::cout << "  block " << i+1 << "/" << blockRois_.size() << "        \r" << std::flush;
             const Roi<N>& roi = blockRois_[i].second;
@@ -603,7 +702,7 @@ class BlockwiseConnectedComponents {
     }
     
     private:
-    BlockProvider<N,T>* blockProvider_;
+    BlockedSource<N,T>* blockProvider_;
     V blockShape_;
     
     std::vector< std::pair<V, Roi<N> > > blockRois_;
@@ -611,4 +710,4 @@ class BlockwiseConnectedComponents {
     std::vector< Compressed > ccBlocks_;
 };
 
-#endif
+#endif /* BLOCKWISECC_H */
