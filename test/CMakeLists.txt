@@ -1,0 +1,27 @@
+ADD_DEFINITIONS(-DBOOST_ALL_DYN_LINK) 
+
+add_executable(test_blockedarray test_blockedarray.cpp)
+target_link_libraries(test_blockedarray
+    snappy
+    ${VIGRA_IMPEX_LIBRARY}
+)
+add_test("test_blockedarray" test_blockedarray)
+
+add_executable(test_compressedarray test_compressedarray.cpp)
+target_link_libraries(test_compressedarray
+    snappy
+)
+add_test("test_compressedarray" test_compressedarray)
+
+add_executable(test_blockedcc test_blockedcc.cpp)
+target_link_libraries(test_blockedcc
+    snappy
+)
+add_test("test_blockedcc" test_blockedcc)
+
+
+add_executable(test_roi test_roi.cpp)
+target_link_libraries(test_roi
+    snappy
+)
+add_test("test_roi" test_roi)
