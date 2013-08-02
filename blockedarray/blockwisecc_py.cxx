@@ -12,12 +12,9 @@
 #include "blockwisecc_py.h"
 #include "blockwisecc.h"
 
-template<int N, class T>
+template<int N>
 struct PyBlockwiseConnectedComponents {
-    typedef BlockwiseConnectedComponents<N, T> BCC;
-    static void getResult(BCC& bcc, vigra::NumpyArray<N, T> out) {
-        bcc.getResult(out);
-    }
+    typedef BlockwiseConnectedComponents<N> BCC;
 };
 
 template<int N, class V>
@@ -54,10 +51,10 @@ template<int N, class T>
 void blockwiseCC() {
     
     using namespace boost::python;
-    typedef BlockwiseConnectedComponents<N, T> BCC;
+    typedef BlockwiseConnectedComponents<N> BCC;
     typedef BlockwiseThresholding<N, T> BWT;
     typedef BlockwiseChannelSelector<N+1, T> BWCS;
-    typedef PyBlockwiseConnectedComponents<N,T> PyBCC;
+    typedef PyBlockwiseConnectedComponents<N> PyBCC;
     typedef HDF5BlockedSource<N, T> HDF5BP_T;
    
     std::stringstream n; n << N;
@@ -95,7 +92,7 @@ void blockwiseCC() {
     ;
    
     class_<BCC>("BlockwiseConnectedComponents",
-        init<BlockedSource<N, T>*, typename BCC::V>())
+        init<BlockedSource<N, vigra::UInt8>*, typename BCC::V>())
         .def("writeResult", &BCC::writeResult,
              (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
     ;
