@@ -21,7 +21,7 @@ add_test("test_blockedcc" test_blockedcc)
 
 
 add_executable(test_roi test_roi.cpp)
-target_link_libraries(test_roi
-    snappy
-)
 add_test("test_roi" test_roi)
+
+add_executable(test_blocking test_blocking.cpp)
+add_test("test_blocking" test_blocking)
