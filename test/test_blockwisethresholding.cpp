@@ -18,8 +18,13 @@ void test() {
         f.write("test", data);
     }
     
-    BlockwiseThresholding<3, float> bs("test.h5", "test", V(10,10,10));
-    bs.run(0.5, 0, 1, "thresh.h5", "thresh");
+    HDF5BlockedSource<3, float> source("test.h5", "test");
+    HDF5BlockedSink<3, vigra::UInt8> sink("thresh.h5", "thresh");
+    sink.setBlockShape(V(10,10,10));
+    
+    BlockwiseThresholding<3, float> bs(&source, V(10,10,10));
+    
+    bs.run(0.5, 0, 1, &sink);
    
     HDF5File f("thresh.h5", HDF5File::Open);
     MultiArray<3, UInt8> r;
