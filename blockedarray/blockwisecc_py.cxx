@@ -89,9 +89,9 @@ void blockwiseCC() {
     ;
         
     class_<BWCS>("BlockwiseChannelSelector",
-        init<std::string, std::string, typename BWCS::V>())
+        init<BlockedSource<N+1,T>*, typename BWCS::V>())
         .def("run", vigra::registerConverters(&BWCS::run),
-            (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
+            (arg("dimension"), arg("channel"), arg("sink")))
     ;
    
     class_<BCC>("BlockwiseConnectedComponents",

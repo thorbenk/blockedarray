@@ -114,6 +114,24 @@ class Roi {
         return ret; 
     }
     
+    Roi<N+1> insertAxisBefore(int dim, int from, int to) const {
+        Roi<N+1> ret;
+        int j = 0; //old dim
+        for(int i=0; i<N+1; ++i) { //new dimensions
+            if(i == dim) {
+                ret.p[i] = from;
+                ret.q[i] = to;
+                
+            }
+            else {
+                ret.p[i] = p[j];
+                ret.q[i] = q[j];
+                ++j;
+            }
+        }
+        return ret;
+    }
+    
     V p;
     V q;
 };
@@ -355,65 +373,60 @@ class BlockwiseChannelSelector {
     
     typedef typename Roi<N-1>::V V;
     
-    BlockwiseChannelSelector(const std::string& hdf5file, const std::string& hdf5group, V blockShape)
-        : hdf5file_(hdf5file)
-        , hdf5group_(hdf5group)
-        , blockShape_(blockShape)
+    BlockwiseChannelSelector(BlockedSource<N,T>* source, V blockShape)
+        : blockShape_(blockShape)
+        , source_(source)
     {
-        using vigra::HDF5File;
-        HDF5File f(hdf5file, HDF5File::OpenReadOnly);
-        vigra::ArrayVector<hsize_t> sh = f.getDatasetShape(hdf5group);
-        std::cout << "* blockwise channel selector on dataset with shape = " << sh << std::endl;
-        f.close();
-        vigra_precondition(sh.size() == N, "dataset shape is wrong");
-        std::copy(sh.begin()+1, sh.end(), shape_.begin());
-        std::cout << "  shape without channel: " << shape_ << std::endl;
-        Roi<N-1> roi(V(), shape_);
-        Blocking<N-1> bb(roi, blockShape, V());
-        std::cout << bb.numBlocks() << std::endl;
-        blocking_ = bb;
     }
     
-    void run(int channel, const std::string& hdf5file, const std::string& hdf5group, int compression = 1) {
+    void run(int dim, int channel, BlockedSink<N-1, T>* sink) {
         using namespace vigra;
         using std::vector;
         
-        vigra_precondition(compression >= 1 && compression <= 9, "compression must be >= 1 and <= 9");
+        //read input shape
+        typename Roi<N>::V sh = source_->shape();
         
-        HDF5File out(hdf5file, HDF5File::Open);
-        std::cout << hdf5file << ", " << hdf5group << ", " << shape_ << blockShape_ << std::endl;
+        std::cout << "* blockwise channel selector on dataset with input shape = " << sh << std::endl;
+        vigra_precondition(sh.size() == N, "dataset shape is wrong");
+       
+        //compute output shape
+        {
+            int j=0;
+            for(int i=0; i<N; ++i) {
+                if(i == dim) continue;
+                shape_[j] = sh[i]; ++j;
+            }
+        }
+            
+        std::cout << "  output shape: " << shape_ << std::endl;
+        Roi<N-1> roi(V(), shape_);
+        blocking_ = Blocking<N-1>(roi, blockShape_, V());
+        std::cout << "  " << blocking_.numBlocks() << " blocks" << std::endl;
+
+        sink->setShape(shape_);
         
-        typename vigra::MultiArrayShape<N-1>::type sh, bShape;
-        
-        std::cout << hdf5group << ", " << shape_ << ", " << blockShape_ << std::endl;
-        out.createDataset<N-1, T>(hdf5group, shape_, 0, blockShape_, compression);
         int blockNum = 0;
-        
         vector<typename Blocking<N-1>::Pair> blocks = blocking_.blocks();
-        
         for(int i=0; i<blocks.size(); ++i) {
             const Roi<N-1>& roi = blocks[i].second;
             
             std::cout << "  block " << i+1 << "/" << blocks.size() << "        \r" << std::flush;
            
-            Roi<N> newRoi = roi.prependAxis(channel, channel+1);
-            
+            Roi<N> newRoi = roi.insertAxisBefore(dim, channel, channel+1);
             MultiArray<N, T> inBlock(newRoi.q - newRoi.p);
-            HDF5File in(hdf5file_, HDF5File::OpenReadOnly);
-            in.readBlock(hdf5group_, newRoi.p, newRoi.q-newRoi.p, inBlock);
-            in.close();
-            
-            out.writeBlock(hdf5group, roi.p, inBlock.template bind<0>(0));
+            source_->readBlock(newRoi, inBlock);
+           
+            MultiArrayView<N-1, T> outBlock = inBlock.bindAt(dim, channel);
+            sink->writeBlock(roi, outBlock);
             ++blockNum;
         }
-        out.close();
+        std::cout << std::endl;
     }
     
     private:
-    std::string hdf5file_;
-    std::string hdf5group_;
-    V shape_;
     V blockShape_;
+    BlockedSource<N,T>* source_;
+    V shape_;
     Blocking<N-1> blocking_;
 };
 
@@ -476,7 +489,7 @@ class HDF5BlockedSink : public BlockedSink<N,T> {
         vigra_precondition(compression >= 1 && compression <= 9, "compression must be >= 1 and <= 9");
     }
 
-    virtual bool writeBlock(Roi<N> roi, vigra::MultiArrayView<N,T>& block) {
+    virtual bool writeBlock(Roi<N> roi, const vigra::MultiArrayView<N,T>& block) {
         using namespace vigra;
         if(!fileCreated_) {
             if(this->shape() == V()) {
@@ -489,6 +502,7 @@ class HDF5BlockedSink : public BlockedSink<N,T> {
             HDF5File out(hdf5file_, HDF5File::Open);
             out.createDataset<N, T>(hdf5group_, this->shape(), 0, this->blockShape(), compression_);
             out.close();
+            fileCreated_ = true;
         }
         
         HDF5File out(hdf5file_, HDF5File::Open);
@@ -687,8 +701,8 @@ class BlockwiseConnectedComponents {
             out.writeBlock(hdf5group, roi.p, cc);
         
         }
-        out.close();
         std::cout << std::endl;
+        out.close();
     }
     
     private:

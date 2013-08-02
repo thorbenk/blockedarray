@@ -59,6 +59,13 @@ void testPrependAxis() {
     Roi<3> s =r.prependAxis(10,13);
     shouldEqual(s, Roi<3>(V3(10,3,4), V3(13,7,9)));
 }
+void testInsertAxisBefore() {
+    typedef Roi<2>::V V2;
+    typedef Roi<3>::V V3;
+    Roi<2> r(V2(3,4), V2(7,9));
+    Roi<3> s =r.insertAxisBefore(0,10,13);
+    shouldEqual(s, Roi<3>(V3(10,3,4), V3(13,7,9)));
+}
 }; /* struct RoiTest */
 
 struct RoiTestSuite : public vigra::test_suite {
@@ -70,6 +77,7 @@ struct RoiTestSuite : public vigra::test_suite {
         add( testCase(&RoiTest::testAppendAxis));
         add( testCase(&RoiTest::testRemoveAxis));
         add( testCase(&RoiTest::testPrependAxis));
+        add( testCase(&RoiTest::testInsertAxisBefore));
     }
 };
 
