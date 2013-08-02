@@ -46,11 +46,13 @@ installation
 - Dependencies: boost headers and boost python library, cmake.  
   Ubuntu: `sudo apt-get install libboost-dev libboost-python-dev cmake`
 - Install latest vigra from https://github.com/ukoethe/vigra  
-  Ubuntu:
-      git clone https://github.com/ukoethe/vigra
-      mkdir build && cd build
-      cmake -DCMAKE_INSTALL_PREFIX=<install prefix> ..
-      make install
+  Ubuntu:  
+  ```
+  git clone https://github.com/ukoethe/vigra
+  mkdir build && cd build
+  cmake -DCMAKE_INSTALL_PREFIX=<install prefix> ..
+  make install
+  ```
 
 Finally, to install `blockedarray`:
 
