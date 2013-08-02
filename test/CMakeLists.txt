@@ -33,3 +33,7 @@ add_test("test_hdf5blockedsource" test_hdf5blockedsource)
 add_executable(test_hdf5blockedsink test_hdf5blockedsink.cpp)
 target_link_libraries(test_hdf5blockedsink ${VIGRA_IMPEX_LIBRARY} ${HDF5_LIBRARY} ${HDF5_HL_LIBRARY})
 add_test("test_hdf5blockedsink" test_hdf5blockedsink)
+
+add_executable(test_blockwisethresholding test_blockwisethresholding.cpp)
+target_link_libraries(test_blockwisethresholding ${VIGRA_IMPEX_LIBRARY} ${HDF5_LIBRARY} ${HDF5_HL_LIBRARY})
+add_test("test_blockwisethresholding" test_blockwisethresholding)
