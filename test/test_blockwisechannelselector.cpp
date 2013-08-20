@@ -11,28 +11,32 @@ void test() {
     using namespace vigra;
     typedef typename BlockwiseChannelSelector<4, float>::V V;
    
-    MultiArray<4, float> data(vigra::TinyVector<int, 4>(10,20,30,2));
-    FillRandom<float, float*>::fillRandom(data.data(), data.data()+data.size());
-    {
-        HDF5File f("test.h5", HDF5File::Open);
-        f.write("test", data);
-    }
+    for(int ch=0; ch<=1; ++ch) {
+        std::cout << "* channel = " << ch << std::endl;
     
-    HDF5BlockedSource<4, float> source("test.h5", "test");
-    HDF5BlockedSink<3, float> sink("channel.h5", "channel");
-    sink.setBlockShape(V(10,10,10));
+        MultiArray<4, float> data(vigra::TinyVector<int, 4>(10,20,30,2));
+        FillRandom<float, float*>::fillRandom(data.data(), data.data()+data.size());
+        {
+            HDF5File f("test.h5", HDF5File::Open);
+            f.write("test", data);
+        }
+        
+        HDF5BlockedSource<4, float> source("test.h5", "test");
+        HDF5BlockedSink<3, float> sink("channel.h5", "channel");
+        sink.setBlockShape(V(10,10,10));
+        
+        BlockwiseChannelSelector<4, float> cs(&source, V(10,10,10));
+        
+        cs.run(3, ch, &sink);
     
-    BlockwiseChannelSelector<4, float> cs(&source, V(10,10,10));
+        HDF5File f("channel.h5", HDF5File::Open);
+        MultiArray<3, float> r;
+        f.readAndResize("channel", r);
     
-    cs.run(3, 0, &sink);
-   
-    HDF5File f("channel.h5", HDF5File::Open);
-    MultiArray<3, float> r;
-    f.readAndResize("channel", r);
-  
-    MultiArrayView<3, float> shouldResult = data.bind<3>(0);
-    
-    shouldEqualSequence(r.begin(), r.end(), shouldResult.begin());
+        MultiArrayView<3, float> shouldResult = data.bind<3>(ch);
+        
+        shouldEqualSequence(r.begin(), r.end(), shouldResult.begin());
+    } //loop through channels
 }
 }; /* struct BlockwiseChannelSelectorTest */
 

@@ -11,7 +11,7 @@ void test() {
     using namespace vigra;
     typedef typename BlockwiseThresholding<3, float>::V V;
    
-    MultiArray<3, float> data(V(10,20,30));
+    MultiArray<3, float> data(V(24,33,40));
     FillRandom<float, float*>::fillRandom(data.data(), data.data()+data.size());
     {
         HDF5File f("test.h5", HDF5File::Open);
@@ -22,7 +22,7 @@ void test() {
     HDF5BlockedSink<3, vigra::UInt8> sink("thresh.h5", "thresh");
     sink.setBlockShape(V(10,10,10));
     
-    BlockwiseThresholding<3, float> bs(&source, V(10,10,10));
+    BlockwiseThresholding<3, float> bs(&source, V(6,4,7));
     
     bs.run(0.5, 0, 1, &sink);
    

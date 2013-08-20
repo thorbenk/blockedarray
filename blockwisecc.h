@@ -398,10 +398,10 @@ class BlockwiseChannelSelector {
             }
         }
             
-        std::cout << "  output shape: " << shape_ << std::endl;
+        std::cout << "  output shape: " << shape_;
         Roi<N-1> roi(V(), shape_);
         blocking_ = Blocking<N-1>(roi, blockShape_, V());
-        std::cout << "  " << blocking_.numBlocks() << " blocks" << std::endl;
+        std::cout << ", divided into " << blocking_.numBlocks() << " blocks of shape " << blockShape_ << std::endl;
 
         sink->setShape(shape_);
         
@@ -415,8 +415,8 @@ class BlockwiseChannelSelector {
             Roi<N> newRoi = roi.insertAxisBefore(dim, channel, channel+1);
             MultiArray<N, T> inBlock(newRoi.q - newRoi.p);
             source_->readBlock(newRoi, inBlock);
-           
-            MultiArrayView<N-1, T> outBlock = inBlock.bindAt(dim, channel);
+          
+            MultiArrayView<N-1, T> outBlock = inBlock.bindAt(dim, 0 /*newRoi has a singleton dim here*/);
             sink->writeBlock(roi, outBlock);
             ++blockNum;
         }
