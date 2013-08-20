@@ -38,6 +38,39 @@ void test() {
         shouldEqualSequence(r.begin(), r.end(), shouldResult.begin());
     } //loop through channels
 }
+
+void testRoi() {
+    using namespace vigra;
+    typedef typename BlockwiseChannelSelector<4, float>::V V;
+    typedef vigra::TinyVector<int, 4> V4;
+    
+    int ch = 0;
+   
+    MultiArray<4, float> data(vigra::TinyVector<int, 4>(10,20,30,2));
+    FillRandom<float, float*>::fillRandom(data.data(), data.data()+data.size());
+    {
+        HDF5File f("test.h5", HDF5File::Open);
+        f.write("test", data);
+    }
+    
+    HDF5BlockedSource<4, float> source("test.h5", "test");
+    source.setRoi(Roi<4>(V4(1,3,5,0), V4(7,9,30,2)));
+    
+    HDF5BlockedSink<3, float> sink("channel.h5", "channel");
+    
+    BlockwiseChannelSelector<4, float> cs(&source, V(10,10,10));
+    
+    cs.run(3, ch, &sink);
+
+    HDF5File f("channel.h5", HDF5File::Open);
+    MultiArray<3, float> r;
+    f.readAndResize("channel", r);
+
+    MultiArrayView<3, float> shouldResult = data.bind<3>(ch).subarray(V(1,3,5), V(7,9,30));
+    
+    shouldEqualSequence(r.begin(), r.end(), shouldResult.begin());
+}
+
 }; /* struct BlockwiseChannelSelectorTest */
 
 struct BlockwiseChannelSelectorTestSuite : public vigra::test_suite {
@@ -45,6 +78,7 @@ struct BlockwiseChannelSelectorTestSuite : public vigra::test_suite {
         : vigra::test_suite("BlockwiseChannelSelectorTestSuite")
     {
         add( testCase(&BlockwiseChannelSelectorTest::test) );
+        add( testCase(&BlockwiseChannelSelectorTest::testRoi) );
     }
 };
 

@@ -44,10 +44,36 @@ class Roi {
     /**
      * equality
      */
-    bool operator==(const Roi<N>& other) {
+    bool operator==(const Roi<N>& other) const {
         return other.p == p && other.q == q;
     }
     
+    /**
+     * inequality
+     */
+    bool operator!=(const Roi<N>& other) const {
+        return other.p != p || other.q != q;
+    }
+   
+    /**
+     * shift roi by 'shift'
+     */
+    const Roi<N> operator+(const V& shift) const {
+        Roi<N> res = *this;
+        res.p += shift;
+        res.q += shift;
+        return res;
+    }
+    
+    /**
+     * shift roi by 'shift'
+     */
+    Roi<N>& operator+=(const V& shift) {
+        p += shift;
+        q += shift;
+        return *this;
+    }
+        
     /**
      * intersection of this Roi with 'other'
      * 
@@ -55,7 +81,7 @@ class Roi {
      * 
      * returns: whether this roi and 'other' intersect.
      */
-    bool intersect(const Roi& other, Roi& out) {
+    bool intersect(const Roi& other, Roi& out) const {
         for(int i=0; i<N; ++i) {
             out.p[i] = std::max(p[i], other.p[i]);
             out.q[i] = std::min(q[i], other.q[i]);
@@ -267,6 +293,13 @@ class BlockedSource {
         
     BlockedSource() {}
     virtual ~BlockedSource() {};
+   
+    /**
+     * selects only the region of interest given from the
+     * underlying data source. When readBlock() is used, the coordinates
+     * are relative to roi.q
+     */
+    virtual void setRoi(Roi<N> roi) {};
     
     virtual V shape() const { return V(); };
     virtual bool readBlock(Roi<N> roi, vigra::MultiArrayView<N,T>& block) const { return true; };
@@ -411,7 +444,7 @@ class BlockwiseChannelSelector {
             const Roi<N-1>& roi = blocks[i].second;
             
             std::cout << "  block " << i+1 << "/" << blocks.size() << "        \r" << std::flush;
-           
+            
             Roi<N> newRoi = roi.insertAxisBefore(dim, channel, channel+1);
             MultiArray<N, T> inBlock(newRoi.q - newRoi.p);
             source_->readBlock(newRoi, inBlock);
@@ -445,6 +478,10 @@ class HDF5BlockedSource : public BlockedSource<N,T> {
     {
     }
     
+    virtual void setRoi(Roi<N> roi) {
+       roi_ = roi; 
+    }
+    
     virtual V shape() const {
         using namespace vigra;
         
@@ -454,6 +491,12 @@ class HDF5BlockedSource : public BlockedSource<N,T> {
         f.close();
         vigra_precondition(sh.size() == N, "dataset shape is wrong");
         std::copy(sh.begin(), sh.end(), ret.begin());
+        if(roi_ != Roi<N>()) {
+            Roi<N> in(V(), ret);
+            Roi<N> out;
+            in.intersect(roi_, out);
+            return out.shape();
+        }
         return ret;
     }
     
@@ -461,6 +504,14 @@ class HDF5BlockedSource : public BlockedSource<N,T> {
         using namespace vigra;
         
         HDF5File in(hdf5file_, HDF5File::OpenReadOnly);
+        if(roi_ != Roi<N>()) {
+            roi += roi_.p;
+            Roi<N> newRoi;
+            roi_.intersect(roi, newRoi);
+            roi = newRoi;
+        }
+        vigra_precondition(roi.shape() == block.shape(), "shapes differ");
+        
         in.readBlock(hdf5group_, roi.p, roi.q-roi.p, block);
         in.close();
         return true;
@@ -469,6 +520,7 @@ class HDF5BlockedSource : public BlockedSource<N,T> {
     private:
     std::string hdf5file_;
     std::string hdf5group_;
+    Roi<N> roi_;
 };
 
 /**
