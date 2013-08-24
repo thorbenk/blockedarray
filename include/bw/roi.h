@@ -85,6 +85,15 @@ class Roi {
         return q-p;
     }
     
+    size_t size() const {
+        size_t ret = 1;
+        V sh = shape();
+        for(int i=0; i<N; ++i) {
+            ret *= sh[i];
+        }
+        return ret;
+    }
+    
     /**
      * remove the 'axis'-th dimension (counting from 0) 
      */
