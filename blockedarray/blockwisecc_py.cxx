@@ -9,14 +9,17 @@
 #include <vigra/numpy_array.hxx>
 #include <vigra/numpy_array_converters.hxx>
 
+#include <bw/connectedcomponents.h>
+#include <bw/thresholding.h>
+#include <bw/channelselector.h>
+
 #include "blockwisecc_py.h"
-#include "blockwisecc.h"
-#include "blockwisethresholding.h"
-#include "blockwisechannelselector.h"
+
+using namespace BW;
 
 template<int N>
-struct PyBlockwiseConnectedComponents {
-    typedef BlockwiseConnectedComponents<N> BCC;
+struct PyConnectedComponents {
+    typedef ConnectedComponents<N> BCC;
 };
 
 template<int N, class V>
@@ -53,11 +56,11 @@ template<int N, class T>
 void blockwiseCC() {
     
     using namespace boost::python;
-    typedef BlockwiseConnectedComponents<N> BCC;
-    typedef BlockwiseThresholding<N, T> BWT;
-    typedef BlockwiseChannelSelector<N+1, T> BWCS;
-    typedef PyBlockwiseConnectedComponents<N> PyBCC;
-    typedef HDF5BlockedSource<N, T> HDF5BP_T;
+    typedef ConnectedComponents<N> BCC;
+    typedef Thresholding<N, T> BWT;
+    typedef ChannelSelector<N+1, T> BWCS;
+    typedef PyConnectedComponents<N> PyBCC;
+    typedef SourceHDF5<N, T> HDF5BP_T;
    
     std::stringstream n; n << N;
     
@@ -71,30 +74,30 @@ void blockwiseCC() {
     
     ExportV<N, typename BCC::V>::export_();
     
-    class_<BlockedSource<N, T> >("BlockedSource", no_init);
-    class_<BlockedSink<N, T> >("BlockedSink", no_init);
+    class_<Source<N, T> >("Source", no_init);
+    class_<Sink<N, T> >("Sink", no_init);
     
-    class_<HDF5BlockedSource<N, T>, bases<BlockedSource<N, T> > >("HDF5BlockedSource",
+    class_<SourceHDF5<N, T>, bases<Source<N, T> > >("SourceHDF5",
         init<std::string, std::string>())
     ;
-    class_<HDF5BlockedSink<N, T>, bases<BlockedSink<N, T> > >("HDF5BlockedSink",
+    class_<SinkHDF5<N, T>, bases<Sink<N, T> > >("SinkHDF5",
         init<std::string, std::string>())
     ;
     
-    class_<BWT>("BlockwiseThresholding",
-        init<BlockedSource<N,T>*, typename BWT::V>())
+    class_<BWT>("Thresholding",
+        init<Source<N,T>*, typename BWT::V>())
         .def("run", vigra::registerConverters(&BWT::run),
              (arg("threshold"), arg("ifLower"), arg("ifHigher"), arg("sink")))
     ;
         
-    class_<BWCS>("BlockwiseChannelSelector",
-        init<BlockedSource<N+1,T>*, typename BWCS::V>())
+    class_<BWCS>("ChannelSelector",
+        init<Source<N+1,T>*, typename BWCS::V>())
         .def("run", vigra::registerConverters(&BWCS::run),
             (arg("dimension"), arg("channel"), arg("sink")))
     ;
    
-    class_<BCC>("BlockwiseConnectedComponents",
-        init<BlockedSource<N, vigra::UInt8>*, typename BCC::V>())
+    class_<BCC>("ConnectedComponents",
+        init<Source<N, vigra::UInt8>*, typename BCC::V>())
         .def("writeResult", &BCC::writeResult,
              (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
     ;

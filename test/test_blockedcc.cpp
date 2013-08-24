@@ -1,8 +1,10 @@
 #define VIGRA_CHECK_BOUNDS
 
-#include "blockwisecc.h"
+#include <bw/connectedcomponents.h>
 
 #include <iostream>
+
+using namespace BW;
 
 typedef vigra::TinyVector<int, 2> d;
 

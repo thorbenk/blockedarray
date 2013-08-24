@@ -1,9 +1,12 @@
 #include <iostream>
 
-#include "compressedarray.h"
+#include <bw/compressedarray.h>
+
 #include "test_utils.h"
 
 #include <vigra/unittest.hxx>
+
+using namespace BW;
 
 template<int N, class T>
 void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataShape)

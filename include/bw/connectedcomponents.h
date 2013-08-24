@@ -1,5 +1,5 @@
-#ifndef BLOCKWISECC_H
-#define BLOCKWISECC_H
+#ifndef BW_CONNECTEDCOMPONENTS_H
+#define BW_CONNECTEDCOMPONENTS_H
 
 #include <iostream>
 #include <algorithm>
@@ -15,11 +15,13 @@
 #include <vigra/hdf5impex.hxx>
 #include <vigra/multi_pointoperators.hxx>
 
-#include "roi.h"
-#include "blocking.h"
-#include "hdf5blockedsource.h"
-#include "hdf5blockedsink.h"
-#include "compressedarray.h"
+#include <bw/roi.h>
+#include <bw/blocking.h>
+#include <bw/sourcehdf5.h>
+#include <bw/sinkhdf5.h>
+#include <bw/compressedarray.h>
+
+namespace BW {
 
 using vigra::detail::UnionFindArray;
 
@@ -58,19 +60,19 @@ void blockMerge(
  * Compute connected components either in 2D or 3D using 4 or 6 neighborhood.
  */
 template<int N, class T, class LabelType>
-struct ConnectedComponents {
+struct ConnectedComponentsComputer {
     static LabelType compute(const vigra::MultiArrayView<N,T>& in, vigra::MultiArrayView<N,LabelType>& out);
 };
 
 template<class T, class LabelType>
-struct ConnectedComponents<2,T,LabelType> {
+struct ConnectedComponentsComputer<2,T,LabelType> {
     static LabelType compute(const vigra::MultiArrayView<2,T>& in, vigra::MultiArrayView<2,LabelType>& out) {
         return vigra::labelImageWithBackground( in, out, false /*use 4-neighbors*/, 0 /*bg label*/);
     }
 };
 
 template<class T, class LabelType>
-struct ConnectedComponents<3,T,LabelType> {
+struct ConnectedComponentsComputer<3,T,LabelType> {
     static LabelType compute(const vigra::MultiArrayView<3,T>& in, vigra::MultiArrayView<3,LabelType>& out) {
          return vigra::labelVolumeWithBackground(in, out, vigra::NeighborCode3DSix(), 0);
     }
@@ -80,7 +82,7 @@ struct ConnectedComponents<3,T,LabelType> {
  * Compute connected components block-wise (less limited to RAM)
  */
 template<int N>
-class BlockwiseConnectedComponents {
+class ConnectedComponents {
     public:
     typedef typename Roi<N>::V V;
     
@@ -88,7 +90,7 @@ class BlockwiseConnectedComponents {
     
     typedef CompressedArray<N,LabelType> Compressed;
         
-    BlockwiseConnectedComponents(BlockedSource<N,vigra::UInt8>* blockProvider, V blockShape)
+    ConnectedComponents(Source<N,vigra::UInt8>* blockProvider, V blockShape)
         : blockProvider_(blockProvider)
         , blockShape_(blockShape)
     {
@@ -127,7 +129,7 @@ class BlockwiseConnectedComponents {
             
             MultiArray<N, LabelType> cc(block.q-block.p); 
            
-            LabelType maxLabel = ConnectedComponents<N, vigra::UInt8, LabelType>::compute(inBlock, cc);
+            LabelType maxLabel = ConnectedComponentsComputer<N, vigra::UInt8, LabelType>::compute(inBlock, cc);
             //LabelType maxLabel = vigra::labelImageWithBackground(
             //    inBlock,
             //    cc,
@@ -242,7 +244,7 @@ class BlockwiseConnectedComponents {
     }
     
     private:
-    BlockedSource<N,vigra::UInt8>* blockProvider_;
+    Source<N,vigra::UInt8>* blockProvider_;
     V blockShape_;
     
     std::vector< std::pair<V, Roi<N> > > blockRois_;
@@ -250,4 +252,6 @@ class BlockwiseConnectedComponents {
     std::vector< Compressed > ccBlocks_;
 };
 
-#endif /* BLOCKWISECC_H */
+} /* namespace BW */
+
+#endif /* BW_CONNECTEDCOMPONENTS_H */

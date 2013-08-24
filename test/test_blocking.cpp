@@ -1,9 +1,12 @@
 #include <iostream>
 
-#include "blocking.h"
+#include <bw/blocking.h>
+
 #include "test_utils.h"
 
 #include <vigra/unittest.hxx>
+
+using namespace BW;
 
 struct BlockingTest {
 void testConstruction() {

@@ -1,5 +1,5 @@
-#ifndef BLOCKEDARRAY_H
-#define BLOCKEDARRAY_H
+#ifndef BW_ARRAY_H
+#define BW_ARRAY_H
 
 #include <map>
 
@@ -10,8 +10,10 @@
 
 #include "compressedarray.h"
 
+namespace BW {
+
 template<int N, class T, class BLOCK = CompressedArray<N,T> >
-class BlockedArray {
+class Array {
     public:
     typedef vigra::TinyVector<unsigned int, N> BlockCoord;
     typedef typename vigra::MultiArrayView<N,T>::difference_type difference_type;
@@ -21,20 +23,20 @@ class BlockedArray {
     typedef std::map<BlockCoord, BlockPtr> BlocksMap;
     
     /**
-     * construct a new BlockedArray with given 'blockShape'
+     * construct a new Array with given 'blockShape'
      * 
      * post condition: numBlocks() == 0
      */
-    BlockedArray(typename vigra::MultiArrayShape<N>::type blockShape)
+    Array(typename vigra::MultiArrayShape<N>::type blockShape)
         : blockShape_(blockShape)
         , tmpBlock_(blockShape)
     {
     }
 
     /**
-     * construct a new BlockedArray with given 'blockShape' and initialize with data 'a'
+     * construct a new Array with given 'blockShape' and initialize with data 'a'
      */
-    BlockedArray(typename vigra::MultiArrayShape<N>::type blockShape, const vigra::MultiArrayView<N, T>& a)
+    Array(typename vigra::MultiArrayShape<N>::type blockShape, const vigra::MultiArrayView<N, T>& a)
         : blockShape_(blockShape)
         , tmpBlock_(blockShape)
     {
@@ -405,4 +407,6 @@ class BlockedArray {
     mutable vigra::MultiArray<N,T> tmpBlock_;
 };
 
-#endif /* BLOCKEDARRAY_H */
+} /* namespace BW */
+
+#endif /* BW_ARRAY_H */

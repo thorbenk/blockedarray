@@ -1,20 +1,22 @@
-#ifndef HDF5BLOCKEDSINK_H
-#define HDF5BLOCKEDSINK_H
+#ifndef BW_SINKHDF5_H
+#define BW_SINKHDF5_H
 
 #include <vigra/hdf5impex.hxx>
 
-#include "blockedsink.h"
+#include <bw/sink.h>
 
+namespace BW {
+    
 /**
  * Write a block of data to a HDF5File
  */
 template<int N, class T>
-class HDF5BlockedSink : public BlockedSink<N,T> {
+class SinkHDF5 : public Sink<N,T> {
     public:
-    typedef typename BlockedSink<N,T>::V V;
+    typedef typename Sink<N,T>::V V;
 
-    HDF5BlockedSink(const std::string& hdf5file, const std::string& hdf5group, int compression = 1)
-        : BlockedSink<N,T>()
+    SinkHDF5(const std::string& hdf5file, const std::string& hdf5group, int compression = 1)
+        : Sink<N,T>()
         , hdf5file_(hdf5file)
         , hdf5group_(hdf5group)
         , compression_(compression)
@@ -27,7 +29,7 @@ class HDF5BlockedSink : public BlockedSink<N,T> {
         using namespace vigra;
         if(!fileCreated_) {
             if(this->shape() == V()) {
-                throw std::runtime_error("HDF5BlockedSink: unknown shape");
+                throw std::runtime_error("SinkHDF5: unknown shape");
             }
             if(this->blockShape() == V()) {
                 this->setBlockShape(this->shape());
@@ -52,4 +54,6 @@ class HDF5BlockedSink : public BlockedSink<N,T> {
     bool fileCreated_;
 };
 
-#endif /* HDF5BLOCKEDSINK_H */
+} /* namespace BW */
+
+#endif /* BW_SINKHDF5_H */

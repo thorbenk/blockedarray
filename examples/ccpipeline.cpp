@@ -1,11 +1,12 @@
 #include <iostream>
 
-#include "blockwisechannelselector.h"
-#include "blockwisethresholding.h"
-#include "blockwisecc.h"
+#include <bw/channelselector.h>
+#include <bw/thresholding.h>
+#include <bw/connectedcomponents.h>
 
 int main(int argc, char** argv) {
     using namespace vigra;
+    using namespace BW;
     
     if(argc != 3) {
         std::cout << "usage: ./ccpipeline hdf5file hdf5group" << std::endl;
@@ -20,26 +21,26 @@ int main(int argc, char** argv) {
     
     //extract channel 0
     {
-        HDF5BlockedSource<4, float> source(hdf5file, hdf5group);
-        HDF5BlockedSink<3, float> sink("01_channel0.h5", "channel0");
+        SourceHDF5<4, float> source(hdf5file, hdf5group);
+        SinkHDF5<3, float> sink("01_channel0.h5", "channel0");
         sink.setBlockShape(blockShape);
-        BlockwiseChannelSelector<4, float> cs(&source, blockShape);
+        ChannelSelector<4, float> cs(&source, blockShape);
         cs.run(0, 0, &sink);
     }
     
     //threshold
     {
-        HDF5BlockedSource<3, float> source("01_channel0.h5", "channel0");
-        HDF5BlockedSink<3, vigra::UInt8> sink("02_thresh.h5", "thresh");
+        SourceHDF5<3, float> source("01_channel0.h5", "channel0");
+        SinkHDF5<3, vigra::UInt8> sink("02_thresh.h5", "thresh");
         sink.setBlockShape(blockShape);
-        BlockwiseThresholding<3, float> bs(&source, blockShape);
+        Thresholding<3, float> bs(&source, blockShape);
         bs.run(0.5, 0, 1, &sink);
     }
     
     //connected components
     {
-        HDF5BlockedSource<3, UInt8> source("02_thresh.h5", "thresh");
-        BlockwiseConnectedComponents<3> bs(&source, blockShape);
+        SourceHDF5<3, UInt8> source("02_thresh.h5", "thresh");
+        ConnectedComponents<3> bs(&source, blockShape);
         bs.writeResult("03_cc.h5", "cc", 1);
     }
     

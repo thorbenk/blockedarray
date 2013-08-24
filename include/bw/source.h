@@ -1,20 +1,22 @@
-#ifndef BLOCKEDSOURCE_H
-#define BLOCKEDSOURCE_H
+#ifndef BW_SOURCE_H
+#define BW_SOURCE_H
 
 #include <vigra/multi_array.hxx>
 
 #include "roi.h"
 
+namespace BW {
+    
 /**
  * Interface to obtain a block of data given a region of interest
  */
 template<int N, class T>
-class BlockedSource {
+class Source {
     public:
     typedef typename Roi<N>::V V;
         
-    BlockedSource() {}
-    virtual ~BlockedSource() {};
+    Source() {}
+    virtual ~Source() {};
    
     /**
      * selects only the region of interest given from the
@@ -27,4 +29,6 @@ class BlockedSource {
     virtual bool readBlock(Roi<N> roi, vigra::MultiArrayView<N,T>& block) const { return true; };
 };
 
-#endif /* BLOCKEDSOURCE_H */
+} /* namespace BW */
+
+#endif /* BW_SOURCE_H */

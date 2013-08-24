@@ -1,17 +1,20 @@
 #include <iostream>
 
-#include "hdf5blockedsource.h"
-#include "hdf5blockedsink.h"
-#include "blockwisethresholding.h"
+#include <bw/sourcehdf5.h>
+#include <bw/sinkhdf5.h>
+#include <bw/thresholding.h>
+
 #include "test_utils.h"
 
 #include <vigra/unittest.hxx>
 #include <vigra/hdf5impex.hxx>
 
-struct BlockwiseThresholdingTest {
+using namespace BW;
+
+struct ThresholdingTest {
 void test() {
     using namespace vigra;
-    typedef typename BlockwiseThresholding<3, float>::V V;
+    typedef typename Thresholding<3, float>::V V;
    
     MultiArray<3, float> data(V(24,33,40));
     FillRandom<float, float*>::fillRandom(data.data(), data.data()+data.size());
@@ -20,11 +23,11 @@ void test() {
         f.write("test", data);
     }
     
-    HDF5BlockedSource<3, float> source("test.h5", "test");
-    HDF5BlockedSink<3, vigra::UInt8> sink("thresh.h5", "thresh");
+    SourceHDF5<3, float> source("test.h5", "test");
+    SinkHDF5<3, vigra::UInt8> sink("thresh.h5", "thresh");
     sink.setBlockShape(V(10,10,10));
     
-    BlockwiseThresholding<3, float> bs(&source, V(6,4,7));
+    Thresholding<3, float> bs(&source, V(6,4,7));
     
     bs.run(0.5, 0, 1, &sink);
    
@@ -37,18 +40,18 @@ void test() {
     shouldEqual(t.shape(), r.shape());
     shouldEqualSequence(r.begin(), r.end(), t.begin());
 }
-}; /* struct BlockwiseThresholdingTest */
+}; /* struct ThresholdingTest */
 
-struct BlockwiseThresholdingTestSuite : public vigra::test_suite {
-    BlockwiseThresholdingTestSuite()
-        : vigra::test_suite("BlockwiseThresholdingTestSuite")
+struct ThresholdingTestSuite : public vigra::test_suite {
+    ThresholdingTestSuite()
+        : vigra::test_suite("ThresholdingTestSuite")
     {
-        add( testCase(&BlockwiseThresholdingTest::test) );
+        add( testCase(&ThresholdingTest::test) );
     }
 };
 
 int main(int argc, char ** argv) {
-    BlockwiseThresholdingTestSuite test;
+    ThresholdingTestSuite test;
     int failed = test.run(vigra::testsToBeExecuted(argc, argv));
     std::cout << test.report() << std::endl;
     return (failed != 0);

@@ -1,7 +1,9 @@
-#ifndef ROI_H
-#define ROI_H
+#ifndef BW_ROI_H
+#define BW_ROI_H
 
 #include <vigra/tinyvector.hxx>
+
+namespace BW {
 
 /**
  * Region of interest
@@ -152,4 +154,6 @@ std::ostream& operator<<(std::ostream& o, const Roi<N>& roi) {
     return o; 
 }
 
-#endif /* ROI_H */
+} /* namespace BW */
+
+#endif /* BW_ROI_H */

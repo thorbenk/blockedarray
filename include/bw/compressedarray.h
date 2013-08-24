@@ -1,5 +1,5 @@
-#ifndef COMPRESSEDARRAY_H
-#define COMPRESSEDARRAY_H
+#ifndef BW_COMPRESSEDARRAY_H
+#define BW_COMPRESSEDARRAY_H
 
 #include <boost/foreach.hpp>
 
@@ -21,6 +21,8 @@
        throw std::runtime_error(s.str()); \
     }     
 #endif
+
+namespace BW {
 
 template<int N, class T>
 class CompressedArray {
@@ -320,4 +322,7 @@ class CompressedArray {
     std::vector<bool> dirtyDimensions_;
 };
 
-#endif /* COMPRESSEDARRAY_H */
+} /* namespace BW */
+
+#endif /* BW_COMPRESSEDARRAY_H */
+

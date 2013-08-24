@@ -1,11 +1,13 @@
-#ifndef BLOCKING_H
-#define BLOCKING_H
+#ifndef BW_BLOCKING_H
+#define BW_BLOCKING_H
 
 #include <boost/foreach.hpp>
 
 #include <vector>
 
 #include "roi.h"
+
+namespace BW {
 
 /**
  * Computes a tiling of (possibly overlapping) blocks.
@@ -92,5 +94,6 @@ class Blocking {
     std::vector< std::pair<V, Roi<N> > > blocks_;
 };
 
+} /* namespace BW */
 
 #endif /* BLCOKING_H */

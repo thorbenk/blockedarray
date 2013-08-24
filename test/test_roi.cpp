@@ -1,9 +1,12 @@
 #include <iostream>
 
-#include "roi.h"
+#include <bw/roi.h>
+
 #include "test_utils.h"
 
 #include <vigra/unittest.hxx>
+
+using namespace BW;
 
 struct RoiTest {
 void testConstruction() {

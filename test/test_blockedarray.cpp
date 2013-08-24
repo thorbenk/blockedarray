@@ -12,10 +12,11 @@
 #define DEBUG_CHECKS 1
 #undef DEBUG_PRINTS
 
-#include "blockedarray.h"
+#include <bw/array.h>
+
 #include "test_utils.h"
 
-//TODO: use alignas to allocate char arrays
+using namespace BW;
 
 template<int N, class T>
 void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
@@ -24,13 +25,13 @@ void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
           int verbose = false
 ) {
     if(verbose) { std::cout << "TEST" << std::endl; }
-    typedef BlockedArray<N,T> BA;
+    typedef Array<N,T> BA;
     typedef typename BA::difference_type diff_t;
     
     vigra::MultiArray<N,T> theData(dataShape);
     FillRandom<T, typename vigra::MultiArray<N,T>::iterator>::fillRandom(theData.begin(), theData.end());
     
-    if(verbose) std::cout << "* constructing BlockedArray with blockShape=" << blockShape << ", dataShape=" << theData.shape() << std::endl;
+    if(verbose) std::cout << "* constructing Array with blockShape=" << blockShape << ", dataShape=" << theData.shape() << std::endl;
     
     {
         BA emptyArray(blockShape);
@@ -145,7 +146,7 @@ void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
     shouldEqual(blockedArray.numBlocks(),0);
 }
 
-struct BlockedArrayTest {
+struct ArrayTest {
 void dim3_uint8() {
     test<3, vigra::UInt8>(vigra::Shape3(89,66,77), vigra::Shape3(22,11,9), 50);
 }
@@ -161,19 +162,19 @@ void dim3_int64() {
 }
 }; /* struct CompressedArrayTest */
 
-struct BlockedArrayTestSuite : public vigra::test_suite {
-    BlockedArrayTestSuite()
-        : vigra::test_suite("BlockedArrayTestSuite")
+struct ArrayTestSuite : public vigra::test_suite {
+    ArrayTestSuite()
+        : vigra::test_suite("ArrayTestSuite")
     {
-        add( testCase(&BlockedArrayTest::dim3_uint8));
-        add( testCase(&BlockedArrayTest::dim3_float32));
-        add( testCase(&BlockedArrayTest::dim5_float32));
-        add( testCase(&BlockedArrayTest::dim3_int64));
+        add( testCase(&ArrayTest::dim3_uint8));
+        add( testCase(&ArrayTest::dim3_float32));
+        add( testCase(&ArrayTest::dim5_float32));
+        add( testCase(&ArrayTest::dim3_int64));
     }
 };
 
 int main(int argc, char ** argv) {
-    BlockedArrayTestSuite test;
+    ArrayTestSuite test;
     int failed = test.run(vigra::testsToBeExecuted(argc, argv));
     std::cout << test.report() << std::endl;
     return (failed != 0);

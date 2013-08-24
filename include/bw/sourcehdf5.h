@@ -1,20 +1,22 @@
-#ifndef HDF5BLOCKEDSOURCE_H
-#define HDF5BLOCKEDSOURCE_H
+#ifndef BW_SOURCEHDF5_H
+#define BW_SOURCEHDF5_H 
 
 #include <vigra/hdf5impex.hxx>
 
-#include "blockedsource.h"
+#include <bw/source.h>
 
+namespace BW {
+    
 /**
  * Read a block of data from a HDF5File
  */
 template<int N, class T>
-class HDF5BlockedSource : public BlockedSource<N,T> {
+class SourceHDF5 : public Source<N,T> {
     public:
-    typedef typename BlockedSource<N,T>::V V;
+    typedef typename Source<N,T>::V V;
     
-    HDF5BlockedSource(const std::string& hdf5file, const std::string& hdf5group)
-        : BlockedSource<N,T>()
+    SourceHDF5(const std::string& hdf5file, const std::string& hdf5group)
+        : Source<N,T>()
         , hdf5file_(hdf5file)
         , hdf5group_(hdf5group)
     {
@@ -65,4 +67,6 @@ class HDF5BlockedSource : public BlockedSource<N,T> {
     Roi<N> roi_;
 };
 
-#endif /* HDF5BLOCKEDSOURCE_H */
+} /* namespace BW */
+
+#endif /* BW_SOURCEHDF5_H */

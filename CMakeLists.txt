@@ -13,7 +13,7 @@ find_package(HDF5 REQUIRED)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/thirdparty ${VIGRA_INCLUDE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/snappy)
 include_directories(
-    ${PROJECT_SOURCE_DIR}
+    ${PROJECT_SOURCE_DIR}/include
     ${Boost_INCLUDE_DIR}
 )
 

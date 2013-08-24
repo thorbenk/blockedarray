@@ -1,28 +1,30 @@
-#ifndef BLOCKWISECHANNELSELECTOR_H
-#define BLOCKWISECHANNELSELECTOR_H
+#ifndef BW_CHANNELSELECTOR_H
+#define BW_CHANNELSELECTOR_H
 
-#include "blockedsource.h"
-#include "blockedsink.h"
-#include "blocking.h"
+#include <bw/source.h>
+#include <bw/sink.h>
+#include <bw/blocking.h>
+
+namespace BW {
 
 /**
- * Blockwise channel selector.
+ *  channel selector.
  * 
  * FIXME: Assumes channel is first axis
  */
 template<int N, class T>
-class BlockwiseChannelSelector {
+class ChannelSelector {
     public:
     
     typedef typename Roi<N-1>::V V;
     
-    BlockwiseChannelSelector(BlockedSource<N,T>* source, V blockShape)
+    ChannelSelector(Source<N,T>* source, V blockShape)
         : blockShape_(blockShape)
         , source_(source)
     {
     }
     
-    void run(int dim, int channel, BlockedSink<N-1, T>* sink) {
+    void run(int dim, int channel, Sink<N-1, T>* sink) {
         using namespace vigra;
         using std::vector;
         
@@ -68,9 +70,11 @@ class BlockwiseChannelSelector {
     
     private:
     V blockShape_;
-    BlockedSource<N,T>* source_;
+    Source<N,T>* source_;
     V shape_;
     Blocking<N-1> blocking_;
 };
 
-#endif /* BLOCKWISECHANNELSELECTOR_H */
+} /* namespace BW */
+
+#endif /* BW_SELECTOR_H */

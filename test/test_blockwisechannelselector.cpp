@@ -1,17 +1,20 @@
 #include <iostream>
 
-#include "hdf5blockedsource.h"
-#include "hdf5blockedsink.h"
-#include "blockwisechannelselector.h"
+#include <bw/sourcehdf5.h>
+#include <bw/sinkhdf5.h>
+#include <bw/channelselector.h>
+
 #include "test_utils.h"
 
 #include <vigra/unittest.hxx>
 #include <vigra/hdf5impex.hxx>
 
-struct BlockwiseChannelSelectorTest {
+using namespace BW;
+
+struct ChannelSelectorTest {
 void test() {
     using namespace vigra;
-    typedef typename BlockwiseChannelSelector<4, float>::V V;
+    typedef typename ChannelSelector<4, float>::V V;
    
     for(int ch=0; ch<=1; ++ch) {
         std::cout << "* channel = " << ch << std::endl;
@@ -23,11 +26,11 @@ void test() {
             f.write("test", data);
         }
         
-        HDF5BlockedSource<4, float> source("test.h5", "test");
-        HDF5BlockedSink<3, float> sink("channel.h5", "channel");
+        SourceHDF5<4, float> source("test.h5", "test");
+        SinkHDF5<3, float> sink("channel.h5", "channel");
         sink.setBlockShape(V(10,10,10));
         
-        BlockwiseChannelSelector<4, float> cs(&source, V(10,10,10));
+        ChannelSelector<4, float> cs(&source, V(10,10,10));
         
         cs.run(3, ch, &sink);
     
@@ -43,7 +46,7 @@ void test() {
 
 void testRoi() {
     using namespace vigra;
-    typedef typename BlockwiseChannelSelector<4, float>::V V;
+    typedef typename ChannelSelector<4, float>::V V;
     typedef vigra::TinyVector<int, 4> V4;
     
     int ch = 0;
@@ -55,12 +58,12 @@ void testRoi() {
         f.write("test", data);
     }
     
-    HDF5BlockedSource<4, float> source("test.h5", "test");
+    SourceHDF5<4, float> source("test.h5", "test");
     source.setRoi(Roi<4>(V4(1,3,5,0), V4(7,9,30,2)));
     
-    HDF5BlockedSink<3, float> sink("channel.h5", "channel");
+    SinkHDF5<3, float> sink("channel.h5", "channel");
     
-    BlockwiseChannelSelector<4, float> cs(&source, V(10,10,10));
+    ChannelSelector<4, float> cs(&source, V(10,10,10));
     
     cs.run(3, ch, &sink);
 
@@ -73,19 +76,19 @@ void testRoi() {
     shouldEqualSequence(r.begin(), r.end(), shouldResult.begin());
 }
 
-}; /* struct BlockwiseChannelSelectorTest */
+}; /* struct ChannelSelectorTest */
 
-struct BlockwiseChannelSelectorTestSuite : public vigra::test_suite {
-    BlockwiseChannelSelectorTestSuite()
-        : vigra::test_suite("BlockwiseChannelSelectorTestSuite")
+struct ChannelSelectorTestSuite : public vigra::test_suite {
+    ChannelSelectorTestSuite()
+        : vigra::test_suite("ChannelSelectorTestSuite")
     {
-        add( testCase(&BlockwiseChannelSelectorTest::test) );
-        add( testCase(&BlockwiseChannelSelectorTest::testRoi) );
+        add( testCase(&ChannelSelectorTest::test) );
+        add( testCase(&ChannelSelectorTest::testRoi) );
     }
 };
 
 int main(int argc, char ** argv) {
-    BlockwiseChannelSelectorTestSuite test;
+    ChannelSelectorTestSuite test;
     int failed = test.run(vigra::testsToBeExecuted(argc, argv));
     std::cout << test.report() << std::endl;
     return (failed != 0);

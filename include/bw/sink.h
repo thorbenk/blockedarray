@@ -1,20 +1,22 @@
-#ifndef BLOCKEDSINK_H
-#define BLOCKEDSINK_H
+#ifndef BW_BLOCKEDSINK_H
+#define BW_BLOCKEDSINK_H
 
 #include <vigra/multi_array.hxx>
 
 #include "roi.h"
 
+namespace BW {
+
 /**
  * Interface to write a block of data given a region of interest
  */
 template<int N, class T>
-class BlockedSink {
+class Sink {
     public:
     typedef typename Roi<N>::V V;
         
-    BlockedSink() {}
-    virtual ~BlockedSink() {};
+    Sink() {}
+    virtual ~Sink() {};
    
     void setShape(V shape) {
         shape_ = shape; 
@@ -34,4 +36,6 @@ class BlockedSink {
     V blockShape_;
 };
 
-#endif /* BLOCKEDSINK_H */
+} /* namespace BW */
+
+#endif /* BW_BLOCKEDSINK_H */

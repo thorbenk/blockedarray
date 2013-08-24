@@ -11,11 +11,13 @@
 
 //#define DEBUG_PRINTS
 
-#include "blockedarray.h"
+#include <bw/array.h>
+
+using namespace BW;
 
 template<int N, class T>
 struct PyBlockedArray {
-    typedef BlockedArray<N, T> BA;
+    typedef Array<N, T> BA;
     
     static void readSubarray(BA& ba,
                              typename BA::difference_type p, typename BA::difference_type q,
@@ -124,7 +126,7 @@ struct DtypeName<vigra::Int32> {
 
 template<int N, class T>
 void export_blockedArray() {
-    typedef BlockedArray<N, T> BA;
+    typedef Array<N, T> BA;
     
     using namespace boost::python;
     using namespace vigra;

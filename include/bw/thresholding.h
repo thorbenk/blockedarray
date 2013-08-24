@@ -1,22 +1,24 @@
-#ifndef BLOCKWISETHRESHOLDING_H
-#define BLOCKWISETHRESHOLDING_H
+#ifndef BW_THRESHOLDING_H
+#define BW_THRESHOLDING_H
 
-#include "blockedsource.h"
-#include "blockedsink.h"
-#include "blocking.h"
+#include <bw/source.h>
+#include <bw/sink.h>
+#include <bw/blocking.h>
+
+namespace BW {
 
 /**
- * Blockwise thresholding (not limited by RAM)
+ *  thresholding (not limited by RAM)
  * 
  * Reads data with dimension N, pixel type T in a block-wise fashion from a HDF5File,
  * performs thresholding, and writes to a chunked and compressed output file.
  */
 template<int N, class T>
-class BlockwiseThresholding {
+class Thresholding {
     public:
     
     typedef typename Roi<N>::V V;
-    BlockwiseThresholding(BlockedSource<N,T>* source, V blockShape)
+    Thresholding(Source<N,T>* source, V blockShape)
         : blockShape_(blockShape)
         , shape_(source->shape())
         , source_(source)
@@ -25,7 +27,7 @@ class BlockwiseThresholding {
         
         Roi<N> roi(V(), shape_);
         Blocking<N> bb(roi, blockShape, V());
-        std::cout << "* BlockwiseThresholding with " << bb.numBlocks() << " blocks" << std::endl;
+        std::cout << "* Thresholding with " << bb.numBlocks() << " blocks" << std::endl;
         blocking_ = bb;
     }
     
@@ -33,7 +35,7 @@ class BlockwiseThresholding {
      * Applies thresholding 'threshold'  to the image. If a pixel value is greater than 'threshold',
      * it is assigned the 'ifLower' value, otherwise the 'ifHigher' value. 
      */
-    void run(T threshold, vigra::UInt8 ifLower, vigra::UInt8 ifHigher, BlockedSink<N,vigra::UInt8>* sink) {
+    void run(T threshold, vigra::UInt8 ifLower, vigra::UInt8 ifHigher, Sink<N,vigra::UInt8>* sink) {
         using namespace vigra;
         
         sink->setShape(shape_);
@@ -63,7 +65,9 @@ class BlockwiseThresholding {
     V shape_;
     V blockShape_;
     Blocking<N> blocking_;
-    BlockedSource<N,T>* source_;
+    Source<N,T>* source_;
 };
 
-#endif /* BLOCKWISETHRESHOLDING_H */
+} /* namespace BW */
+
+#endif /* BW_THRESHOLDING_H */
