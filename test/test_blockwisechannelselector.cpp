@@ -1,6 +1,8 @@
 #include <iostream>
 
-#include "blockwisecc.h"
+#include "hdf5blockedsource.h"
+#include "hdf5blockedsink.h"
+#include "blockwisechannelselector.h"
 #include "test_utils.h"
 
 #include <vigra/unittest.hxx>

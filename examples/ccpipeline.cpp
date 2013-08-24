@@ -1,3 +1,7 @@
+#include <iostream>
+
+#include "blockwisechannelselector.h"
+#include "blockwisethresholding.h"
 #include "blockwisecc.h"
 
 int main(int argc, char** argv) {

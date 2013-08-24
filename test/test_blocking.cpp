@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "blockwisecc.h"
+#include "blocking.h"
 #include "test_utils.h"
 
 #include <vigra/unittest.hxx>

@@ -11,6 +11,8 @@
 
 #include "blockwisecc_py.h"
 #include "blockwisecc.h"
+#include "blockwisethresholding.h"
+#include "blockwisechannelselector.h"
 
 template<int N>
 struct PyBlockwiseConnectedComponents {
