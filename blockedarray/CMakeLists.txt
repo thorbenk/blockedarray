@@ -19,7 +19,7 @@ add_library(_blockedarray SHARED
     blockwisecc_py.cxx
 )
 
-if(WIN32)
+if(WIN32 or APPLE)
     set(RT_LIBRARY "")
 else()
     set(RT_LIBRARY "rt")
