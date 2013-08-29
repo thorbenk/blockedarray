@@ -19,7 +19,7 @@ add_library(_blockedarray SHARED
     blockwisecc_py.cxx
 )
 
-if(WIN32)
+if(WIN32 or APPLE)
     set(RT_LIBRARY "")
 else()
     set(RT_LIBRARY "rt")
@@ -27,6 +27,7 @@ endif()
 
 target_link_libraries(_blockedarray
     snappy
+    ${PYTHON_LIBRARY}
     ${Boost_PYTHON_LIBRARIES}
     ${HDF5_LIBRARY}
     ${HDF5_HL_LIBRARY}

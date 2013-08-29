@@ -6,6 +6,7 @@ enable_testing()
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 
+find_package(PythonLibs REQUIRED)
 find_package(Boost COMPONENTS python REQUIRED)
 find_package(VIGRA REQUIRED)
 find_package(HDF5 REQUIRED)
