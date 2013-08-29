@@ -1,5 +1,5 @@
-#ifndef BW_SOURCEHDF5_H
-#define BW_SOURCEHDF5_H 
+#ifndef BW_SOURCEKNOSSOS_H
+#define BW_SOURCEKNOSSOS_H
 
 #include <fstream>
 #include <numeric>
@@ -185,4 +185,4 @@ class SourceKnossos : public Source<N,T> {
 
 } /* namespace BW */
 
-#endif /* BW_SOURCEHDF5_H */
+#endif /* BW_SOURCEKNOSSOS_H */
