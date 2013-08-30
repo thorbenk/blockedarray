@@ -150,6 +150,8 @@ void export_blockedArray() {
              (arg("enableCompression")))
         .def("setMinMaxTrackingEnabled", &BA::setMinMaxTrackingEnabled,
              (arg("enableMinMaxTracking")))
+        .def("setManageCoordinateLists", &BA::setManageCoordinateLists,
+             (arg("manageCoordinateLists")))
         .def("minMax", &PyBA::minMax)
         .def("averageCompressionRatio", &BA::averageCompressionRatio)
         .def("numBlocks", &BA::numBlocks)
