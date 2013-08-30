@@ -1,5 +1,6 @@
 set(Python_ADDITIONAL_VERSIONS 2.7)
-find_package(PythonLibs)
+find_package(PythonLibs REQUIRED)
+find_package(PythonInterp REQUIRED)
 find_package(Numpy REQUIRED)
 find_package(Boost COMPONENTS python REQUIRED)
 
@@ -52,3 +53,7 @@ add_custom_command(TARGET _blockedarray
         ${location}
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
+
+add_test(NAME test_py_blockedarray
+         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+         COMMAND ${PYTHON_EXECUTABLE} test_blockedarray.py)
