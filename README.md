@@ -10,11 +10,11 @@ access to arbitrary regions of interest.
 compressed array
 ----------------
 
-The class `CompressedArray<N,T>` represents a `N`-dimensional
+The class `BW::CompressedArray<N,T>` represents a `N`-dimensional
 array with pixel type `T`. The array data can be stored
 compressed (`CompressedArray::compress()`) or uncompressed
-(`CompressedArray::uncompress()`). When reading data
-(`CompressedArray::readArray`), the data is - if needed -
+(`BW::CompressedArray::uncompress()`). When reading data
+(`BW::CompressedArray::readArray`), the data is - if needed -
 uncompressed first.
 
 The compression algorithm used is google
@@ -23,7 +23,7 @@ The compression algorithm used is google
 blocked array
 -------------
 
-`BlockedArray<N,T>` stores `N`-dimension array data
+`BW::Array<N,T>` stores `N`-dimension array data
 of pixel type `T` in blocks
 (of a size to be specified in the constructor).
 Each block is stored compressed in memory, using
