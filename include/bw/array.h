@@ -89,6 +89,15 @@ class Array {
     size_t sizeBytes() const;
 
     /**
+     * read array 'a' into 'out' from region of interest [p, q)
+     * 
+     * If any of the needed blocks does not exist, 'out' will have
+     * zeros at the corresponding locations.
+     */
+    void readSubarray(difference_type p, difference_type q,
+                      vigra::MultiArrayView<N, T>& out) const;
+                      
+    /**
      * write array 'a' into the region of interest [p, q)
      * 
      * If a block is _completely_ overwritten, its state is set to NOT DIRTY.
@@ -106,22 +115,18 @@ class Array {
      * set all blocks that intersect the ROI [p,q) to be flagged as 'dirty'
      */
     void setDirty(difference_type p, difference_type q, bool dirty);
+
+    /**
+     * get a list of all blocks intersecting ROI [p,q) that are currently stored
+     */
+    BlockList blocks(difference_type p, difference_type q) const;
     
     /**
      * get a list of all blocks within the ROI [p,q) that are marked as dirty
      * 
      * Returns: list of block coordinates which are dirty
      */
-    BlockList dirtyBlocks(difference_type p, difference_type q) const ;
-
-    /**
-     * read array 'a' into 'out' from region of interest [p, q)
-     * 
-     * If any of the needed blocks does not exist, 'out' will have
-     * zeros at the corresponding locations.
-     */
-    void readSubarray(difference_type p, difference_type q,
-                      vigra::MultiArrayView<N, T>& out) const;
+    BlockList dirtyBlocks(difference_type p, difference_type q) const;
     
     /**
      * compute the block bounds [p,q) given a block coordinate 'c'
@@ -132,7 +137,7 @@ class Array {
         
     BlockPtr addBlock(BlockCoord c, vigra::MultiArrayView<N, T>& a);
 
-    std::vector<BlockCoord> blocks(difference_type p, difference_type q) const;
+    std::vector<BlockCoord> enumerateBlocksInRange(difference_type p, difference_type q) const;
 
     BlockCoord blockGivenCoordinateP(difference_type p) const;
 
@@ -251,7 +256,7 @@ void Array<N,T>::writeSubarray(
     difference_type q,
     const vigra::MultiArrayView<N, T>& a
 ) {
-    const BlockList bb = blocks(p, q);
+    const BlockList bb = enumerateBlocksInRange(p, q);
     const BlockCoord blockP = blockGivenCoordinateP(p);
     
     BOOST_FOREACH(BlockCoord blockCoor, bb) {
@@ -322,7 +327,7 @@ void Array<N,T>::writeSubarray(
 
 template<int N, typename T>
 void Array<N,T>::deleteSubarray(difference_type p, difference_type q) {
-    const BlockList bb = blocks(p, q);
+    const BlockList bb = enumerateBlocksInRange(p, q);
     BOOST_FOREACH(BlockCoord blockCoor, bb) {
         typename BlocksMap::iterator it = blocks_.find(blockCoor);
         if(it != blocks_.end()) {
@@ -338,12 +343,21 @@ void Array<N,T>::deleteSubarray(difference_type p, difference_type q) {
 
 template<int N, typename T>
 void Array<N,T>::setDirty(difference_type p, difference_type q, bool dirty) {
-    const BlockList bb = blocks(p, q);
+    const BlockList bb = enumerateBlocksInRange(p, q);
     BOOST_FOREACH(BlockCoord blockCoor, bb) {
         typename BlocksMap::iterator it = blocks_.find(blockCoor);
         if(it == blocks_.end()) { continue; }
         it->second->setDirty(dirty);
     }
+}
+
+template<int N, typename T>
+typename Array<N,T>::BlockList Array<N,T>::blocks(difference_type p, difference_type q) const {
+    BlockList bL;
+    BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
+        bL.push_back(b.first);
+    }
+    return bL;
 }
 
 template<int N, typename T>
@@ -377,7 +391,7 @@ void Array<N,T>::readSubarray(
     vigra_precondition(out.shape()==q-p,"shape differ");
     
     //find affected blocks
-    const BlockList bb = blocks(p, q);
+    const BlockList bb = enumerateBlocksInRange(p, q);
 
     #ifdef DEBUG_PRINTS
     std::cout << "readSubarray(" << p << ", " << q << ")" << std::endl;
@@ -545,7 +559,7 @@ typename Array<N,T>::BlockPtr Array<N,T>::addBlock(
 }
 
 template<int N, typename T>
-std::vector<typename Array<N,T>::BlockCoord> Array<N,T>::blocks(
+std::vector<typename Array<N,T>::BlockCoord> Array<N,T>::enumerateBlocksInRange(
     difference_type p,
     difference_type q
 ) const {

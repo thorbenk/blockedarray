@@ -13,7 +13,26 @@
 
 #include <bw/array.h>
 
+#include "dtypename.h"
+
 using namespace BW;
+
+template<int N, typename T>
+boost::python::tuple blockListToPython(
+    const Array<N,T>& ba,
+    const typename Array<N,T>::BlockList& bL) {
+    vigra::NumpyArray<2, vigra::UInt32> start(vigra::Shape2(bL.size(), N));
+    vigra::NumpyArray<2, vigra::UInt32> stop(vigra::Shape2(bL.size(), N));
+    for(int i=0; i<bL.size(); ++i) {
+        typename Array<N,T>::difference_type pp, qq;
+        ba.blockBounds(bL[i], pp, qq);
+        for(int j=0; j<N; ++j) {
+            start(i,j) = pp[j];
+            stop(i,j) = qq[j];
+        }
+    }
+    return boost::python::make_tuple(start, stop);
+}
 
 template<int N, class T>
 struct PyBlockedArray {
@@ -52,81 +71,36 @@ struct PyBlockedArray {
         return out;
     }
     
+    static void setDirty(BA& ba, boost::python::tuple sl, bool dirty) {
+        typename BA::difference_type p,q;
+        sliceToPQ(sl, p, q);
+        ba.setDirty(p,q,dirty);
+    }
+    
     static void setitem(BA& ba, boost::python::tuple sl, vigra::NumpyArray<N,T> a) {
         typename BA::difference_type p,q;
         sliceToPQ(sl, p, q);
         ba.writeSubarray(p, q, a);
     }
     
+    static boost::python::tuple blocks(BA& ba, typename BA::difference_type p, typename BA::difference_type q) {
+        return blockListToPython(ba, ba.blocks(p, q));
+    }
+    
     static boost::python::tuple dirtyBlocks(BA& ba, typename BA::difference_type p, typename BA::difference_type q) {
-        typename BA::BlockList bL = ba.dirtyBlocks(p, q);
-        vigra::NumpyArray<2, vigra::UInt32> start(vigra::Shape2(bL.size(), N));
-        vigra::NumpyArray<2, vigra::UInt32> stop(vigra::Shape2(bL.size(), N));
-        for(int i=0; i<bL.size(); ++i) {
-            typename BA::difference_type pp, qq;
-            ba.blockBounds(bL[i], pp, qq);
-            for(int j=0; j<N; ++j) {
-                start(i,j) = pp[j];
-                stop(i,j) = qq[j];
-            }
-        }
-        return boost::python::make_tuple(start, stop);
+        return blockListToPython(ba, ba.dirtyBlocks(p, q));
     }
-};
-
-template<class T>
-struct DtypeName {
-    static void dtypeName() {
-        throw std::runtime_error("not specialized");
-    }
-};
-
-template<>
-struct DtypeName<vigra::UInt8> {
-    static std::string dtypeName() {
-        return "uint8";
-    }
-};
-template<>
-struct DtypeName<float> {
-    static std::string dtypeName() {
-        return "float32";
-    }
-};
-template<>
-struct DtypeName<double> {
-    static std::string dtypeName() {
-        return "float64";
-    }
-};
-template<>
-struct DtypeName<vigra::UInt32> {
-    static std::string dtypeName() {
-        return "uint32";
-    }
-};
-template<>
-struct DtypeName<vigra::UInt64> {
-    static std::string dtypeName() {
-        return "uint64";
-    }
-};
-template<>
-struct DtypeName<vigra::Int64> {
-    static std::string dtypeName() {
-        return "int64";
-    }
-};
-template<>
-struct DtypeName<vigra::Int32> {
-    static std::string dtypeName() {
-        return "int32";
+    
+    static boost::python::tuple minMax(const BA& ba) {
+        std::pair<T,T> mm = ba.minMax();
+        return boost::python::make_tuple(mm.first, mm.second); 
     }
 };
 
 template<int N, class T>
 void export_blockedArray() {
     typedef Array<N, T> BA;
+    typedef PyBlockedArray<N,T> PyBA;
     
     using namespace boost::python;
     using namespace vigra;
@@ -134,16 +108,24 @@ void export_blockedArray() {
     std::stringstream name; name << "BlockedArray" << N << DtypeName<T>::dtypeName();
     
     class_<BA>(name.str().c_str(), init<typename BA::difference_type>())
-        .def("averageCompressionRatio", registerConverters(&BA::averageCompressionRatio))
-        .def("numBlocks", registerConverters(&BA::numBlocks))
-        .def("sizeBytes", registerConverters(&BA::sizeBytes))
-        .def("writeSubarray", registerConverters(&PyBlockedArray<N,T>::writeSubarray))
-        .def("readSubarray", registerConverters(&PyBlockedArray<N,T>::readSubarray))
-        .def("__getitem__", registerConverters(&PyBlockedArray<N,T>::getitem))
-        .def("__setitem__", registerConverters(&PyBlockedArray<N,T>::setitem))
+        .def("setDeleteEmptyBlocks", &BA::setDeleteEmptyBlocks,
+             (arg("deleteEmpty")))
+        .def("setCompressionEnabled", &BA::setCompressionEnabled,
+             (arg("enableCompression")))
+        .def("setMinMaxTrackingEnabled", &BA::setMinMaxTrackingEnabled,
+             (arg("enableMinMaxTracking")))
+        .def("minMax", &PyBA::minMax)
+        .def("averageCompressionRatio", &BA::averageCompressionRatio)
+        .def("numBlocks", &BA::numBlocks)
+        .def("sizeBytes", &BA::sizeBytes)
+        .def("writeSubarray", registerConverters(&PyBA::writeSubarray))
+        .def("readSubarray", registerConverters(&PyBA::readSubarray))
         .def("deleteSubarray", registerConverters(&BA::deleteSubarray))
-        .def("setDirty", registerConverters(&BA::setDirty))
-        .def("dirtyBlocks", registerConverters(&PyBlockedArray<N,T>::dirtyBlocks))
+        .def("__getitem__", registerConverters(&PyBA::getitem))
+        .def("__setitem__", registerConverters(&PyBA::setitem))
+        .def("setDirty", registerConverters(&PyBA::setDirty))
+        .def("blocks", registerConverters(&PyBA::blocks))
+        .def("dirtyBlocks", registerConverters(&PyBA::dirtyBlocks))
     ;
 }
 
