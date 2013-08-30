@@ -10,6 +10,9 @@
 
 #include "compressedarray.h"
 
+template<int Dim, class Type>
+class ArrayTest;
+    
 namespace BW {
 
 template<int N, class T, class BLOCK = CompressedArray<N,T> >
@@ -21,6 +24,10 @@ class Array {
     typedef vigra::MultiArrayView<N,T> view_type;
     typedef boost::shared_ptr<BLOCK> BlockPtr; 
     typedef std::map<BlockCoord, BlockPtr> BlocksMap;
+    typedef std::map<BlockCoord, std::pair<T, T> > BlockMinMax;
+   
+    //give unittest access
+    friend class ArrayTest<N, T>;
     
     /**
      * construct a new Array with given 'blockShape'
@@ -30,6 +37,9 @@ class Array {
     Array(typename vigra::MultiArrayShape<N>::type blockShape)
         : blockShape_(blockShape)
         , tmpBlock_(blockShape)
+        , deleteEmptyBlocks_(false)
+        , enableCompression_(false)
+        , minMaxTracking_(false)
     {
     }
 
@@ -39,8 +49,68 @@ class Array {
     Array(typename vigra::MultiArrayShape<N>::type blockShape, const vigra::MultiArrayView<N, T>& a)
         : blockShape_(blockShape)
         , tmpBlock_(blockShape)
+        , deleteEmptyBlocks_(false)
+        , enableCompression_(false)
+        , minMaxTracking_(false)
     {
         writeSubarray(difference_type(), a.shape(), a);
+    }
+
+    /**
+     * whether to check, on every write operation, whether a block has
+     * become empty (contains) only zeros, and to delete such a block
+     */
+    void setDeleteEmptyBlocks(bool deleteEmpty) {
+        deleteEmptyBlocks_ = deleteEmpty;
+    }
+ 
+    /**
+     * If compression is enabled, all current blocks are compressed.
+     * Furthermore, each newly added block is set to be compressed
+     * by default.
+     */
+    void setCompressionEnabled(bool enableCompression) {
+        enableCompression_ = enableCompression;
+
+        BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
+            if(enableCompression_) b.second->compress();
+            else b.second->uncompress();
+        }
+    }
+   
+    /**
+     * Track the minimum and maximum of each block,
+     * and enable the reporting of a global min/max for
+     * the whole dataset
+     */
+    void setMinMaxTrackingEnabled(bool enableMinMaxTracking) {
+        minMaxTracking_ = enableMinMaxTracking;
+
+        blockMinMax_.clear();
+        if(minMaxTracking_) {
+            BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
+                blockMinMax_[b.first] = minMax(*(b.second.get()));
+            }
+        }
+    }
+    
+    /**
+     * If min-max tracking is enabled, returns the min/max bounds of all currently
+     * stored data.
+     *
+     * If min-max tracking is enabled (@see setMinMaxTrackingEnabled),
+     * computes in O(#blocks) the minimum and maximum value of all currently stored
+     * data.
+     * If min-max tracking is disabled, returns an invalid min/max range. 
+     */
+    std::pair<T, T> minMax() const {
+        T m = std::numeric_limits<T>::max();
+        T M = std::numeric_limits<T>::min();
+        BOOST_FOREACH(const typename BlockMinMax::value_type& b, blockMinMax_) {
+            if(b.second.first < m) m = b.second.first;
+            if(b.second.second > M) M = b.second.second;
+        }
+        return std::make_pair(m,M);
     }
     
     /**
@@ -134,6 +204,17 @@ class Array {
             }
             const view_type toWrite = a.subarray(read_p, read_q);
             it->second->writeArray(withinBlock_p, withinBlock_q, toWrite);
+
+            if(deleteEmptyBlocks_ && allzero(*(it->second.get()))) {
+                blocks_.erase(it);
+                typename BlockMinMax::iterator it2 = blockMinMax_.find(blockCoor);
+                if(it2 != blockMinMax_.end()) {
+                    blockMinMax_.erase(it2);
+                }
+            }
+            else if(minMaxTracking_) {
+                blockMinMax_[it->first] = minMax(*(it->second.get()));
+            }
         }
     }
    
@@ -144,8 +225,14 @@ class Array {
         const BlockList bb = blocks(p, q);
         BOOST_FOREACH(BlockCoord blockCoor, bb) {
             typename BlocksMap::iterator it = blocks_.find(blockCoor);
-            if(it == blocks_.end()) { continue; }
-            blocks_.erase(it);
+            if(it != blocks_.end()) {
+                blocks_.erase(it);
+            }
+            
+            typename BlockMinMax::iterator it2 = blockMinMax_.find(blockCoor);
+            if(it2 != blockMinMax_.end()) {
+                blockMinMax_.erase(it2);
+            }
         }
     }
    
@@ -355,6 +442,9 @@ class Array {
         BlockPtr ca(new BLOCK(block));
         ca->setDirty(true);
         blocks_[c] = ca; //TODO: use std::move here
+        if(enableCompression_) {
+            ca->compress();
+        }
         return ca;
     }
 
@@ -398,6 +488,21 @@ class Array {
         return c;
     }
 
+    bool allzero(const BLOCK& block) const {
+        block.readArray(tmpBlock_);
+        for(size_t i=0; i<tmpBlock_.size(); ++i) {
+            if(tmpBlock_[i] != 0) return false;
+        }
+        return true;
+    }
+
+    std::pair<T, T> minMax(const BLOCK& block) const {
+        block.readArray(tmpBlock_);
+        vigra::FindMinMax<T> minmax;
+        vigra::inspectSequence(tmpBlock_.begin(), tmpBlock_.end(), minmax);
+        return std::make_pair(minmax.min, minmax.max);
+    }
+
     // members
     
     typename vigra::MultiArrayShape<N>::type blockShape_;
@@ -405,6 +510,16 @@ class Array {
    
     //for temporary storage of a block, to avoid repeated allocations
     mutable vigra::MultiArray<N,T> tmpBlock_;
+
+    //whether to check, on every write operation, whether a block has
+    //become empty (contains) only zeros, and to delete such a block
+    bool deleteEmptyBlocks_;
+
+    bool enableCompression_;
+
+    bool minMaxTracking_;
+
+    BlockMinMax blockMinMax_;
 };
 
 } /* namespace BW */

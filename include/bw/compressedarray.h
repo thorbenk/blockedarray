@@ -304,11 +304,14 @@ class CompressedArray {
     /**
      * returns the compression ratio
      * 
-     * Note that this is only valid if compress() has been called at least once on the
-     * current data.
+     * If this array is compressed, returns the compression ratio.
+     * If this array is uncompressed, return 1.0
      */
     double compressionRatio() const {
-        return compressedSize_*sizeof(T)/((double)uncompressedSizeBytes());
+        if(isCompressed_) {
+            return compressedSize_*sizeof(T)/((double)uncompressedSizeBytes());
+        }
+        return 1.0;
     }
     
     difference_type shape() const { return shape_; }
