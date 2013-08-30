@@ -44,7 +44,7 @@ boost::python::list voxelValuesToPython(
     
     PyCoord coords[N];
     for(int i=0; i<N; ++i) {
-        coords.reshape(Sh(vv.first.size()));
+        coords[i].reshape(Sh(vv.first.size()));
     }
     PyVal vals(Sh(vv.first.size()));
     for(size_t j=0; j<N; ++j) {
@@ -129,7 +129,7 @@ struct PyBlockedArray {
     }
     
     static boost::python::list nonzero(const BA& ba) {
-        return voxelValuesToPython(ba.nonzero());
+        return voxelValuesToPython<N,T>(ba.nonzero());
     }
 };
 
