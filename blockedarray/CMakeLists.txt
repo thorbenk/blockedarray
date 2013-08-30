@@ -34,9 +34,17 @@ target_link_libraries(_blockedarray
     ${VIGRA_IMPEX_LIBRARY}
     ${RT_LIBRARY}
 )
-set_target_properties(_blockedarray PROPERTIES
-    PREFIX ""
-)
+IF(WIN32)                                                                                                               
+    MESSAGE(STATUS "WIN32")                                                                                             
+    SET_TARGET_PROPERTIES(_blockedarray PROPERTIES OUTPUT_NAME "_blockedarray" PREFIX "" SUFFIX  ".pyd")                                                                                                                                                                                                                                                                                   
+ELSEIF(APPLE)                                                                                                           
+    MESSAGE(STATUS "APPLE")                                                                                             
+    SET_TARGET_PROPERTIES(_blockedarray PROPERTIES OUTPUT_NAME "_blockedarray" PREFIX "" SUFFIX ".so")                                      
+ELSE()                                                                                                                  
+    MESSAGE(STATUS "LINUX")                                                                                             
+    SET_TARGET_PROPERTIES(_blockedarray PROPERTIES OUTPUT_NAME "_blockedarray" PREFIX "")                                                   
+ENDIF()
+
 get_property(location TARGET _blockedarray PROPERTY LOCATION)
 add_custom_command(TARGET _blockedarray
     POST_BUILD        
