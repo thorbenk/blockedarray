@@ -26,6 +26,9 @@ class Array {
     typedef boost::shared_ptr<BLOCK> BlockPtr; 
     typedef std::map<BlockCoord, BlockPtr> BlocksMap;
     typedef std::map<BlockCoord, std::pair<T, T> > BlockMinMax;
+    typedef std::pair<std::vector<difference_type>, std::vector<T> > VoxelValues; 
+    typedef std::map<BlockCoord, VoxelValues> BlockVoxelValues; 
+    
    
     //give unittest access
     friend class ArrayTest<N, T>;
@@ -42,6 +45,15 @@ class Array {
      */
     Array(typename vigra::MultiArrayShape<N>::type blockShape, const vigra::MultiArrayView<N, T>& a);
 
+    /**
+     * If coordinate lists management is enabled, a separate
+     * sparse list of non-zero coordinates and their associated
+     * values is kept for each stored block. 
+     * 
+     * Enabling coordinate lists implies 'delete empty blocks'.
+     */
+    void setManageCoordinateLists(bool manageCoordinateLists);
+    
     /**
      * whether to check, on every write operation, whether a block has
      * become empty (contains) only zeros, and to delete such a block
@@ -133,7 +145,11 @@ class Array {
      */
     void blockBounds(BlockCoord c, difference_type&p, difference_type& q) const;
     
+    VoxelValues nonzero() const;
+    
     private:
+
+    VoxelValues blockNonzero(const BLOCK& block) const;
         
     BlockPtr addBlock(BlockCoord c, vigra::MultiArrayView<N, T>& a);
 
@@ -164,6 +180,10 @@ class Array {
     bool minMaxTracking_;
 
     BlockMinMax blockMinMax_;
+    
+    bool manageCoordinateLists_;
+    
+    BlockVoxelValues blockVoxelValues_;
 };
 
 //==== IMPLEMENTATION ====//
@@ -175,6 +195,7 @@ Array<N,T>::Array(typename vigra::MultiArrayShape<N>::type blockShape)
     , deleteEmptyBlocks_(false)
     , enableCompression_(false)
     , minMaxTracking_(false)
+    , manageCoordinateLists_(false)
 {
 }
 
@@ -185,6 +206,7 @@ Array<N,T>::Array(typename vigra::MultiArrayShape<N>::type blockShape, const vig
     , deleteEmptyBlocks_(false)
     , enableCompression_(false)
     , minMaxTracking_(false)
+    , manageCoordinateLists_(false)
 {
     writeSubarray(difference_type(), a.shape(), a);
 }
@@ -192,6 +214,19 @@ Array<N,T>::Array(typename vigra::MultiArrayShape<N>::type blockShape, const vig
 template<int N, typename T>
 void Array<N,T>::setDeleteEmptyBlocks(bool deleteEmpty) {
     deleteEmptyBlocks_ = deleteEmpty;
+}
+
+template<int N, typename T>
+void Array<N,T>::setManageCoordinateLists(bool manageCoordinateLists) {
+    manageCoordinateLists_ = manageCoordinateLists;
+    setDeleteEmptyBlocks(manageCoordinateLists);
+
+    blockVoxelValues_.clear();
+    if(manageCoordinateLists) {
+        BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
+            blockVoxelValues_[b.first] = blockNonzero(*(b.second.get()));
+        }
+    }
 }
 
 template<int N, typename T>
@@ -318,9 +353,17 @@ void Array<N,T>::writeSubarray(
             if(it2 != blockMinMax_.end()) {
                 blockMinMax_.erase(it2);
             }
+            typename BlockVoxelValues::iterator it3 = blockVoxelValues_.find(blockCoor);
+            if(it3 != blockVoxelValues_.end()) {
+                blockVoxelValues_.erase(it3);
+            }
+            
         }
         else if(minMaxTracking_) {
             blockMinMax_[it->first] = minMax(*(it->second.get()));
+        }
+        if(manageCoordinateLists_) {
+            blockVoxelValues_[it->first] = blockNonzero(*(it->second.get()));
         }
     }
 }
@@ -333,10 +376,13 @@ void Array<N,T>::deleteSubarray(difference_type p, difference_type q) {
         if(it != blocks_.end()) {
             blocks_.erase(it);
         }
-        
         typename BlockMinMax::iterator it2 = blockMinMax_.find(blockCoor);
         if(it2 != blockMinMax_.end()) {
             blockMinMax_.erase(it2);
+        }
+        typename BlockVoxelValues::iterator it3 = blockVoxelValues_.find(blockCoor);
+        if(it3 != blockVoxelValues_.end()) {
+            blockVoxelValues_.erase(it3);
         }
     }
 }
@@ -539,6 +585,26 @@ void Array<N,T>::blockBounds(
     }
 }
 
+template<int N, typename T>
+typename Array<N,T>::VoxelValues
+Array<N,T>::nonzero(
+) const {
+    VoxelValues ret;
+    std::vector<difference_type>& coords = ret.first;
+    std::vector<T>& vals = ret.second;
+    BOOST_FOREACH(const typename BlockVoxelValues::value_type& b, blockVoxelValues_) {
+        const BlockCoord& blockCoord = b.first;
+        difference_type p, q;
+        blockBounds(blockCoord, p,q);
+        const VoxelValues blockVV = b.second;
+        for(size_t i=0; i<blockVV.first.size(); ++i) {
+            coords.push_back( blockVV.first[i]+p );
+            vals.push_back( blockVV.second[i] );
+        }
+    }
+    return ret;
+}
+
 //==== IMPLEMENTATION (private member functions) =====//
 
 template<int N, typename T>
@@ -622,6 +688,23 @@ std::pair<T, T> Array<N,T>::minMax(const BLOCK& block) const {
     vigra::FindMinMax<T> minmax;
     vigra::inspectSequence(tmpBlock_.begin(), tmpBlock_.end(), minmax);
     return std::make_pair(minmax.min, minmax.max);
+}
+
+template<int N, typename T>
+typename Array<N,T>::VoxelValues
+Array<N,T>::blockNonzero(const BLOCK& block) const {
+    block.readArray(tmpBlock_);
+    VoxelValues ret;
+    std::vector<difference_type>& coords = ret.first;
+    std::vector<T>& vals = ret.second;
+    
+    for(size_t i=0; i<tmpBlock_.size(); ++i) {
+        const T& v = tmpBlock_[i];
+        if(v == 0) { continue; }
+        coords.push_back( tmpBlock_.scanOrderIndexToCoordinate(i) );
+        vals.push_back(v);
+    }
+    return ret;
 }
 
 } /* namespace BW */

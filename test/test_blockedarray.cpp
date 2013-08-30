@@ -21,6 +21,48 @@ using namespace BW;
 template<int N, class T>
 struct ArrayTest {
 
+static void testManageCoordinateLists(
+    int verbose = false
+) {
+    typedef Array<3,T> BA;
+    typedef typename BA::difference_type V;
+    typedef typename BA::BlockPtr BlockPtr;
+   
+    vigra::MultiArray<3,T> initialData(V(100,200,300));
+    initialData[V(3,4,5)]     = 2;
+    initialData[V(80,99,260)] = 3;
+    
+    BA blockedArray(V(20,30,40), initialData);
+    blockedArray.setManageCoordinateLists(true);
+    
+    typename BA::VoxelValues vv = blockedArray.nonzero();
+    shouldEqual(vv.first[0], V(3,4,5));
+    shouldEqual(vv.second[0], 2);
+    shouldEqual(vv.first[1], V(80,99,260));
+    shouldEqual(vv.second[1], 3);
+    
+    blockedArray.setManageCoordinateLists(false);
+    shouldEqual(blockedArray.nonzero().first.size(), 0);
+    
+    blockedArray.setManageCoordinateLists(true);
+    typename BA::VoxelValues vv2 = blockedArray.nonzero();
+    shouldEqual(vv2.first[0], V(3,4,5));
+    shouldEqual(vv2.second[0], 2);
+    shouldEqual(vv2.first[1], V(80,99,260));
+    shouldEqual(vv2.second[1], 3);
+    
+    vigra::MultiArray<3,T> toWrite(V(2,2,2));
+    toWrite(0,1,1) = 42;
+    blockedArray.writeSubarray(V(1,1,1), V(3,3,3), toWrite);
+    typename BA::VoxelValues vv3 = blockedArray.nonzero();
+    shouldEqual(vv3.first[0], V(1,2,2));
+    shouldEqual(vv3.second[0], 42);
+    shouldEqual(vv3.first[1], V(3,4,5));
+    shouldEqual(vv3.second[1], 2);
+    shouldEqual(vv3.first[2], V(80,99,260));
+    shouldEqual(vv3.second[2], 3);
+}
+    
 static void testMinMax(
     int verbose = false
 ) {
@@ -286,12 +328,17 @@ struct ArrayTestImpl {
         ArrayTest<3, int>::testMinMax(false);
         std::cout << "... passed dim3_testMinMax" << std::endl;
     }
+    void dim3_testManageCoordinateLists() {
+        ArrayTest<3, int>::testManageCoordinateLists(false);
+        std::cout << "... passed dim3_testManageCoordinateLists" << std::endl;
+    }
 }; /* struct ArrayTest */
 
 struct ArrayTestSuite : public vigra::test_suite {
     ArrayTestSuite()
         : vigra::test_suite("ArrayTestSuite")
     {
+        add( testCase(&ArrayTestImpl::dim3_testManageCoordinateLists));
         add( testCase(&ArrayTestImpl::dim3_testMinMax));
         add( testCase(&ArrayTestImpl::dim3_testDeleteEmptyBlocks));
         add( testCase(&ArrayTestImpl::dim3_testCompression));

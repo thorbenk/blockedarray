@@ -34,6 +34,38 @@ boost::python::tuple blockListToPython(
     return boost::python::make_tuple(start, stop);
 }
 
+template<int N, typename T>
+boost::python::list voxelValuesToPython(
+    const typename Array<N,T>::VoxelValues& vv
+) {
+    typedef vigra::NumpyArray<1, uint32_t> PyCoord;
+    typedef vigra::NumpyArray<1, T> PyVal;
+    typedef vigra::Shape1 Sh;
+    
+    PyCoord coords[N];
+    for(int i=0; i<N; ++i) {
+        coords.reshape(Sh(vv.first.size()));
+    }
+    PyVal vals(Sh(vv.first.size()));
+    for(size_t j=0; j<N; ++j) {
+        PyCoord& c = coords[j];
+        for(size_t i=0; i<vv.first.size(); ++i) {
+            c[i] = vv.first[i][j];
+        }
+    }
+    for(size_t i=0; i<vv.first.size(); ++i) {
+        vals[i] = vv.second[i];
+    }
+    
+    //convert to python list
+    boost::python::list l;
+    for(int i=0; i<N; ++i) {
+        l.append(coords[i]);
+    }
+    l.append(vals);
+    return l;
+}
+
 template<int N, class T>
 struct PyBlockedArray {
     typedef Array<N, T> BA;
@@ -95,6 +127,10 @@ struct PyBlockedArray {
         std::pair<T,T> mm = ba.minMax();
         return boost::python::make_tuple(mm.first, mm.second); 
     }
+    
+    static boost::python::list nonzero(const BA& ba) {
+        return voxelValuesToPython(ba.nonzero());
+    }
 };
 
 template<int N, class T>
@@ -126,6 +162,7 @@ void export_blockedArray() {
         .def("setDirty", registerConverters(&PyBA::setDirty))
         .def("blocks", registerConverters(&PyBA::blocks))
         .def("dirtyBlocks", registerConverters(&PyBA::dirtyBlocks))
+        .def("nonzero", registerConverters(&PyBA::nonzero))
     ;
 }
 
