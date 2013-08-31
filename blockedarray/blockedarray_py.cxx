@@ -83,6 +83,11 @@ struct PyBlockedArray {
         ba.writeSubarray(p, q, a);
     }
     
+    static void writeSubarrayNonzero(BA& ba, V p, V q, vigra::NumpyArray<N, T> a, T writeAsZero
+    ) {
+        ba.writeSubarrayNonzero(p, q, a, writeAsZero);
+    }
+    
     static void sliceToPQ(boost::python::tuple sl, V &p, V &q) {
         vigra_precondition(boost::python::len(sl)==N, "tuple has wrong length");
         for(int k=0; k<N; ++k) {
@@ -158,6 +163,8 @@ void export_blockedArray() {
         .def("numBlocks", &BA::numBlocks)
         .def("sizeBytes", &BA::sizeBytes)
         .def("writeSubarray", registerConverters(&PyBA::writeSubarray))
+        .def("writeSubarrayNonzero", registerConverters(&PyBA::writeSubarrayNonzero),
+            (arg("p"), arg("q"), arg("a"), arg("writeAsZero")))
         .def("readSubarray", registerConverters(&PyBA::readSubarray))
         .def("deleteSubarray", registerConverters(&BA::deleteSubarray))
         .def("applyRelabeling", registerConverters(&PyBA::applyRelabeling),

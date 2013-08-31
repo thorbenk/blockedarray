@@ -23,6 +23,28 @@ using namespace BW;
 template<int N, class T>
 struct ArrayTest {
 
+static void testWriteSubarrayNonzero(
+    int verbose = false
+) {
+    typedef Array<3,T> BA;
+    typedef typename BA::V V;
+    
+    vigra::MultiArray<3,T> initialData(V(100,75,111), 1);
+    BA blockedArray(V(20,30,40), initialData);
+    
+    vigra::MultiArray<3,T> w(V(4,4,4));
+    w[V(0,1,0)] = 42;
+    w[V(1,0,0)] = 100;
+    
+    blockedArray.writeSubarrayNonzero(V(), w.shape(), w, 100);
+    
+    vigra::MultiArray<3,T> r(initialData.shape());
+    blockedArray.readSubarray(V(), r.shape(), r);
+    shouldEqual(r[V(0,0,0)], 1);
+    shouldEqual(r[V(0,1,0)], 42);
+    shouldEqual(r[V(1,0,0)], 0);
+}
+
 static void testApplyRelabeling(
     int verbose = false
 ) {
@@ -350,6 +372,10 @@ struct ArrayTestImpl {
         ArrayTest<3, vigra::UInt32>::testMinMax(false);
         std::cout << "... passed dim3_testMinMax" << std::endl;
     }
+    void dim3_testWriteSubarrayNonzero() {
+        ArrayTest<3, vigra::UInt32>::testWriteSubarrayNonzero(false);
+        std::cout << "... passed dim3_testWriteSubarrayNonzero" << std::endl;
+    }
     void dim3_testApplyRelabeling() {
         ArrayTest<3, vigra::UInt32>::testApplyRelabeling(false);
         std::cout << "... passed dim3_testApplyRelabeling" << std::endl;
@@ -364,6 +390,7 @@ struct ArrayTestSuite : public vigra::test_suite {
     ArrayTestSuite()
         : vigra::test_suite("ArrayTestSuite")
     {
+        add( testCase(&ArrayTestImpl::dim3_testWriteSubarrayNonzero));
         add( testCase(&ArrayTestImpl::dim3_testApplyRelabeling));
         add( testCase(&ArrayTestImpl::dim3_testManageCoordinateLists));
         add( testCase(&ArrayTestImpl::dim3_testMinMax));

@@ -145,6 +145,15 @@ class Array {
                        const vigra::MultiArrayView<N, T>& a);
    
     /**
+     * Like writeSubarray, but only overwrites if the pixel value in 'a'
+     * is not zero. Input pixel with a value of 'writeAsZero' are written
+     * as zero.
+     */
+    void writeSubarrayNonzero(V p, V q,
+                              const vigra::MultiArrayView<N, T>& a,
+                              T writeAsZero);
+   
+    /**
      * deletes all blocks which contain the region of interest [p,q)
      * 
      * TODO: Is this the behaviour we want?
@@ -382,6 +391,60 @@ void Array<N,T>::writeSubarray(
         }
     }
 }
+
+template<int N, typename T>
+void Array<N,T>::writeSubarrayNonzero(
+    V p, V q,
+    const vigra::MultiArrayView<N, T>& a,
+    T writeAsZero
+) {
+    for(RwIterator wIt(*this,p,q); wIt.hasMore(); wIt.next()) {
+        typename BlocksMap::iterator it = blocks_.find(wIt.blockCoord);
+
+        //make tmpBlock_ hold the current block data
+        if(it == blocks_.end()) {
+            std::fill(tmpBlock_.begin(), tmpBlock_.end(), 0);
+            addBlock(wIt.blockCoord, tmpBlock_);
+            it = blocks_.find(wIt.blockCoord);
+        }
+        else {
+            it->second->readArray(tmpBlock_);
+        }
+
+        const view_type inData  = a.subarray(wIt.read.p, wIt.read.q);
+        view_type curData = tmpBlock_.subarray(wIt.withinBlock.p, wIt.withinBlock.q);
+       
+        for(size_t i=0; i<inData.size(); ++i) {
+            const T in = inData[i];
+            if(in == 0) { continue; }
+            if(in == writeAsZero) {
+                curData[i] = 0;
+            }
+            else {
+                curData[i] = in;
+            }
+        }
+        
+        it->second->writeArray(wIt.withinBlock.p, wIt.withinBlock.q, curData);
+
+        //re-compute, if necessary, information from the _whole_ blocks's
+        //data
+        if(deleteEmptyBlocks_ || minMaxTracking_ || manageCoordinateLists_) {
+            bool blockDeleted = false;
+            if(deleteEmptyBlocks_ && allzero(tmpBlock_)) {
+                blockDeleted = true;
+                deleteBlock(wIt.blockCoord);
+            }
+            if(!blockDeleted && minMaxTracking_) {
+                blockMinMax_[it->first] = minMax(tmpBlock_);
+            }
+            if(!blockDeleted && manageCoordinateLists_) {
+                blockVoxelValues_[it->first] = blockNonzero(tmpBlock_);
+            }
+        }
+    }
+}
+
 
 template<int N, typename T>
 void Array<N,T>::applyRelabeling(
