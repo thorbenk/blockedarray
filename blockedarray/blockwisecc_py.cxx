@@ -15,6 +15,8 @@
 
 #include "blockwisecc_py.h"
 
+#include <bw/extern_templates.h>
+
 using namespace BW;
 
 template<int N>

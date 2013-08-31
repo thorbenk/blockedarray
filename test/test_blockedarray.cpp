@@ -16,17 +16,43 @@
 
 #include "test_utils.h"
 
+#include <bw/extern_templates.h>
+
 using namespace BW;
 
 template<int N, class T>
 struct ArrayTest {
 
+static void testApplyRelabeling(
+    int verbose = false
+) {
+    typedef Array<3,T> BA;
+    typedef typename BA::V V;
+   
+    vigra::MultiArray<3,T> initialData(V(100,200,300));
+    initialData[V(3,4,5)]     = 2;
+    initialData[V(80,99,260)] = 3;
+    BA blockedArray(V(20,30,40), initialData);
+    
+    vigra::MultiArray<1, T> relabeling(vigra::Shape1(5)); 
+    relabeling[2] = 42;
+    relabeling[3] = 99;
+    blockedArray.applyRelabeling(relabeling);
+    
+    initialData[V(3,4,5)]     = 42;
+    initialData[V(80,99,260)] = 99;
+    
+    vigra::MultiArray<3,T> read(V(100,200,300));
+    blockedArray.readSubarray(V(), V(100,200,300), read);
+    
+    shouldEqualSequence(initialData.begin(), initialData.end(), read.begin());
+}
+    
 static void testManageCoordinateLists(
     int verbose = false
 ) {
     typedef Array<3,T> BA;
-    typedef typename BA::difference_type V;
-    typedef typename BA::BlockPtr BlockPtr;
+    typedef typename BA::V V;
    
     vigra::MultiArray<3,T> initialData(V(100,200,300));
     initialData[V(3,4,5)]     = 2;
@@ -67,8 +93,7 @@ static void testMinMax(
     int verbose = false
 ) {
     typedef Array<3,T> BA;
-    typedef typename BA::difference_type V;
-    typedef typename BA::BlockPtr BlockPtr;
+    typedef typename BA::V V;
    
     vigra::MultiArray<3,T> zeros(V(100,200,300));
     
@@ -90,7 +115,7 @@ static void testMinMax(
     shouldEqual(mm.first, 0);
     shouldEqual(mm.second, 1);
     
-    vigra::MultiArray<3,T> zeros2(V(3,3,2), 0);
+    vigra::MultiArray<3,T> zeros2(V(3,3,2));
     blockedArray.writeSubarray(V(2,3,4), V(5,6,6), zeros);
     
     mm = blockedArray.minMax();
@@ -105,7 +130,7 @@ static void testCompression(
 ) {
     
     typedef Array<N,T> BA;
-    typedef typename BA::difference_type diff_t;
+    typedef typename BA::V diff_t;
     typedef typename BA::BlockPtr BlockPtr;
     
     vigra::MultiArray<N,T> theData(dataShape);
@@ -144,7 +169,7 @@ static void testDeleteEmptyBlocks(
     int verbose = false
 ) {
     typedef Array<N,T> BA;
-    typedef typename BA::difference_type diff_t;
+    typedef typename BA::V diff_t;
     typedef typename BA::BlockPtr BlockPtr;
     vigra::MultiArray<N,T> theData(dataShape);
     
@@ -177,7 +202,7 @@ static void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
 ) {
     if(verbose) { std::cout << "TEST" << std::endl; }
     typedef Array<N,T> BA;
-    typedef typename BA::difference_type diff_t;
+    typedef typename BA::V diff_t;
     
     vigra::MultiArray<N,T> theData(dataShape);
     FillRandom<T, typename vigra::MultiArray<N,T>::iterator>::fillRandom(theData.begin(), theData.end());
@@ -301,6 +326,7 @@ static void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
 struct ArrayTestImpl {
     void dim3_uint8() {
         ArrayTest<3, vigra::UInt8>::test(vigra::Shape3(89,66,77), vigra::Shape3(22,11,9), 50);
+        ArrayTest<3, vigra::UInt8>::test(vigra::Shape3(100,88,50), vigra::Shape3(13,23,7), 50);
         std::cout << "... passed dim3_uint8" << std::endl;
     }
     void dim3_float32() {
@@ -312,24 +338,24 @@ struct ArrayTestImpl {
         ArrayTest<5, float>::test(vigra::Shape5(3,75,33,67,1), vigra::Shape5(2,22,11,15,1), 50);
         std::cout << "... passed dim5_float32" << std::endl;
     }
-    void dim3_int64() {
-        ArrayTest<3, vigra::Int64>::test(vigra::Shape3(100,88,50), vigra::Shape3(13,23,7), 50);
-        std::cout << "... passed dim3_int64" << std::endl;
-    }
     void dim3_testCompression() {
-        ArrayTest<3, int>::testCompression(vigra::Shape3(100,88,50), vigra::Shape3(13,23,7), false);
+        ArrayTest<3, vigra::UInt32>::testCompression(vigra::Shape3(100,88,50), vigra::Shape3(13,23,7), false);
         std::cout << "... passed dim3_testCompression" << std::endl;
     }
     void dim3_testDeleteEmptyBlocks() {
-        ArrayTest<3, int>::testDeleteEmptyBlocks(vigra::Shape3(100,88,50), vigra::Shape3(13,23,7), false);
+        ArrayTest<3, vigra::UInt32>::testDeleteEmptyBlocks(vigra::Shape3(100,88,50), vigra::Shape3(13,23,7), false);
         std::cout << "... passed dim3_testDeleteEmptyBlocks" << std::endl;
     }
     void dim3_testMinMax() {
-        ArrayTest<3, int>::testMinMax(false);
+        ArrayTest<3, vigra::UInt32>::testMinMax(false);
         std::cout << "... passed dim3_testMinMax" << std::endl;
     }
+    void dim3_testApplyRelabeling() {
+        ArrayTest<3, vigra::UInt32>::testApplyRelabeling(false);
+        std::cout << "... passed dim3_testApplyRelabeling" << std::endl;
+    }
     void dim3_testManageCoordinateLists() {
-        ArrayTest<3, int>::testManageCoordinateLists(false);
+        ArrayTest<3, vigra::UInt32>::testManageCoordinateLists(false);
         std::cout << "... passed dim3_testManageCoordinateLists" << std::endl;
     }
 }; /* struct ArrayTest */
@@ -338,6 +364,7 @@ struct ArrayTestSuite : public vigra::test_suite {
     ArrayTestSuite()
         : vigra::test_suite("ArrayTestSuite")
     {
+        add( testCase(&ArrayTestImpl::dim3_testApplyRelabeling));
         add( testCase(&ArrayTestImpl::dim3_testManageCoordinateLists));
         add( testCase(&ArrayTestImpl::dim3_testMinMax));
         add( testCase(&ArrayTestImpl::dim3_testDeleteEmptyBlocks));
@@ -345,7 +372,6 @@ struct ArrayTestSuite : public vigra::test_suite {
         add( testCase(&ArrayTestImpl::dim3_uint8));
         add( testCase(&ArrayTestImpl::dim3_float32));
         add( testCase(&ArrayTestImpl::dim5_float32));
-        add( testCase(&ArrayTestImpl::dim3_int64));
     }
 };
 

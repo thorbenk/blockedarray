@@ -15,6 +15,8 @@
 
 #include "dtypename.h"
 
+#include <bw/extern_templates.h>
+
 using namespace BW;
 
 template<int N, typename T>
@@ -24,7 +26,7 @@ boost::python::tuple blockListToPython(
     vigra::NumpyArray<2, vigra::UInt32> start(vigra::Shape2(bL.size(), N));
     vigra::NumpyArray<2, vigra::UInt32> stop(vigra::Shape2(bL.size(), N));
     for(int i=0; i<bL.size(); ++i) {
-        typename Array<N,T>::difference_type pp, qq;
+        typename Array<N,T>::V pp, qq;
         ba.blockBounds(bL[i], pp, qq);
         for(int j=0; j<N; ++j) {
             start(i,j) = pp[j];
@@ -69,24 +71,19 @@ boost::python::list voxelValuesToPython(
 template<int N, class T>
 struct PyBlockedArray {
     typedef Array<N, T> BA;
+    typedef typename BA::V V;
     
-    static void readSubarray(BA& ba,
-                             typename BA::difference_type p, typename BA::difference_type q,
-                             vigra::NumpyArray<N, T> out
+    static void readSubarray(BA& ba, V p, V q, vigra::NumpyArray<N, T> out
     ) {
         ba.readSubarray(p, q, out);
     }
     
-    static void writeSubarray(BA& ba,
-                              typename BA::difference_type p, typename BA::difference_type q,
-                              vigra::NumpyArray<N, T> a
+    static void writeSubarray(BA& ba, V p, V q, vigra::NumpyArray<N, T> a
     ) {
         ba.writeSubarray(p, q, a);
     }
     
-    static void sliceToPQ(boost::python::tuple sl,
-                          typename BA::difference_type &p, typename BA::difference_type &q)
-    {
+    static void sliceToPQ(boost::python::tuple sl, V &p, V &q) {
         vigra_precondition(boost::python::len(sl)==N, "tuple has wrong length");
         for(int k=0; k<N; ++k) {
             boost::python::slice s = boost::python::extract<boost::python::slice>(sl[k]);
@@ -96,7 +93,7 @@ struct PyBlockedArray {
     }
     
     static vigra::NumpyAnyArray getitem(BA& ba, boost::python::tuple sl) {
-        typename BA::difference_type p,q;
+        V p,q;
         sliceToPQ(sl, p, q);
         vigra::NumpyArray<N,T> out(q-p);
         ba.readSubarray(p, q, out);
@@ -104,22 +101,22 @@ struct PyBlockedArray {
     }
     
     static void setDirty(BA& ba, boost::python::tuple sl, bool dirty) {
-        typename BA::difference_type p,q;
+        V p,q;
         sliceToPQ(sl, p, q);
         ba.setDirty(p,q,dirty);
     }
     
     static void setitem(BA& ba, boost::python::tuple sl, vigra::NumpyArray<N,T> a) {
-        typename BA::difference_type p,q;
+        V p,q;
         sliceToPQ(sl, p, q);
         ba.writeSubarray(p, q, a);
     }
     
-    static boost::python::tuple blocks(BA& ba, typename BA::difference_type p, typename BA::difference_type q) {
+    static boost::python::tuple blocks(BA& ba, V p, V q) {
         return blockListToPython(ba, ba.blocks(p, q));
     }
     
-    static boost::python::tuple dirtyBlocks(BA& ba, typename BA::difference_type p, typename BA::difference_type q) {
+    static boost::python::tuple dirtyBlocks(BA& ba, V p, V q) {
         return blockListToPython(ba, ba.dirtyBlocks(p, q));
     }
     
@@ -130,6 +127,10 @@ struct PyBlockedArray {
     
     static boost::python::list nonzero(const BA& ba) {
         return voxelValuesToPython<N,T>(ba.nonzero());
+    }
+    
+    static void applyRelabeling(BA& ba, vigra::NumpyArray<1, T>& relabeling) {
+        ba.applyRelabeling(relabeling);
     }
 };
 
@@ -143,7 +144,7 @@ void export_blockedArray() {
     
     std::stringstream name; name << "BlockedArray" << N << DtypeName<T>::dtypeName();
     
-    class_<BA>(name.str().c_str(), init<typename BA::difference_type>())
+    class_<BA>(name.str().c_str(), init<typename BA::V>())
         .def("setDeleteEmptyBlocks", &BA::setDeleteEmptyBlocks,
              (arg("deleteEmpty")))
         .def("setCompressionEnabled", &BA::setCompressionEnabled,
@@ -159,6 +160,8 @@ void export_blockedArray() {
         .def("writeSubarray", registerConverters(&PyBA::writeSubarray))
         .def("readSubarray", registerConverters(&PyBA::readSubarray))
         .def("deleteSubarray", registerConverters(&BA::deleteSubarray))
+        .def("applyRelabeling", registerConverters(&PyBA::applyRelabeling),
+            (arg("relabeling")))
         .def("__getitem__", registerConverters(&PyBA::getitem))
         .def("__setitem__", registerConverters(&PyBA::setitem))
         .def("setDirty", registerConverters(&PyBA::setDirty))
@@ -178,11 +181,6 @@ void export_blockedArray() {
     export_blockedArray<3, vigra::UInt32>();
     export_blockedArray<4, vigra::UInt32>();
     export_blockedArray<5, vigra::UInt32>();
-    
-    export_blockedArray<2, vigra::Int64>();
-    export_blockedArray<3, vigra::Int64>();
-    export_blockedArray<4, vigra::Int64>();
-    export_blockedArray<5, vigra::Int64>();
     
     export_blockedArray<2, float>();
     export_blockedArray<3, float>();

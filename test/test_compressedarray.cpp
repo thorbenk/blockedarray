@@ -6,6 +6,8 @@
 
 #include <vigra/unittest.hxx>
 
+#include <bw/extern_templates.h>
+
 using namespace BW;
 
 template<int N, class T>

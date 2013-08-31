@@ -3,6 +3,7 @@
 #include <bw/channelselector.h>
 #include <bw/thresholding.h>
 #include <bw/connectedcomponents.h>
+#include <bw/extern_templates.h>
 
 int main(int argc, char** argv) {
     using namespace vigra;

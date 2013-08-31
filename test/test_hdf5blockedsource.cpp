@@ -7,6 +7,8 @@
 #include <vigra/unittest.hxx>
 #include <vigra/hdf5impex.hxx>
 
+#include <bw/extern_templates.h>
+
 using namespace BW;
 
 struct SourceHDF5Test {

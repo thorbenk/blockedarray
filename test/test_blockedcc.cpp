@@ -4,6 +4,8 @@
 
 #include <iostream>
 
+#include <bw/extern_templates.h>
+
 using namespace BW;
 
 typedef vigra::TinyVector<int, 2> d;

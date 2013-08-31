@@ -35,16 +35,17 @@ target_link_libraries(_blockedarray
     ${VIGRA_IMPEX_LIBRARY}
     ${RT_LIBRARY}
 )
-IF(WIN32)                                                                                                               
-    MESSAGE(STATUS "WIN32")                                                                                             
-    SET_TARGET_PROPERTIES(_blockedarray PROPERTIES OUTPUT_NAME "_blockedarray" PREFIX "" SUFFIX  ".pyd")                                                                                                                                                                                                                                                                                   
-ELSEIF(APPLE)                                                                                                           
-    MESSAGE(STATUS "APPLE")                                                                                             
-    SET_TARGET_PROPERTIES(_blockedarray PROPERTIES OUTPUT_NAME "_blockedarray" PREFIX "" SUFFIX ".so")                                      
-ELSE()                                                                                                                  
-    MESSAGE(STATUS "LINUX")                                                                                             
-    SET_TARGET_PROPERTIES(_blockedarray PROPERTIES OUTPUT_NAME "_blockedarray" PREFIX "")                                                   
-ENDIF()
+if(BUILD_COMMON_DTYPES_LIBRARY)
+    target_link_libraries(_blockedarray bw)
+endif()
+
+if(WIN32)                                                                                                               
+    set_target_properties(_blockedarray PROPERTIES OUTPUT_NAME "_blockedarray" PREFIX "" SUFFIX  ".pyd")
+elseif(APPLE)
+    set_target_properties(_blockedarray PROPERTIES OUTPUT_NAME "_blockedarray" PREFIX "" SUFFIX ".so")
+else()
+    set_target_properties(_blockedarray PROPERTIES OUTPUT_NAME "_blockedarray" PREFIX "")
+endif()
 
 get_property(location TARGET _blockedarray PROPERTY LOCATION)
 add_custom_command(TARGET _blockedarray

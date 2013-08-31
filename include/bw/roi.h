@@ -2,6 +2,7 @@
 #define BW_ROI_H
 
 #include <vigra/tinyvector.hxx>
+#include <vigra/multi_shape.hxx>
 
 namespace BW {
 
@@ -15,7 +16,7 @@ namespace BW {
 template<int N>
 class Roi {
     public:
-    typedef vigra::TinyVector<int, N> V;
+    typedef vigra::TinyVector<vigra::MultiArrayIndex, N> V;
    
     /**
      * Region of interest [start, end)

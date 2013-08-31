@@ -6,9 +6,8 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
 
-#include <vigra/timing.hxx>
-
 #include "compressedarray.h"
+#include <bw/roi.h>
 
 template<int Dim, class Type>
 class ArrayTest;
@@ -19,19 +18,46 @@ template<int N, typename T>
 class Array {
     public:
     typedef CompressedArray<N,T> BLOCK;
-    typedef vigra::TinyVector<unsigned int, N> BlockCoord;
-    typedef typename vigra::MultiArrayView<N,T>::difference_type difference_type;
-    typedef typename std::vector<BlockCoord> BlockList;
+    typedef typename vigra::MultiArrayView<N,T>::difference_type V;
+    typedef Roi<N> ROI;
+    typedef typename std::vector<V> BlockList;
     typedef vigra::MultiArrayView<N,T> view_type;
     typedef boost::shared_ptr<BLOCK> BlockPtr; 
-    typedef std::map<BlockCoord, BlockPtr> BlocksMap;
-    typedef std::map<BlockCoord, std::pair<T, T> > BlockMinMax;
-    typedef std::pair<std::vector<difference_type>, std::vector<T> > VoxelValues; 
-    typedef std::map<BlockCoord, VoxelValues> BlockVoxelValues; 
+    typedef std::map<V, BlockPtr> BlocksMap;
+    typedef std::map<V, std::pair<T, T> > BlockMinMax;
+    typedef std::pair<std::vector<V>, std::vector<T> > VoxelValues; 
+    typedef std::map<V, VoxelValues> BlockVoxelValues; 
     
-   
     //give unittest access
     friend class ArrayTest<N, T>;
+
+    friend class RwIterator;
+    /**
+     * A helper iterator for read/write access to a region of interest
+     */
+    class RwIterator {
+        public:
+        RwIterator(const Array<N,T>& array, V p, V q);
+        void next();
+        bool hasMore() const;
+
+        //given the current block (blockCoord), read the data from the input
+        //array using read roi
+        ROI read; //FIXME: find a better name here
+        //given the current block (blockCoord), write the data into the block
+        //using the withinBlock roi
+        ROI withinBlock; 
+        
+        V blockCoord;
+        
+        private:
+        void compute();
+        const Array<N,T>& array_;
+        const ROI r;
+        typename BlockList::const_iterator it_;
+        BlockList blockList_;
+        V blockP_;
+    };
     
     /**
      * construct a new Array with given 'blockShape'
@@ -106,7 +132,7 @@ class Array {
      * If any of the needed blocks does not exist, 'out' will have
      * zeros at the corresponding locations.
      */
-    void readSubarray(difference_type p, difference_type q,
+    void readSubarray(V p, V q,
                       vigra::MultiArrayView<N, T>& out) const;
                       
     /**
@@ -115,53 +141,62 @@ class Array {
      * If a block is _completely_ overwritten, its state is set to NOT DIRTY.
      * Otherwise (if a block is only partially overwritten), it dirty state remains UNCHANGED.
      */
-    void writeSubarray(difference_type p, difference_type q,
+    void writeSubarray(V p, V q,
                        const vigra::MultiArrayView<N, T>& a);
    
     /**
      * deletes all blocks which contain the region of interest [p,q)
+     * 
+     * TODO: Is this the behaviour we want?
+     *       Even blocks partially intersecting [p,q) are deleted!
      */
-    void deleteSubarray(difference_type p, difference_type q);
+    void deleteSubarray(V p, V q);
+    
+    void applyRelabeling(const vigra::MultiArrayView<1, T>& relabeling);
    
     /**
      * set all blocks that intersect the ROI [p,q) to be flagged as 'dirty'
      */
-    void setDirty(difference_type p, difference_type q, bool dirty);
+    void setDirty(V p, V q, bool dirty);
 
     /**
      * get a list of all blocks intersecting ROI [p,q) that are currently stored
      */
-    BlockList blocks(difference_type p, difference_type q) const;
+    BlockList blocks(V p, V q) const;
     
     /**
      * get a list of all blocks within the ROI [p,q) that are marked as dirty
      * 
      * Returns: list of block coordinates which are dirty
      */
-    BlockList dirtyBlocks(difference_type p, difference_type q) const;
+    BlockList dirtyBlocks(V p, V q) const;
     
     /**
      * compute the block bounds [p,q) given a block coordinate 'c'
      */
-    void blockBounds(BlockCoord c, difference_type&p, difference_type& q) const;
+    void blockBounds(V c, V&p, V& q) const;
     
     VoxelValues nonzero() const;
     
     private:
+    
+    //delete block and all data associated with it
+    // (including sparse coordinate lists, min/max information etc.)
+    void deleteBlock(V blockCoord);
 
-    VoxelValues blockNonzero(const BLOCK& block) const;
+    VoxelValues blockNonzero(const vigra::MultiArrayView<N,T>& block) const;
         
-    BlockPtr addBlock(BlockCoord c, vigra::MultiArrayView<N, T>& a);
+    BlockPtr addBlock(V c, vigra::MultiArrayView<N, T>& a);
 
-    std::vector<BlockCoord> enumerateBlocksInRange(difference_type p, difference_type q) const;
+    std::vector<V> enumerateBlocksInRange(V p, V q) const;
 
-    BlockCoord blockGivenCoordinateP(difference_type p) const;
+    V blockGivenCoordinateP(V p) const;
 
-    BlockCoord blockGivenCoordinateQ(difference_type q) const;
+    V blockGivenCoordinateQ(V q) const;
 
-    bool allzero(const BLOCK& block) const;
+    bool allzero(const vigra::MultiArrayView<N,T>& block) const;
 
-    std::pair<T, T> minMax(const BLOCK& block) const;
+    std::pair<T, T> minMax(const vigra::MultiArrayView<N,T>& block) const;
 
     // members
     
@@ -208,7 +243,7 @@ Array<N,T>::Array(typename vigra::MultiArrayShape<N>::type blockShape, const vig
     , minMaxTracking_(false)
     , manageCoordinateLists_(false)
 {
-    writeSubarray(difference_type(), a.shape(), a);
+    writeSubarray(V(), a.shape(), a);
 }
 
 template<int N, typename T>
@@ -224,7 +259,8 @@ void Array<N,T>::setManageCoordinateLists(bool manageCoordinateLists) {
     blockVoxelValues_.clear();
     if(manageCoordinateLists) {
         BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
-            blockVoxelValues_[b.first] = blockNonzero(*(b.second.get()));
+            b.second->readArray(tmpBlock_);
+            blockVoxelValues_[b.first] = blockNonzero(tmpBlock_);
         }
     }
 }
@@ -246,7 +282,8 @@ void Array<N,T>::setMinMaxTrackingEnabled(bool enableMinMaxTracking) {
     blockMinMax_.clear();
     if(minMaxTracking_) {
         BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
-            blockMinMax_[b.first] = minMax(*(b.second.get()));
+            b.second->readArray(tmpBlock_);
+            blockMinMax_[b.first] = minMax(tmpBlock_);
         }
     }
 }
@@ -286,111 +323,104 @@ size_t Array<N,T>::sizeBytes() const {
 }
 
 template<int N, typename T>
-void Array<N,T>::writeSubarray(
-    difference_type p,
-    difference_type q,
-    const vigra::MultiArrayView<N, T>& a
-) {
-    const BlockList bb = enumerateBlocksInRange(p, q);
-    const BlockCoord blockP = blockGivenCoordinateP(p);
+void Array<N,T>::readSubarray(
+    V p, V q, vigra::MultiArrayView<N, T>& out
+) const {
+    using vigra::MultiArrayView;
+
+    //make sure to initialize the array with zeros
+    //if a block does not exist, we assume missing values of zero
+    std::fill(out.begin(), out.end(), 0);
     
-    BOOST_FOREACH(BlockCoord blockCoor, bb) {
-        difference_type bp, bq;
-        blockBounds(blockCoor, bp, bq);
-        
-        //compute within-block coordinates
-        difference_type withinBlock_p;
-        difference_type withinBlock_q;
-        
-        for(int k=0; k<N; ++k) {
-            if(bp[k] <= p[k] && p[k] < bq[k]) {
-                withinBlock_p[k] = p[k]%blockShape_[k];
-            }
-            if(q[k] > bp[k] && q[k] < bq[k]) {
-                withinBlock_q[k] = q[k]%blockShape_[k];
-            }
-            else {
-                withinBlock_q[k] = blockShape_[k];
-            }
+    vigra_precondition(out.shape()==q-p,"shape differ");
+    
+    for(RwIterator wIt(*this,p,q); wIt.hasMore(); wIt.next()) {
+        typename BlocksMap::const_iterator it = blocks_.find(wIt.blockCoord);
+        if(it==blocks_.end()) {
+            //this block does not exist. //do nothing
+            continue;
         }
-        
-        //compute where to read 'w' from
-        difference_type read_p, read_q;
-        for(int k=0; k<N; ++k) {
-            const int d = blockCoor[k] - blockP[k];
-            if(d >= 1) {
-                read_p[k] += blockShape_[k] - (p[k] % blockShape_[k]);
-            }
-            if(d >= 2) {
-                read_p[k] += (d-1)*blockShape_[k];
-            }
-            read_q[k] = read_p[k]+(withinBlock_q-withinBlock_p)[k];
-        }
-        
-        #ifdef DEBUG_PRINTS
-        std::cout << "blockCoor=" << blockCoor << std::endl;
-        std::cout << "bp = " << bp << std::endl;
-        std::cout << "bq = " << bq << std::endl;
-        std::cout << "withinBlock_p = " << withinBlock_p << std::endl;
-        std::cout << "withinBlock_q = " << withinBlock_q << std::endl;
-        std::cout << "read_p = " << read_p << std::endl;
-        std::cout << "read_q = " << read_q << std::endl;
-        #endif
-        
-        typename BlocksMap::iterator it = blocks_.find(blockCoor);
-        
+        it->second->readArray(tmpBlock_);
+        const view_type w = tmpBlock_.subarray(wIt.withinBlock.p, wIt.withinBlock.q);
+        out.subarray(wIt.read.p, wIt.read.q) = w;
+    }
+}
+
+template<int N, typename T>
+void Array<N,T>::writeSubarray(
+    V p, V q, const vigra::MultiArrayView<N, T>& a
+) {
+    for(RwIterator wIt(*this,p,q); wIt.hasMore(); wIt.next()) {
+        typename BlocksMap::iterator it = blocks_.find(wIt.blockCoord);
+
+        //block does not exist, create an empty block
         if(it == blocks_.end()) {
             vigra::MultiArray<N,T> emptyBlock(blockShape_);
-            addBlock(blockCoor, emptyBlock);
-            it = blocks_.find(blockCoor);
+            addBlock(wIt.blockCoord, emptyBlock);
+            it = blocks_.find(wIt.blockCoord);
         }
-        const view_type toWrite = a.subarray(read_p, read_q);
-        it->second->writeArray(withinBlock_p, withinBlock_q, toWrite);
 
-        if(deleteEmptyBlocks_ && allzero(*(it->second.get()))) {
-            blocks_.erase(it);
-            typename BlockMinMax::iterator it2 = blockMinMax_.find(blockCoor);
-            if(it2 != blockMinMax_.end()) {
-                blockMinMax_.erase(it2);
+        //write data to block
+        const view_type toWrite = a.subarray(wIt.read.p, wIt.read.q);
+        it->second->writeArray(wIt.withinBlock.p, wIt.withinBlock.q, toWrite);
+
+        //re-compute, if necessary, information from the _whole_ blocks's
+        //data
+        if(deleteEmptyBlocks_ || minMaxTracking_ || manageCoordinateLists_) {
+            it->second->readArray(tmpBlock_);
+            bool blockDeleted = false;
+            if(deleteEmptyBlocks_ && allzero(tmpBlock_)) {
+                blockDeleted = true;
+                deleteBlock(wIt.blockCoord);
             }
-            typename BlockVoxelValues::iterator it3 = blockVoxelValues_.find(blockCoor);
-            if(it3 != blockVoxelValues_.end()) {
-                blockVoxelValues_.erase(it3);
+            if(!blockDeleted && minMaxTracking_) {
+                blockMinMax_[it->first] = minMax(tmpBlock_);
             }
-            
-        }
-        else if(minMaxTracking_) {
-            blockMinMax_[it->first] = minMax(*(it->second.get()));
-        }
-        if(manageCoordinateLists_) {
-            blockVoxelValues_[it->first] = blockNonzero(*(it->second.get()));
+            if(!blockDeleted && manageCoordinateLists_) {
+                blockVoxelValues_[it->first] = blockNonzero(tmpBlock_);
+            }
         }
     }
 }
 
 template<int N, typename T>
-void Array<N,T>::deleteSubarray(difference_type p, difference_type q) {
-    const BlockList bb = enumerateBlocksInRange(p, q);
-    BOOST_FOREACH(BlockCoord blockCoor, bb) {
-        typename BlocksMap::iterator it = blocks_.find(blockCoor);
-        if(it != blocks_.end()) {
-            blocks_.erase(it);
+void Array<N,T>::applyRelabeling(
+    const vigra::MultiArrayView<1, T>& relabeling
+) {
+    BOOST_FOREACH(typename BlocksMap::value_type& b, blocks_) {
+        b.second->readArray(tmpBlock_);
+        for(size_t i=0; i<tmpBlock_.size(); ++i) {
+            tmpBlock_[i] = relabeling[static_cast<size_t>(tmpBlock_[i]) % relabeling.size()];
         }
-        typename BlockMinMax::iterator it2 = blockMinMax_.find(blockCoor);
-        if(it2 != blockMinMax_.end()) {
-            blockMinMax_.erase(it2);
+        if(deleteEmptyBlocks_ || minMaxTracking_ || manageCoordinateLists_) {
+            bool blockDeleted = false;
+            if(deleteEmptyBlocks_ && allzero(tmpBlock_)) {
+                blockDeleted = true;
+                deleteBlock(b.first);
+            }
+            if(!blockDeleted && minMaxTracking_) {
+                blockMinMax_[b.first] = minMax(tmpBlock_);
+            }
+            if(!blockDeleted && manageCoordinateLists_) {
+                blockVoxelValues_[b.first] = blockNonzero(tmpBlock_);
+            }
         }
-        typename BlockVoxelValues::iterator it3 = blockVoxelValues_.find(blockCoor);
-        if(it3 != blockVoxelValues_.end()) {
-            blockVoxelValues_.erase(it3);
-        }
+        b.second->writeArray(V(), tmpBlock_.shape(), tmpBlock_);
     }
 }
 
 template<int N, typename T>
-void Array<N,T>::setDirty(difference_type p, difference_type q, bool dirty) {
+void Array<N,T>::deleteSubarray(V p, V q) {
     const BlockList bb = enumerateBlocksInRange(p, q);
-    BOOST_FOREACH(BlockCoord blockCoor, bb) {
+    BOOST_FOREACH(V blockCoor, bb) {
+        deleteBlock(blockCoor);
+    }
+}
+
+template<int N, typename T>
+void Array<N,T>::setDirty(V p, V q, bool dirty) {
+    const BlockList bb = enumerateBlocksInRange(p, q);
+    BOOST_FOREACH(V blockCoor, bb) {
         typename BlocksMap::iterator it = blocks_.find(blockCoor);
         if(it == blocks_.end()) { continue; }
         it->second->setDirty(dirty);
@@ -398,7 +428,7 @@ void Array<N,T>::setDirty(difference_type p, difference_type q, bool dirty) {
 }
 
 template<int N, typename T>
-typename Array<N,T>::BlockList Array<N,T>::blocks(difference_type p, difference_type q) const {
+typename Array<N,T>::BlockList Array<N,T>::blocks(V p, V q) const {
     BlockList bL;
     BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
         bL.push_back(b.first);
@@ -407,10 +437,10 @@ typename Array<N,T>::BlockList Array<N,T>::blocks(difference_type p, difference_
 }
 
 template<int N, typename T>
-typename Array<N,T>::BlockList Array<N,T>::dirtyBlocks(difference_type p, difference_type q) const {
+typename Array<N,T>::BlockList Array<N,T>::dirtyBlocks(V p, V q) const {
     BlockList dB;
     const BlockList bb = blocks(p, q);
-    BOOST_FOREACH(BlockCoord blockCoor, bb) {
+    BOOST_FOREACH(V blockCoor, bb) {
         typename BlocksMap::const_iterator it = blocks_.find(blockCoor);
         if(it == blocks_.end()) {
             dB.push_back(blockCoor);
@@ -423,159 +453,8 @@ typename Array<N,T>::BlockList Array<N,T>::dirtyBlocks(difference_type p, differ
 }
 
 template<int N, typename T>
-void Array<N,T>::readSubarray(
-    difference_type p,
-    difference_type q,
-    vigra::MultiArrayView<N, T>& out
-) const {
-    using vigra::MultiArrayView;
-
-    //make sure to initialize the array with zeros
-    //if a block does not exist, we assume missing values of zero
-    std::fill(out.begin(), out.end(), 0);
-    
-    vigra_precondition(out.shape()==q-p,"shape differ");
-    
-    //find affected blocks
-    const BlockList bb = enumerateBlocksInRange(p, q);
-
-    #ifdef DEBUG_PRINTS
-    std::cout << "readSubarray(" << p << ", " << q << ")" << std::endl;
-    std::cout << "  there are " << bb.size() << " blocks" << std::endl;
-    #endif
-
-    const BlockCoord blockP = blockGivenCoordinateP(p);
-
-    double timeWritearray = 0.0;
-    double timeReadarray  = 0.0;
-
-    BOOST_FOREACH(BlockCoord blockCoor, bb) {
-        difference_type bp, bq;
-        blockBounds(blockCoor, bp, bq);
-
-        #ifdef DEBUG_CHECKS
-        for(int k=0; k<N; ++k) {
-            CHECK_OP(p[k],<=,bq[k]," ");
-            CHECK_OP(q[k],>=,bp[k]," ");
-        }
-        #endif
-        #ifdef DEBUG_PRINTS
-        std::cout << "  block = " << blockCoor << " with bounds " << bp << " -- " << bq << std::endl;
-        #endif
-
-        //compute within-block coordinates
-        difference_type withinBlock_p;
-        difference_type withinBlock_q;
-        for(int k=0; k<N; ++k) {
-            if(bp[k] <= p[k] && p[k] < bq[k]) {
-                withinBlock_p[k] = p[k]%blockShape_[k];
-            }
-            if(q[k] > bp[k] && q[k] < bq[k]) {
-                withinBlock_q[k] = q[k]%blockShape_[k];
-            }
-            else {
-                withinBlock_q[k] = blockShape_[k];
-            }
-        }
-
-        #ifdef DEBUG_PRINTS
-        std::cout << "    withinBlock_p = " << withinBlock_p << std::endl;
-        std::cout << "    withinBlock_q = " << withinBlock_q << std::endl;
-        #endif
-        #ifdef DEBUG_CHECKS
-        for(int k=0; k<N; ++k) {
-            CHECK_OP(withinBlock_p[k],>=,0," ");
-            CHECK_OP(withinBlock_p[k],<=,blockShape_[k]," ");
-            CHECK_OP(withinBlock_q[k],>,0," ");
-            CHECK_OP(withinBlock_q[k],<=,blockShape_[k]," ");
-            CHECK_OP(withinBlock_q[k],>,withinBlock_p[k]," ");
-        }
-        #endif
-
-        //read in the current block and extract the appropriate subarray            
-        typename BlocksMap::const_iterator it = blocks_.find(blockCoor);
-        
-        if(it==blocks_.end()) {
-            //this block does not exist.
-            //do nothing
-            continue;
-        }
-
-        USETICTOC
-        
-        TIC
-        it->second->readArray(tmpBlock_);
-        timeReadarray += TOCN;
-        
-        MultiArrayView<N,T> v(tmpBlock_);
-
-        #ifdef DEBUG_PRINTS
-        std::cout << "    v.shape = " << v.shape() << std::endl;
-        #endif
-        #ifdef DEBUG_CHECKS
-        for(int k=0; k<N; ++k) {
-            CHECK_OP(v.shape(k),>=,0," ");
-            CHECK_OP(v.shape(k),>=,withinBlock_q[k]," ");
-        }
-        #endif
-
-        const view_type w = v.subarray(withinBlock_p, withinBlock_q);
-
-        #ifdef DEBUG_PRINTS
-        std::cout << "    read w with shape = " << w.shape() << std::endl;
-        for(int k=0; k<N; ++k) {
-            std::cout << "    p[" << k << "] = " << p[k] << std::endl;
-            std::cout << "    p[" << k << "] % blockShape_[k] = " << p[k] % blockShape_[k] << std::endl;
-        }
-        #endif
-
-        //compute where to write 'w' to
-        difference_type write_p, write_q;
-        for(int k=0; k<N; ++k) {
-            const int d = blockCoor[k] - blockP[k];
-            if(d >= 1) {
-                write_p[k] += blockShape_[k] - (p[k] % blockShape_[k]);
-            }
-            if(d >= 2) {
-                write_p[k] += (d-1)*blockShape_[k];
-            }
-            write_q[k] = write_p[k]+w.shape(k);
-        }
-
-        #ifdef DEBUG_PRINTS
-        std::cout << "    write_p = " << write_p << std::endl;
-        std::cout << "    write_q = " << write_q << std::endl;
-        #endif
-
-        #ifdef DEBUG_CHECKS 
-        for(int k=0; k<N; ++k) {
-            const int d = blockCoor[k] - blockP[k];
-            CHECK_OP(write_p[k],>=,0," ");
-            CHECK_OP(write_q[k],>,write_p[k]," ");
-            CHECK_OP(write_q[k],<=,out.shape(k)," ");
-        }
-        #endif
-
-
-        //std::cout << "writing to " << write_p << ", " << write_q << std::flush;
-        //boost::timer::cpu_timer t; 
-        TIC
-        out.subarray(write_p, write_q) = w;
-        timeWritearray += TOCN;
-        //double e = t.elapsed().user / sec;
-        //std::cout << " ... " << std::setprecision(20) << e << " sec." << std::endl;
-
-        //std::cout << "one loop iteration took" << std::setprecision(20) << startLoop.elapsed().user/sec << " sec." << std::endl;
-
-    }
-    //std::cout << "c++ readSubarray took " << std::setprecision(20) << startMethod.elapsed().user/sec << " sec." << std::endl;
-    //std::cout << "  writeSubarray took " << timeWritearray << " msec." << std::endl;
-    //std::cout << "  readArray() took " << timeReadarray << " msec." << std::endl;
-}
-
-template<int N, typename T>
 void Array<N,T>::blockBounds(
-    BlockCoord c, difference_type&p, difference_type& q) const {
+    V c, V&p, V& q) const {
     for(int i=0; i<N; ++i) {
         p[i] = blockShape_[i]*c[i];
         q[i] = blockShape_[i]*(c[i]+1);
@@ -590,11 +469,11 @@ typename Array<N,T>::VoxelValues
 Array<N,T>::nonzero(
 ) const {
     VoxelValues ret;
-    std::vector<difference_type>& coords = ret.first;
+    std::vector<V>& coords = ret.first;
     std::vector<T>& vals = ret.second;
     BOOST_FOREACH(const typename BlockVoxelValues::value_type& b, blockVoxelValues_) {
-        const BlockCoord& blockCoord = b.first;
-        difference_type p, q;
+        const V& blockCoord = b.first;
+        V p, q;
         blockBounds(blockCoord, p,q);
         const VoxelValues blockVV = b.second;
         for(size_t i=0; i<blockVV.first.size(); ++i) {
@@ -605,15 +484,77 @@ Array<N,T>::nonzero(
     return ret;
 }
 
+//==== IMPLEMENTATION (RwIterator) =====//
+
+template<int N, typename T>
+Array<N,T>::RwIterator::RwIterator(
+    const Array<N,T>& array, 
+    typename Array<N,T>::V p, 
+    typename Array<N,T>::V q
+) 
+    : array_(array)
+    , r(p,q)
+{
+    blockList_ = array.enumerateBlocksInRange(p, q); //bb
+    blockP_ = array.blockGivenCoordinateP(p); //blockP
+    it_ = blockList_.begin();
+    compute();
+}
+
+template<int N, typename T>
+void Array<N,T>::RwIterator::compute() {
+    blockCoord = *it_;
+    V bp, bq;
+    array_.blockBounds(*it_, bp, bq);
+   
+    withinBlock = ROI();
+    read = ROI();
+    
+    //compute within-block coordinates
+    for(int k=0; k<N; ++k) {
+        if(bp[k] <= r.p[k] && r.p[k] < bq[k]) {
+            withinBlock.p[k] = r.p[k] % array_.blockShape_[k];
+        }
+        if(r.q[k] > bp[k] && r.q[k] < bq[k]) {
+            withinBlock.q[k] = r.q[k] % array_.blockShape_[k];
+        }
+        else {
+            withinBlock.q[k] = array_.blockShape_[k];
+        }
+    }
+    //compute where to read 'w' from
+    for(int k=0; k<N; ++k) {
+        const int d = (*it_)[k] - blockP_[k];
+        if(d >= 1) {
+            read.p[k] += array_.blockShape_[k] - (r.p[k] % array_.blockShape_[k]);
+        }
+        if(d >= 2) {
+            read.p[k] += (d-1)*array_.blockShape_[k];
+        }
+        read.q[k] = read.p[k]+(withinBlock.shape())[k];
+    }
+}
+
+template<int N, typename T>
+void Array<N,T>::RwIterator::next() {
+    ++it_;
+    if(hasMore()) compute();
+}
+
+template<int N, typename T>
+bool Array<N,T>::RwIterator::hasMore() const {
+    return it_ != blockList_.end(); 
+}
+
 //==== IMPLEMENTATION (private member functions) =====//
 
 template<int N, typename T>
 typename Array<N,T>::BlockPtr Array<N,T>::addBlock(
-    BlockCoord c,
+    V c,
     vigra::MultiArrayView<N, T>& a
 ) {
     vigra::MultiArray<N,T> block(blockShape_);
-    block.subarray(difference_type(), a.shape()) = a;
+    block.subarray(V(), a.shape()) = a;
 
     BlockPtr ca(new BLOCK(block));
     ca->setDirty(true);
@@ -625,16 +566,16 @@ typename Array<N,T>::BlockPtr Array<N,T>::addBlock(
 }
 
 template<int N, typename T>
-std::vector<typename Array<N,T>::BlockCoord> Array<N,T>::enumerateBlocksInRange(
-    difference_type p,
-    difference_type q
+std::vector<typename Array<N,T>::V> Array<N,T>::enumerateBlocksInRange(
+    V p,
+    V q
 ) const {
-    const BlockCoord blockP = blockGivenCoordinateP(p);
-    const BlockCoord blockQ = blockGivenCoordinateQ(q);
+    const V blockP = blockGivenCoordinateP(p);
+    const V blockQ = blockGivenCoordinateQ(q);
 
-    std::vector<BlockCoord> ret;
+    std::vector<V> ret;
 
-    BlockCoord x = blockP;
+    V x = blockP;
     int dim=N-1;
     ret.push_back(x);
     while(dim >= 0) {
@@ -658,53 +599,66 @@ std::vector<typename Array<N,T>::BlockCoord> Array<N,T>::enumerateBlocksInRange(
 
 
 template<int N, typename T>
-typename Array<N,T>::BlockCoord
-Array<N,T>::blockGivenCoordinateP(difference_type p) const {
-    BlockCoord c;
+typename Array<N,T>::V
+Array<N,T>::blockGivenCoordinateP(V p) const {
+    V c;
     for(int i=0; i<N; ++i) { c[i] = p[i]/blockShape_[i]; }
     return c;
 }
 
 template<int N, typename T>
-typename Array<N,T>::BlockCoord
-Array<N,T>::blockGivenCoordinateQ(difference_type q) const {
-    BlockCoord c;
+typename Array<N,T>::V
+Array<N,T>::blockGivenCoordinateQ(V q) const {
+    V c;
     for(int i=0; i<N; ++i) { c[i] = (q[i]-1)/blockShape_[i] + 1; }
     return c;
 }
 
 template<int N, typename T>
-bool Array<N,T>::allzero(const BLOCK& block) const {
-    block.readArray(tmpBlock_);
-    for(size_t i=0; i<tmpBlock_.size(); ++i) {
-        if(tmpBlock_[i] != 0) return false;
+bool Array<N,T>::allzero(const vigra::MultiArrayView<N,T>& block) const {
+    for(size_t i=0; i<block.size(); ++i) {
+        if(block[i] != 0) return false;
     }
     return true;
 }
 
 template<int N, typename T>
-std::pair<T, T> Array<N,T>::minMax(const BLOCK& block) const {
-    block.readArray(tmpBlock_);
+std::pair<T, T> Array<N,T>::minMax(const vigra::MultiArrayView<N,T>& block) const {
     vigra::FindMinMax<T> minmax;
-    vigra::inspectSequence(tmpBlock_.begin(), tmpBlock_.end(), minmax);
+    vigra::inspectSequence(block.begin(), block.end(), minmax);
     return std::make_pair(minmax.min, minmax.max);
 }
 
 template<int N, typename T>
 typename Array<N,T>::VoxelValues
-Array<N,T>::blockNonzero(const BLOCK& block) const {
-    block.readArray(tmpBlock_);
+Array<N,T>::blockNonzero(const vigra::MultiArrayView<N,T>& block) const {
     VoxelValues ret;
-    std::vector<difference_type>& coords = ret.first;
+    std::vector<V>& coords = ret.first;
     std::vector<T>& vals = ret.second;
     
-    for(size_t i=0; i<tmpBlock_.size(); ++i) {
-        const T& v = tmpBlock_[i];
+    for(size_t i=0; i<block.size(); ++i) {
+        const T& v = block[i];
         if(v == 0) { continue; }
-        coords.push_back( tmpBlock_.scanOrderIndexToCoordinate(i) );
+        coords.push_back( block.scanOrderIndexToCoordinate(i) );
         vals.push_back(v);
     }
     return ret;
+}
+
+template<int N, typename T>
+void Array<N,T>::deleteBlock(V blockCoord) {
+    typename BlocksMap::iterator it = blocks_.find(blockCoord);
+    if(it == blocks_.end()) return;
+    
+    blocks_.erase(it);
+    typename BlockMinMax::iterator it2 = blockMinMax_.find(blockCoord);
+    if(it2 != blockMinMax_.end()) {
+        blockMinMax_.erase(it2);
+    }
+    typename BlockVoxelValues::iterator it3 = blockVoxelValues_.find(blockCoord);
+    if(it3 != blockVoxelValues_.end()) {
+        blockVoxelValues_.erase(it3);
+    }
 }
 
 } /* namespace BW */
