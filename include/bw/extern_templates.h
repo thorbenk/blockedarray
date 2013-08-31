@@ -16,6 +16,21 @@ extern template class Roi<4>;
 extern template class Roi<5>;
 //#endif
 
+extern template class CompressedArray<2, vigra::UInt8>; 
+extern template class CompressedArray<3, vigra::UInt8>; 
+extern template class CompressedArray<4, vigra::UInt8>; 
+extern template class CompressedArray<5, vigra::UInt8>; 
+
+extern template class CompressedArray<2, vigra::UInt32>; 
+extern template class CompressedArray<3, vigra::UInt32>; 
+extern template class CompressedArray<4, vigra::UInt32>; 
+extern template class CompressedArray<5, vigra::UInt32>; 
+
+extern template class CompressedArray<2, float>; 
+extern template class CompressedArray<3, float>; 
+extern template class CompressedArray<4, float>; 
+extern template class CompressedArray<5, float>; 
+
 //#ifdef BW_ARRAY_H
 extern template class Array<2, vigra::UInt8>; 
 extern template class Array<3, vigra::UInt8>; 
