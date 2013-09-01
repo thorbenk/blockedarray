@@ -137,6 +137,8 @@ class Array {
 
     T operator[](V p) const;
 
+    void write(V p, T value);
+
     /**
      * write array 'a' into the region of interest [p, q)
      * 
@@ -367,6 +369,37 @@ void Array<N,T>::readSubarray(
         const view_type w = tmpBlock_.subarray(wIt.withinBlock.p, wIt.withinBlock.q);
         out.subarray(wIt.read.p, wIt.read.q) = w;
     }
+}
+
+
+template<int N, typename T>
+void Array<N,T>::write(V p, T value) {
+    V pBlock;
+    for(size_t i=0; i<N; ++i) { pBlock[i] = p[i] % blockShape_[i]; }
+    V blockCoord = blockGivenCoordinateP(p);
+    typename BlocksMap::const_iterator it = blocks_.find(blockCoord);
+    if(it==blocks_.end()) {
+        std::fill(tmpBlock_.begin(), tmpBlock_.end(), 0);
+        addBlock(blockCoord, tmpBlock_);
+        it = blocks_.find(blockCoord);
+    }
+    it->second->readArray(tmpBlock_);
+    tmpBlock_[pBlock] = value;
+
+    if(deleteEmptyBlocks_ || minMaxTracking_ || manageCoordinateLists_) {
+        bool blockDeleted = false;
+        if(deleteEmptyBlocks_ && allzero(tmpBlock_)) {
+            blockDeleted = true;
+            deleteBlock(blockCoord);
+        }
+        if(!blockDeleted && minMaxTracking_) {
+            blockMinMax_[it->first] = minMax(tmpBlock_);
+        }
+        if(!blockDeleted && manageCoordinateLists_) {
+            blockVoxelValues_[it->first] = blockNonzero(tmpBlock_);
+        }
+    }
+    it->second->writeArray(V(), tmpBlock_.shape(), tmpBlock_);
 }
 
 template<int N, typename T>

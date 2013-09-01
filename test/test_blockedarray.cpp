@@ -47,6 +47,12 @@ static void testWriteSubarrayNonzero(
     shouldEqual(blockedArray[V(0,0,0)], 1);
     shouldEqual(blockedArray[V(0,1,0)], 42);
     shouldEqual(blockedArray[V(1,0,0)], 0);
+
+    V p(7,60,43);
+    blockedArray.write(p, 55);
+    shouldEqual(blockedArray[p], 55);
+    blockedArray.write(p, 59);
+    shouldEqual(blockedArray[p], 59);
 }
 
 static void testApplyRelabeling(
