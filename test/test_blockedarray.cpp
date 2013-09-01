@@ -43,6 +43,10 @@ static void testWriteSubarrayNonzero(
     shouldEqual(r[V(0,0,0)], 1);
     shouldEqual(r[V(0,1,0)], 42);
     shouldEqual(r[V(1,0,0)], 0);
+
+    shouldEqual(blockedArray[V(0,0,0)], 1);
+    shouldEqual(blockedArray[V(0,1,0)], 42);
+    shouldEqual(blockedArray[V(1,0,0)], 0);
 }
 
 static void testApplyRelabeling(

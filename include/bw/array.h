@@ -134,7 +134,9 @@ class Array {
      */
     void readSubarray(V p, V q,
                       vigra::MultiArrayView<N, T>& out) const;
-                      
+
+    T operator[](V p) const;
+
     /**
      * write array 'a' into the region of interest [p, q)
      * 
@@ -253,6 +255,18 @@ Array<N,T>::Array(typename vigra::MultiArrayShape<N>::type blockShape, const vig
     , manageCoordinateLists_(false)
 {
     writeSubarray(V(), a.shape(), a);
+}
+
+template<int N, typename T>
+T Array<N,T>::operator[](V p) const {
+    V blockCoord = blockGivenCoordinateP(p);
+
+    typename BlocksMap::const_iterator it = blocks_.find(blockCoord);
+    if(it==blocks_.end()) { return T(); }
+    it->second->readArray(tmpBlock_);
+    V pBlock;
+    for(size_t i=0; i<N; ++i) { pBlock[i] = p[i] % blockShape_[i]; }
+    return tmpBlock_[pBlock];
 }
 
 template<int N, typename T>
