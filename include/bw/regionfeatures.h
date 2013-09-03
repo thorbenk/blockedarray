@@ -11,6 +11,9 @@
 namespace BW {
 
 using namespace vigra::acc;
+
+static const int StaticHistogramSize = 0;
+static const int DynamicHistogramSize = 50;
  
 template<int N, class T, class U>
 class RegionFeatures {
@@ -23,8 +26,8 @@ class RegionFeatures {
                    Kurtosis, 
                    Minimum,
                    Maximum,
-                   UserRangeHistogram<64>,
-                   StandardQuantiles<UserRangeHistogram<64> >, //vector of length 7
+                   UserRangeHistogram<StaticHistogramSize>,
+                   StandardQuantiles<UserRangeHistogram<StaticHistogramSize> >, //vector of length 7
                    RegionCenter, //center of region (pixel coordinates)
                    RegionRadii, //3 numbers per region
                    RegionAxes, //3 x 3 numbers per region
@@ -80,7 +83,7 @@ class RegionFeatures {
         
         
         vigra::HistogramOptions histogram_opt;         
-        //histogram_opt = histogram_opt.setBinCount(50); 
+        histogram_opt = histogram_opt.setBinCount(DynamicHistogramSize); 
         histogram_opt = histogram_opt.setMinMax(m,M);
         
         i = 0; 
@@ -187,10 +190,10 @@ class RegionFeatures {
             f.write("maximum", maximum); 
         }
         {
-            vigra::MultiArray<2, float> hist(vigra::Shape2(a.regionCount(), 64));
+            vigra::MultiArray<2, float> hist(vigra::Shape2(a.regionCount(), DynamicHistogramSize));
             for(size_t i=0; i<a.regionCount(); ++i) {
-                for(size_t j=0; j<64; ++j) {
-                    hist(i, j) = vigra::acc::get<vigra::acc::UserRangeHistogram<64> >(a, i)[j];
+                for(size_t j=0; j<DynamicHistogramSize; ++j) {
+                    hist(i, j) = vigra::acc::get<vigra::acc::UserRangeHistogram<StaticHistogramSize> >(a, i)[j];
                 }
             }
             f.write("histogram", hist); 
@@ -199,7 +202,7 @@ class RegionFeatures {
             vigra::MultiArray<2, float> quantiles(vigra::Shape2(a.regionCount(), 7));
             for(size_t i=0; i<a.regionCount(); ++i) {
                 for(size_t j=0; j<7; ++j) {
-                    quantiles(i, j) = vigra::acc::get<StandardQuantiles<vigra::acc::UserRangeHistogram<64> > >(a, i)[j];
+                    quantiles(i, j) = vigra::acc::get<StandardQuantiles<vigra::acc::UserRangeHistogram<StaticHistogramSize> > >(a, i)[j];
                 }
             } 
             f.write("quantiles", quantiles); 
@@ -213,22 +216,17 @@ class RegionFeatures {
             }
             f.write("regionCenter", regionCenter); 
         }
-        /*
+        
         {
             vigra::MultiArray<2, float> regionRadii(vigra::Shape2(a.regionCount(), 3));
             for(size_t i=0; i<a.regionCount(); ++i) {
-                if(get<Count>(a, i) > 0) {
-                    std::cout << get<RegionRadii>(a, i).size() << " " << i << " afjkadsjfdaklfjasklfjasdlkfjdlkafj" << std::endl;
+                for(size_t j=0; j<3; ++j) {
+                    regionRadii(i, j) = vigra::acc::get<RegionRadii>(a, i)[j];
                 }
-                
-                //for(size_t j=0; j<3; ++j) {
-                //    regionRadii(i, j) = vigra::acc::get<RegionRadii>(a, i)[j];
-                //}
             }
             f.write("regionRadii", regionRadii); 
         }
-        */
-        /*
+        
         {
             vigra::MultiArray<3, float> regionAxes(vigra::Shape3(a.regionCount(), 3, 3));
             for(size_t i=0; i<a.regionCount(); ++i) {
@@ -240,7 +238,6 @@ class RegionFeatures {
             }
             f.write("regionAxes", regionAxes); 
         }
-        */
         
         std::cout << "....." << std::endl;
         
