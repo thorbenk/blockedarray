@@ -3,6 +3,8 @@
 #include <bw/channelselector.h>
 #include <bw/thresholding.h>
 #include <bw/connectedcomponents.h>
+#include <bw/regionfeatures.h>
+
 #include <bw/extern_templates.h>
 
 int main(int argc, char** argv) {
@@ -43,6 +45,15 @@ int main(int argc, char** argv) {
         SourceHDF5<3, UInt8> source("02_thresh.h5", "thresh");
         ConnectedComponents<3> bs(&source, blockShape);
         bs.writeResult("03_cc.h5", "cc", 1);
+    }
+    
+    //region features
+    {
+        SourceHDF5<3, float> sourceData("02_thresh.h5", "thresh");
+        SourceHDF5<3, uint32_t> sourceLabels("02_thresh.h5", "thresh");
+        RegionFeatures<3, float, uint32_t> rf(&sourceData, &sourceLabels, blockShape);
+        vigra::MultiArray<2, float> out;
+        rf.run("test_result.h5");
     }
     
 }

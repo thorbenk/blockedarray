@@ -1,0 +1,262 @@
+#ifndef BW_REGIONFEATURES2_H
+#define BW_REGIONFEATURES2_H
+
+#include <vigra/accumulator.hxx>
+#include <vigra/multi_array.hxx>
+
+#include <bw/source.h>
+#include <bw/sink.h>
+#include <bw/blocking.h>
+
+namespace BW {
+
+using namespace vigra::acc;
+ 
+template<int N, class T, class U>
+class RegionFeatures {
+    public:
+
+    typedef Select<Count,
+                   Mean,
+                   Variance,
+                   Skewness,
+                   Kurtosis, 
+                   Minimum,
+                   Maximum,
+                   UserRangeHistogram<64>,
+                   StandardQuantiles<UserRangeHistogram<64> >, //vector of length 7
+                   RegionCenter, //center of region (pixel coordinates)
+                   RegionRadii, //3 numbers per region
+                   RegionAxes, //3 x 3 numbers per region
+                   Weighted<RegionCenter>, //weighted center of region
+                   Weighted<RegionRadii>,
+                   Weighted<RegionAxes>,
+                   Select<Coord<Minimum>, //bounding box min
+                          Coord<Maximum>, //bounding box max
+                          Coord<ArgMinWeight>, //pixel where the data has minimum value within region
+                          Coord<ArgMaxWeight> //pixel where the data has maximum value within region
+                   >,
+                   DataArg<1>, WeightArg<1>, LabelArg<2>
+                   > ScalarRegionAccumulatorsBW;
+    
+    typedef vigra::acc::AccumulatorChainArray<
+                vigra::CoupledArrays<3, T, U>,
+                ScalarRegionAccumulatorsBW
+            > AccChain;
+    
+    typedef typename Roi<N>::V V;
+    RegionFeatures(Source<N,T>* dataSource, Source<N,U>* labelsBlockSource, V blockShape)
+        : blockShape_(blockShape)
+        , dataSource_(dataSource)
+        , labelsBlockSource_(labelsBlockSource)
+    {
+        vigra_precondition(dataSource_->shape() == labelsBlockSource_->shape(), "shapes do not match");
+        
+        Roi<N> roi(V(), dataSource_->shape());
+        Blocking<N> bb(roi, blockShape, V());
+        std::cout << "* RegionFeatures with " << bb.numBlocks() << " blocks" << std::endl;
+        blocking_ = bb;
+    }
+    
+    void run(const std::string& filename) {
+        using namespace vigra;
+        
+        accumulators_.resize(blocking_.numBlocks());
+        
+        typename Blocking<N>::Pair p;
+        
+        T m = vigra::NumericTraits<T>::max();
+        T M = vigra::NumericTraits<T>::min();
+        size_t i=0;
+        BOOST_FOREACH(p, blocking_.blocks()) {
+            Roi<N> roi = p.second;
+            MultiArray<N, T> dataBlock(roi.shape());
+            dataSource_->readBlock(roi, dataBlock); 
+            m = std::min(m, *std::min_element(dataBlock.begin(), dataBlock.end()));
+            M = std::max(M, *std::max_element(dataBlock.begin(), dataBlock.end()));
+            ++i;
+        }
+        std::cout << "global min/max is " << m << " and " << M << std::endl;
+        
+        
+        vigra::HistogramOptions histogram_opt;         
+        //histogram_opt = histogram_opt.setBinCount(50); 
+        histogram_opt = histogram_opt.setMinMax(m,M);
+        
+        i = 0; 
+        BOOST_FOREACH(p, blocking_.blocks()) {
+            //std::cout << "  block " << i+1 << "/" << blocking_.numBlocks() << "        \r" << std::flush;
+            std::cout << "  block " << i+1 << "/" << blocking_.numBlocks() << std::endl;
+            
+            Roi<N> roi = p.second;
+            
+            MultiArray<N, T> dataBlock(roi.shape());
+            dataSource_->readBlock(roi, dataBlock); 
+            
+            MultiArray<N, U> labelsBlock(roi.shape());
+            labelsBlockSource_->readBlock(roi, labelsBlock); 
+            
+            std::cout << "    label min/max = " << *std::min_element(labelsBlock.begin(), labelsBlock.end()) << " / " << *std::max_element(labelsBlock.begin(), labelsBlock.end()) << std::endl;
+            
+            accumulators_[i].ignoreLabel(0);
+            
+            //set options for all histograms in the accumulator chain:
+            accumulators_[i].setHistogramOptions(histogram_opt);  
+            
+            //accumulators_[i].setMaxRegionLabel(3);
+            extractFeatures(dataBlock, labelsBlock, accumulators_[i]);
+          
+            vigra::MultiArray<2, float> o;
+            const AccChain& a = accumulators_[i];
+            for(size_t k=0; k<a.regionCount(); ++k) {
+                std::cout << "    region " << k << " :";
+                if( vigra::acc::get<vigra::acc::Count>(a, k) > 0 ) {
+                    std::cout << " min " << vigra::acc::get<vigra::acc::Minimum>(a, k);
+                    std::cout << " max " << vigra::acc::get<vigra::acc::Maximum>(a, k);
+                    std::cout << " mean " << vigra::acc::get<vigra::acc::Mean>(a, k);
+                }
+                else {
+                    std::cout << " none";
+                }
+                std::cout << std::endl;
+            }
+
+            ++i; 
+        }
+        std::cout << std::endl;
+        
+        std::cout << "xxx Merging accumulators" << std::endl; 
+        
+        vigra::MultiArrayIndex maxRegionLabel = 0; 
+        for(i=0; i<accumulators_.size(); ++i) {
+            maxRegionLabel = std::max(maxRegionLabel, accumulators_[i].maxRegionLabel());
+        }
+        std::cout << "the max region label is " << maxRegionLabel << std::endl;
+        
+        AccChain a;
+        a.setMaxRegionLabel(maxRegionLabel);
+        a.setHistogramOptions(histogram_opt);  
+        
+        //a.ignoreLabel(0);
+        for(i=0; i<accumulators_.size(); ++i) {
+            std::cout << "  acc " << i+1 << "/" << blocking_.numBlocks() << " has " << accumulators_[i].regionCount() << " regions" << std::endl;//          \r" << std::flush;
+            
+            std::vector<size_t> relabeling(accumulators_[i].maxRegionLabel()+1);
+            vigra::linearSequence(relabeling.begin(), relabeling.end()); 
+            a.merge(accumulators_[i], relabeling);
+           
+        }
+        std::cout << std::endl;
+        
+        std::cout << "Combined accumulator " << a.maxRegionLabel() << " max region label" << std::endl;
+        
+        vigra::HDF5File f(filename, vigra::HDF5File::Open);
+        {
+            vigra::MultiArray<1, float> count(vigra::Shape1(a.regionCount()));
+            for(size_t i=0; i<a.regionCount(); ++i) { count(i) = vigra::acc::get<vigra::acc::Count>(a, i); }
+            f.write("count", count); 
+        }
+        {
+            vigra::MultiArray<1, float> mean(vigra::Shape1(a.regionCount()));
+            for(size_t i=0; i<a.regionCount(); ++i) { mean(i) = vigra::acc::get<vigra::acc::Mean>(a, i); }
+            f.write("mean", mean); 
+        }
+        {
+            vigra::MultiArray<1, float> variance(vigra::Shape1(a.regionCount()));
+            for(size_t i=0; i<a.regionCount(); ++i) { variance(i) = vigra::acc::get<vigra::acc::Variance>(a, i); }
+            f.write("variance", variance); 
+        }
+        {
+            vigra::MultiArray<1, float> skewness(vigra::Shape1(a.regionCount()));
+            for(size_t i=0; i<a.regionCount(); ++i) { skewness(i) = vigra::acc::get<vigra::acc::Skewness>(a, i); }
+            f.write("skewness", skewness); 
+        }
+        {
+            vigra::MultiArray<1, float> kurtosis(vigra::Shape1(a.regionCount()));
+            for(size_t i=0; i<a.regionCount(); ++i) { kurtosis(i) = vigra::acc::get<vigra::acc::Kurtosis>(a, i); }
+            f.write("kurtosis", kurtosis); 
+        }
+        {
+            vigra::MultiArray<1, float> minimum(vigra::Shape1(a.regionCount()));
+            for(size_t i=0; i<a.regionCount(); ++i) { minimum(i) = vigra::acc::get<vigra::acc::Minimum>(a, i); }
+            f.write("minimum", minimum); 
+        }
+        {
+            vigra::MultiArray<1, float> maximum(vigra::Shape1(a.regionCount()));
+            for(size_t i=0; i<a.regionCount(); ++i) { maximum(i) = vigra::acc::get<vigra::acc::Maximum>(a, i); }
+            f.write("maximum", maximum); 
+        }
+        {
+            vigra::MultiArray<2, float> hist(vigra::Shape2(a.regionCount(), 64));
+            for(size_t i=0; i<a.regionCount(); ++i) {
+                for(size_t j=0; j<64; ++j) {
+                    hist(i, j) = vigra::acc::get<vigra::acc::UserRangeHistogram<64> >(a, i)[j];
+                }
+            }
+            f.write("histogram", hist); 
+        }
+        {
+            vigra::MultiArray<2, float> quantiles(vigra::Shape2(a.regionCount(), 7));
+            for(size_t i=0; i<a.regionCount(); ++i) {
+                for(size_t j=0; j<7; ++j) {
+                    quantiles(i, j) = vigra::acc::get<StandardQuantiles<vigra::acc::UserRangeHistogram<64> > >(a, i)[j];
+                }
+            } 
+            f.write("quantiles", quantiles); 
+        }
+        {
+            vigra::MultiArray<2, float> regionCenter(vigra::Shape2(a.regionCount(), 3));
+            for(size_t i=0; i<a.regionCount(); ++i) {
+                for(size_t j=0; j<3; ++j) {
+                    regionCenter(i, j) = vigra::acc::get<RegionCenter>(a, i)[j];
+                }
+            }
+            f.write("regionCenter", regionCenter); 
+        }
+        /*
+        {
+            vigra::MultiArray<2, float> regionRadii(vigra::Shape2(a.regionCount(), 3));
+            for(size_t i=0; i<a.regionCount(); ++i) {
+                if(get<Count>(a, i) > 0) {
+                    std::cout << get<RegionRadii>(a, i).size() << " " << i << " afjkadsjfdaklfjasklfjasdlkfjdlkafj" << std::endl;
+                }
+                
+                //for(size_t j=0; j<3; ++j) {
+                //    regionRadii(i, j) = vigra::acc::get<RegionRadii>(a, i)[j];
+                //}
+            }
+            f.write("regionRadii", regionRadii); 
+        }
+        */
+        /*
+        {
+            vigra::MultiArray<3, float> regionAxes(vigra::Shape3(a.regionCount(), 3, 3));
+            for(size_t i=0; i<a.regionCount(); ++i) {
+                for(size_t j=0; j<3; ++j) {
+                    for(size_t k=0; k<3; ++k) {
+                        regionAxes(i, j, k) = vigra::acc::get<RegionAxes>(a, i)(j,k);
+                    }
+                }
+            }
+            f.write("regionAxes", regionAxes); 
+        }
+        */
+        
+        std::cout << "....." << std::endl;
+        
+    }
+    
+    private:
+    V shape_;
+    V blockShape_;
+    Blocking<N> blocking_;
+    
+    Source<N,T>* dataSource_;
+    Source<N,U>* labelsBlockSource_;
+    
+    std::vector<AccChain> accumulators_;
+};
+
+} /* namespace BW */
+
+#endif /* BW_REGIONFEATURES2_H */

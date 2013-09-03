@@ -73,6 +73,13 @@ if(BUILD_COMMON_DTYPES_LIBRARY)
 endif()
 add_test("test_blockwisethresholding" test_blockwisethresholding)
 
+add_executable(test_blockwiseregionfeatures test_regionfeatures.cpp)
+target_link_libraries(test_blockwiseregionfeatures ${VIGRA_IMPEX_LIBRARY} ${HDF5_LIBRARY} ${HDF5_HL_LIBRARY})
+if(BUILD_COMMON_DTYPES_LIBRARY)
+    target_link_libraries(test_blockwiseregionfeatures bw)
+endif()
+add_test("test_blockwiseregionfeatures" test_blockwiseregionfeatures)
+
 add_executable(test_blockwisechannelselector test_blockwisechannelselector.cpp)
 target_link_libraries(test_blockwisechannelselector ${VIGRA_IMPEX_LIBRARY} ${HDF5_LIBRARY} ${HDF5_HL_LIBRARY})
 if(BUILD_COMMON_DTYPES_LIBRARY)
