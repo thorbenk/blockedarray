@@ -65,19 +65,24 @@ class RegionFeatures {
         
         typename Blocking<N>::Pair p;
         
-        T m = vigra::NumericTraits<T>::max();
+        T m = 0;        
         T M = vigra::NumericTraits<T>::min();
         size_t i=0;
+        
+        //MultiArray<N, T> dataBlock(blockShape_);
+        
         BOOST_FOREACH(p, blocking_.blocks()) {
+            std::cout << "  cc block " << i+1 << "/" << blocking_.numBlocks() << "        \r" << std::flush;
             Roi<N> roi = p.second;
+            //if(dataBlock.shape() !=roi.shape()) {
+            //	dataBlock.reshape(roi.shape());
+            //}
             MultiArray<N, T> dataBlock(roi.shape());
             dataSource_->readBlock(roi, dataBlock); 
-            m = std::min(m, *std::min_element(dataBlock.begin(), dataBlock.end()));
             M = std::max(M, *std::max_element(dataBlock.begin(), dataBlock.end()));
             ++i;
         }
-        std::cout << "global min/max is " << m << " and " << M << std::endl;
-        
+	    std::cout << std::endl;
         
         vigra::HistogramOptions histogram_opt;         
         //histogram_opt = histogram_opt.setBinCount(50); 
@@ -85,8 +90,7 @@ class RegionFeatures {
         
         i = 0; 
         BOOST_FOREACH(p, blocking_.blocks()) {
-            //std::cout << "  block " << i+1 << "/" << blocking_.numBlocks() << "        \r" << std::flush;
-            std::cout << "  block " << i+1 << "/" << blocking_.numBlocks() << std::endl;
+            std::cout << "  block " << i+1 << "/" << blocking_.numBlocks() << "        \r" << std::flush;
             
             Roi<N> roi = p.second;
             
@@ -96,8 +100,6 @@ class RegionFeatures {
             MultiArray<N, U> labelsBlock(roi.shape());
             labelsBlockSource_->readBlock(roi, labelsBlock); 
             
-            std::cout << "    label min/max = " << *std::min_element(labelsBlock.begin(), labelsBlock.end()) << " / " << *std::max_element(labelsBlock.begin(), labelsBlock.end()) << std::endl;
-            
             accumulators_[i].ignoreLabel(0);
             
             //set options for all histograms in the accumulator chain:
@@ -105,33 +107,15 @@ class RegionFeatures {
             
             //accumulators_[i].setMaxRegionLabel(3);
             extractFeatures(dataBlock, labelsBlock, accumulators_[i]);
-          
-            vigra::MultiArray<2, float> o;
-            const AccChain& a = accumulators_[i];
-            for(size_t k=0; k<a.regionCount(); ++k) {
-                std::cout << "    region " << k << " :";
-                if( vigra::acc::get<vigra::acc::Count>(a, k) > 0 ) {
-                    std::cout << " min " << vigra::acc::get<vigra::acc::Minimum>(a, k);
-                    std::cout << " max " << vigra::acc::get<vigra::acc::Maximum>(a, k);
-                    std::cout << " mean " << vigra::acc::get<vigra::acc::Mean>(a, k);
-                }
-                else {
-                    std::cout << " none";
-                }
-                std::cout << std::endl;
-            }
 
             ++i; 
         }
         std::cout << std::endl;
         
-        std::cout << "xxx Merging accumulators" << std::endl; 
-        
         vigra::MultiArrayIndex maxRegionLabel = 0; 
         for(i=0; i<accumulators_.size(); ++i) {
             maxRegionLabel = std::max(maxRegionLabel, accumulators_[i].maxRegionLabel());
         }
-        std::cout << "the max region label is " << maxRegionLabel << std::endl;
         
         AccChain a;
         a.setMaxRegionLabel(maxRegionLabel);
@@ -139,7 +123,7 @@ class RegionFeatures {
         
         //a.ignoreLabel(0);
         for(i=0; i<accumulators_.size(); ++i) {
-            std::cout << "  acc " << i+1 << "/" << blocking_.numBlocks() << " has " << accumulators_[i].regionCount() << " regions" << std::endl;//          \r" << std::flush;
+            std::cout << "  acc " << i+1 << "/" << blocking_.numBlocks() << " has " << accumulators_[i].regionCount() << " regions          \r" << std::flush;
             
             std::vector<size_t> relabeling(accumulators_[i].maxRegionLabel()+1);
             vigra::linearSequence(relabeling.begin(), relabeling.end()); 
@@ -148,8 +132,7 @@ class RegionFeatures {
         }
         std::cout << std::endl;
         
-        std::cout << "Combined accumulator " << a.maxRegionLabel() << " max region label" << std::endl;
-        
+        std::cout << "write features to " << filename << std::endl;
         vigra::HDF5File f(filename, vigra::HDF5File::Open);
         {
             vigra::MultiArray<1, float> count(vigra::Shape1(a.regionCount()));

@@ -4,6 +4,7 @@
 #include <boost/foreach.hpp>
 
 #include <vector>
+#include <iostream>
 
 #include "roi.h"
 
