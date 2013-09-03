@@ -1,3 +1,7 @@
+#ifdef _MSC_VER
+#pragma warning (disable:4503)
+#endif
+
 #include <iostream>
 
 #include <bw/sourcehdf5.h>
@@ -16,7 +20,7 @@ using namespace BW;
 struct RegionFeaturesTest {
 void test() {
     using namespace vigra;
-    typedef typename RegionFeatures<3, float, uint32_t>::V V;
+    typedef RegionFeatures<3, float, uint32_t>::V V;
    
     MultiArray<3, float> data(V(123,230,400), 1.0);
     FillRandom<float, float*>::fillRandom(data.data(), data.data()+data.size());
