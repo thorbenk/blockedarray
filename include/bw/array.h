@@ -71,6 +71,11 @@ class Array {
      */
     Array(typename vigra::MultiArrayShape<N>::type blockShape, const vigra::MultiArrayView<N, T>& a);
 
+    typename vigra::MultiArrayShape<N>::type blockShape()
+    {
+    	return blockShape_;
+    }
+
     /**
      * If coordinate lists management is enabled, a separate
      * sparse list of non-zero coordinates and their associated

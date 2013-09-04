@@ -8,6 +8,7 @@
 
 #include <vigra/numpy_array.hxx>
 #include <vigra/numpy_array_converters.hxx>
+#include <vigra/python_utility.hxx>
 
 //#define DEBUG_PRINTS
 
@@ -116,7 +117,11 @@ struct PyBlockedArray {
         sliceToPQ(sl, p, q);
         ba.writeSubarray(p, q, a);
     }
-    
+
+    static PyObject* blockShape(BA& ba) {
+    	return shapeToPythonTuple( ba.blockShape() ).release();
+    }
+
     static boost::python::tuple blocks(BA& ba, V p, V q) {
         return blockListToPython(ba, ba.blocks(p, q));
     }
@@ -162,6 +167,7 @@ void export_blockedArray() {
         .def("averageCompressionRatio", &BA::averageCompressionRatio)
         .def("numBlocks", &BA::numBlocks)
         .def("sizeBytes", &BA::sizeBytes)
+        .def("blockShape", &PyBA::blockShape)
         .def("writeSubarray", registerConverters(&PyBA::writeSubarray))
         .def("writeSubarrayNonzero", registerConverters(&PyBA::writeSubarrayNonzero),
             (arg("p"), arg("q"), arg("a"), arg("writeAsZero")))
