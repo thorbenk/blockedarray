@@ -139,7 +139,7 @@ struct PyBlockedArray {
         return voxelValuesToPython<N,T>(ba.nonzero());
     }
     
-    static void applyRelabeling(BA& ba, vigra::NumpyArray<1, T>& relabeling) {
+    static void applyRelabeling(BA& ba, vigra::NumpyArray<1, T> relabeling) {
         ba.applyRelabeling(relabeling);
     }
 };
