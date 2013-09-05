@@ -22,13 +22,24 @@ using namespace BW;
 
 template<int N, class T>
 struct ArrayTest {
+    
+typedef Array<N,T> BA;
+typedef typename BA::V V;
+typedef typename BA::BlockPtr BlockPtr;
+    
+static void testDirty(
+    int verbose = false
+) {
+    V sh(100,100);
+    V blockShape(10,10);
+    
+    vigra::MultiArray<2,T> initialData(sh, 1);
+    BA blockedArray(blockShape, initialData);
+}
 
 static void testWriteSubarrayNonzero(
     int verbose = false
 ) {
-    typedef Array<3,T> BA;
-    typedef typename BA::V V;
-    
     vigra::MultiArray<3,T> initialData(V(100,75,111), 1);
     BA blockedArray(V(20,30,40), initialData);
     
@@ -58,9 +69,6 @@ static void testWriteSubarrayNonzero(
 static void testApplyRelabeling(
     int verbose = false
 ) {
-    typedef Array<3,T> BA;
-    typedef typename BA::V V;
-   
     vigra::MultiArray<3,T> initialData(V(100,200,300));
     initialData[V(3,4,5)]     = 2;
     initialData[V(80,99,260)] = 3;
@@ -83,9 +91,6 @@ static void testApplyRelabeling(
 static void testManageCoordinateLists(
     int verbose = false
 ) {
-    typedef Array<3,T> BA;
-    typedef typename BA::V V;
-   
     vigra::MultiArray<3,T> initialData(V(100,200,300));
     initialData[V(3,4,5)]     = 2;
     initialData[V(80,99,260)] = 3;
@@ -124,9 +129,6 @@ static void testManageCoordinateLists(
 static void testMinMax(
     int verbose = false
 ) {
-    typedef Array<3,T> BA;
-    typedef typename BA::V V;
-   
     vigra::MultiArray<3,T> zeros(V(100,200,300));
     
     BA blockedArray(V(20,30,40), zeros);
@@ -160,10 +162,6 @@ static void testCompression(
     typename vigra::MultiArray<N,T>::difference_type blockShape,
     int verbose = false
 ) {
-    
-    typedef Array<N,T> BA;
-    typedef typename BA::V diff_t;
-    typedef typename BA::BlockPtr BlockPtr;
     
     vigra::MultiArray<N,T> theData(dataShape);
     FillRandom<T, typename vigra::MultiArray<N,T>::iterator>::fillRandom(theData.begin(), theData.end());
@@ -200,9 +198,6 @@ static void testDeleteEmptyBlocks(
     typename vigra::MultiArray<N,T>::difference_type blockShape,
     int verbose = false
 ) {
-    typedef Array<N,T> BA;
-    typedef typename BA::V diff_t;
-    typedef typename BA::BlockPtr BlockPtr;
     vigra::MultiArray<N,T> theData(dataShape);
     
     //If delete empty blocks is disabled, all-zero blocks remain
@@ -212,7 +207,7 @@ static void testDeleteEmptyBlocks(
         should(blockedArray.numBlocks() > 0);
         blockedArray.setDeleteEmptyBlocks(false);
         vigra::MultiArray<N,T> zeros(theData.shape());
-        blockedArray.writeSubarray(diff_t(), theData.shape(), zeros);
+        blockedArray.writeSubarray(V(), theData.shape(), zeros);
         should(blockedArray.numBlocks() > 0);
     }
     //OTOH, if delete empty blocks is emabled, all blocks are deleted
@@ -222,7 +217,7 @@ static void testDeleteEmptyBlocks(
         should(blockedArray.numBlocks() > 0);
         blockedArray.setDeleteEmptyBlocks(true);
         vigra::MultiArray<N,T> zeros(theData.shape());
-        blockedArray.writeSubarray(diff_t(), theData.shape(), zeros);
+        blockedArray.writeSubarray(V(), theData.shape(), zeros);
         shouldEqual(blockedArray.numBlocks(), 0);
     }
 }
@@ -233,8 +228,6 @@ static void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
           int verbose = false
 ) {
     if(verbose) { std::cout << "TEST" << std::endl; }
-    typedef Array<N,T> BA;
-    typedef typename BA::V diff_t;
     
     vigra::MultiArray<N,T> theData(dataShape);
     FillRandom<T, typename vigra::MultiArray<N,T>::iterator>::fillRandom(theData.begin(), theData.end());
@@ -252,12 +245,12 @@ static void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
     should(blockedArray.numBlocks() > 0);
     should(blockedArray.sizeBytes() > 0);
     
-    typedef std::vector<std::pair<diff_t, diff_t> > BoundsList;
+    typedef std::vector<std::pair<V, V> > BoundsList;
     BoundsList bounds;
     
     vigra::RandomMT19937 random;
     while(bounds.size() < nSamples) {
-        diff_t p, q;
+        V p, q;
         for(int i=0; i<N; ++i) { p[i] = random.uniformInt(theData.shape(i)); }
         for(int i=0; i<N; ++i) { q[i] = p[i]+1+random.uniformInt(theData.shape(i)-p[i]); }
         
@@ -283,8 +276,8 @@ static void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
     //
     int n = 0;
     BOOST_FOREACH(typename BoundsList::value_type pq, bounds) {
-        const diff_t p= pq.first;
-        const diff_t q = pq.second;
+        const V p= pq.first;
+        const V q = pq.second;
         
         if(verbose) {
             std::cout << "* unit test read from " << p << " to " << q << " (" << std::sqrt((double)((q-p)[0]*(q-p)[1]*(q-p)[2])) << "^2" << ")" << std::endl;
@@ -314,8 +307,8 @@ static void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
     //
     n = 0;
     BOOST_FOREACH(typename BoundsList::value_type pq, bounds) {
-        const diff_t p = pq.first;
-        const diff_t q = pq.second;
+        const V p = pq.first;
+        const V q = pq.second;
         
         if(verbose) {
             std::cout << "* unit test write from " << p << " to " << q << " (" << std::sqrt((double)((q-p)[0]*(q-p)[1]*(q-p)[2])) << "^2" << ")" << std::endl;
@@ -339,7 +332,7 @@ static void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
         theData.subarray(p,q) = a;
         
         vigra::MultiArray<N, T> r(theData.shape());
-        blockedArray.readSubarray(diff_t(), theData.shape(), r);
+        blockedArray.readSubarray(V(), theData.shape(), r);
         
         should(arraysEqual(theData, r)); 
         ++n;
@@ -349,13 +342,17 @@ static void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
     //
     // delete array
     //
-    blockedArray.deleteSubarray(diff_t(), theData.shape());
+    blockedArray.deleteSubarray(V(), theData.shape());
     
     shouldEqual(blockedArray.numBlocks(),0);
 }
 }; /*struct ArrayTest*/
 
 struct ArrayTestImpl {
+    void dim2_testDirty() {
+        ArrayTest<2, vigra::UInt8>::testDirty();
+        std::cout << "... passed dim2_testDirty" << std::endl;
+    }
     void dim3_uint8() {
         ArrayTest<3, vigra::UInt8>::test(vigra::Shape3(89,66,77), vigra::Shape3(22,11,9), 50);
         ArrayTest<3, vigra::UInt8>::test(vigra::Shape3(100,88,50), vigra::Shape3(13,23,7), 50);
@@ -400,6 +397,7 @@ struct ArrayTestSuite : public vigra::test_suite {
     ArrayTestSuite()
         : vigra::test_suite("ArrayTestSuite")
     {
+        add( testCase(&ArrayTestImpl::dim2_testDirty));
         add( testCase(&ArrayTestImpl::dim3_testWriteSubarrayNonzero));
         add( testCase(&ArrayTestImpl::dim3_testApplyRelabeling));
         add( testCase(&ArrayTestImpl::dim3_testManageCoordinateLists));
