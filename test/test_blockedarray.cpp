@@ -26,6 +26,8 @@ struct ArrayTest {
 typedef Array<N,T> BA;
 typedef typename BA::V V;
 typedef typename BA::BlockPtr BlockPtr;
+typedef typename BA::BlockList BlockList;
+typedef vigra::MultiArray<N,T> A;
     
 static void testDirty(
     int verbose = false
@@ -35,6 +37,35 @@ static void testDirty(
     
     vigra::MultiArray<2,T> initialData(sh, 1);
     BA blockedArray(blockShape, initialData);
+    
+    BlockList bl = blockedArray.dirtyBlocks(V(), sh);
+    shouldEqual(bl.size(), 0);
+    
+    blockedArray.setDirty(V(), sh, true);
+    BlockList bl2 = blockedArray.dirtyBlocks(V(), sh);
+    shouldEqual(bl2.size(), 10*10);
+    
+    blockedArray.deleteSubarray(V(), sh);
+    shouldEqual(blockedArray.numBlocks(), 0);
+   
+    //partial write to block (0,0)
+    blockedArray.writeSubarray(V(1,1), V(3,4), A(V(2,3), 77) ); //write 
+    BlockList bl3 = blockedArray.dirtyBlocks(V(), sh);
+    shouldEqual(bl3.size(), 1);
+    shouldEqual(bl3[0], V(0,0));
+   
+    //partial write to block (0,1)
+    blockedArray.writeSubarray(V(2,12), V(4,16), A(V(2,6), 99) ); //write 
+    BlockList bl4 = blockedArray.dirtyBlocks(V(), sh);
+    shouldEqual(bl4.size(), 2);
+    shouldEqual(bl4[0], V(0,0));
+    shouldEqual(bl4[1], V(0,1));
+    
+    //full write to block (0,0)
+    blockedArray.writeSubarray(V(0,0), V(10,10), A(V(10,10), 11) ); //write 
+    BlockList bl5 = blockedArray.dirtyBlocks(V(), sh);
+    shouldEqual(bl5.size(), 1);
+    shouldEqual(bl5[0], V(0,1));
 }
 
 static void testWriteSubarrayNonzero(
