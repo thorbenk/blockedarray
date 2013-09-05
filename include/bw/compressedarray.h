@@ -64,6 +64,10 @@ class CompressedArray {
     
     bool isDirty(int dimension, int slice) const;
     
+    bool isDirty(difference_type p, difference_type q) const;
+    
+    void setDirty(difference_type p, difference_type q, bool dirty);
+    
     void setDirty(int dimension, int slice, bool dirty);
     
     /**
@@ -217,6 +221,52 @@ bool CompressedArray<N,T>::isDirty(int dimension, int slice) const {
     size_t n=0;
     for(int d=0; d<dimension-1; ++d) n += shape_[d];
     return dirtyDimensions_[n+slice];
+}
+
+template<int N, typename T>
+void CompressedArray<N,T>::setDirty(difference_type p, difference_type q, bool dirty) {
+    if(p == difference_type() && q == shape_) {
+        //The whole block has been addressed.
+        setDirty(dirty);
+        return;
+    }
+    for(size_t d=0; d<N; ++d) { //go over all dimensions
+        for(size_t i=p[d]; i<q[d]; ++i) { //in current dimension, go over the dimensions's range
+            if(dirty) {
+                setDirty(d, i, true);
+                continue;
+            }
+            //go over all other dimensions
+            bool sliceFull = true;
+            for(size_t j=0; j<N; ++j) {
+                if(j==d) continue;
+                if(p[j] != 0 || q[j] != shape_[j]) {
+                    sliceFull = false;
+                    break;
+                }
+            }
+            if(sliceFull) {
+                setDirty(d, i, false);
+            }
+        }
+    }
+}
+
+template<int N, typename T>
+bool CompressedArray<N,T>::isDirty(difference_type p, difference_type q) const {
+    for(size_t d=0; d<N; ++d) {
+        bool dirty = false;
+        for(size_t i=p[d]; i<q[d]; ++i) {
+            if(isDirty(d, i)) {
+                dirty = true;
+                break;
+            }
+        }
+        if(!dirty) {
+            return false;
+        }
+    }
+    return true;
 }
 
 template<int N, typename T>

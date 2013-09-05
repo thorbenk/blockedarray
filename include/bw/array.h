@@ -176,7 +176,14 @@ class Array {
      * set all blocks that intersect the ROI [p,q) to be flagged as 'dirty'
      */
     void setDirty(V p, V q, bool dirty);
-
+   
+    /**
+     * Whether the roi [p,q) is dirty.
+     * This function will not only consider dirtyness on a block level,
+     * but also the dirtyness that is tracked on a per-slice level.
+     */
+    bool isDirty(V p, V q) const;
+   
     /**
      * get a list of all blocks intersecting ROI [p,q) that are currently stored
      */
@@ -534,12 +541,27 @@ void Array<N,T>::deleteSubarray(V p, V q) {
 
 template<int N, typename T>
 void Array<N,T>::setDirty(V p, V q, bool dirty) {
-    const BlockList bb = enumerateBlocksInRange(p, q);
-    BOOST_FOREACH(V blockCoor, bb) {
-        typename BlocksMap::iterator it = blocks_.find(blockCoor);
-        if(it == blocks_.end()) { continue; }
-        it->second->setDirty(dirty);
+    for(RwIterator wIt(*this,p,q); wIt.hasMore(); wIt.next()) {
+        typename BlocksMap::const_iterator it = blocks_.find(wIt.blockCoord);
+        if(it==blocks_.end()) {
+            continue;
+        }
+        it->second->setDirty(wIt.withinBlock.p, wIt.withinBlock.q, dirty);
     }
+}
+
+template<int N, typename T>
+bool Array<N,T>::isDirty(V p, V q) const {
+    for(RwIterator wIt(*this,p,q); wIt.hasMore(); wIt.next()) {
+        typename BlocksMap::const_iterator it = blocks_.find(wIt.blockCoord);
+        if(it==blocks_.end()) {
+            return true; //FIXME: semantically correct?
+        }
+        if( it->second->isDirty(wIt.withinBlock.p, wIt.withinBlock.q) ) {
+            return true;
+        }
+    }
+    return false;
 }
 
 template<int N, typename T>

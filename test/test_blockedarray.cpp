@@ -28,7 +28,33 @@ typedef typename BA::V V;
 typedef typename BA::BlockPtr BlockPtr;
 typedef typename BA::BlockList BlockList;
 typedef vigra::MultiArray<N,T> A;
+   
+static void testDirtySlicewise(
+    int verbose = false
+) {
+    V sh(100,100);
+    V blockShape(10,10);
     
+    vigra::MultiArray<2,T> initialData(sh, 1);
+    BA blockedArray(blockShape, initialData);
+    
+    blockedArray.setDirty(V(), sh, true); //set everything dirty
+    blockedArray.setDirty(V(5,0), V(6,100), false); // x-slice 5 is not dirty anymore
+    shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 100); //all blocks still dirty
+    
+    should(!blockedArray.isDirty(V(5,0), V(6,100)));
+    should(!blockedArray.isDirty(V(5,50), V(6,75)));
+    
+    should(blockedArray.isDirty(V(5,0), V(7,100)));
+    should(blockedArray.isDirty(V(5,25), V(7,75)));
+    
+    blockedArray.setDirty(V(), V(10,10), false);
+    shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 99);
+    
+    blockedArray.setDirty(V(), V(10,10), true);
+    shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 100);
+}
+
 static void testDirty(
     int verbose = false
 ) {
@@ -380,6 +406,10 @@ static void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
 }; /*struct ArrayTest*/
 
 struct ArrayTestImpl {
+    void dim2_testDirtySlicewise() {
+        ArrayTest<2, vigra::UInt8>::testDirtySlicewise();
+        std::cout << "... passed dim2_testDirtySlicewise" << std::endl;
+    }
     void dim2_testDirty() {
         ArrayTest<2, vigra::UInt8>::testDirty();
         std::cout << "... passed dim2_testDirty" << std::endl;
@@ -428,6 +458,7 @@ struct ArrayTestSuite : public vigra::test_suite {
     ArrayTestSuite()
         : vigra::test_suite("ArrayTestSuite")
     {
+        add( testCase(&ArrayTestImpl::dim2_testDirtySlicewise));
         add( testCase(&ArrayTestImpl::dim2_testDirty));
         add( testCase(&ArrayTestImpl::dim3_testWriteSubarrayNonzero));
         add( testCase(&ArrayTestImpl::dim3_testApplyRelabeling));
