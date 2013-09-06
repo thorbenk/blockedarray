@@ -41,18 +41,28 @@ static void testDirtySlicewise(
     blockedArray.setDirty(V(), sh, true); //set everything dirty
     blockedArray.setDirty(V(5,0), V(6,100), false); // x-slice 5 is not dirty anymore
     shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 100); //all blocks still dirty
-    
     should(!blockedArray.isDirty(V(5,0), V(6,100)));
     should(!blockedArray.isDirty(V(5,50), V(6,75)));
-    
     should(blockedArray.isDirty(V(5,0), V(7,100)));
     should(blockedArray.isDirty(V(5,25), V(7,75)));
-    
     blockedArray.setDirty(V(), V(10,10), false);
     shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 99);
-    
     blockedArray.setDirty(V(), V(10,10), true);
     shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 100);
+   
+    //same in y-direction
+    blockedArray.setDirty(V(), sh, true); //set everything dirty
+    blockedArray.setDirty(V(0,5), V(100,6), false); //y-slice 5 is not dirty anymore
+    shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 100); //all blocks still dirty
+    should(!blockedArray.isDirty(V(0,5), V(100,6)));
+    should(!blockedArray.isDirty(V(50,5), V(75,6)));
+    should(blockedArray.isDirty(V(0,5), V(100,7)));
+    should(blockedArray.isDirty(V(25,5), V(75,7)));
+    blockedArray.setDirty(V(), V(10,10), false);
+    shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 99);
+    blockedArray.setDirty(V(), V(10,10), true);
+    shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 100);
+    
 }
 
 static void testDirty(
