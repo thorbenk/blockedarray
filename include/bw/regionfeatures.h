@@ -104,11 +104,9 @@ class RegionFeatures {
             labelsBlockSource_->readBlock(roi, labelsBlock); 
             
             accumulators_[i].ignoreLabel(0);
-            
-            //set options for all histograms in the accumulator chain:
             accumulators_[i].setHistogramOptions(histogram_opt);  
+            accumulators_[i].setCoordinateOffset(roi.p);
             
-            //accumulators_[i].setMaxRegionLabel(3);
             extractFeatures(dataBlock, labelsBlock, accumulators_[i]);
 
             ++i; 
@@ -123,8 +121,8 @@ class RegionFeatures {
         AccChain a;
         a.setMaxRegionLabel(maxRegionLabel);
         a.setHistogramOptions(histogram_opt);  
+        a.ignoreLabel(0);
         
-        //a.ignoreLabel(0);
         for(i=0; i<accumulators_.size(); ++i) {
             std::cout << "  acc " << i+1 << "/" << blocking_.numBlocks() << " has " << accumulators_[i].regionCount() << " regions          \r" << std::flush;
             
