@@ -75,6 +75,10 @@ class Array {
     {
     	return blockShape_;
     }
+    
+    static Array<N,T> readHDF5(hid_t group, const char* name);
+    
+    void writeHDF5(hid_t group, const char* name) const;
 
     /**
      * If coordinate lists management is enabled, a separate
@@ -796,6 +800,89 @@ void Array<N,T>::deleteBlock(V blockCoord) {
     if(it3 != blockVoxelValues_.end()) {
         blockVoxelValues_.erase(it3);
     }
+}
+
+template<int N, typename T>
+Array<N,T> Array<N,T>::readHDF5(hid_t group, const char* name) {
+    
+}
+    
+template<int N, typename T>
+void Array<N,T>::writeHDF5(hid_t group, const char* name) const {
+    hid_t gr = H5Gcreate(group, name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+   
+    uint32_t* coords = new uint32_t[blocks_.size()*N];
+    
+    size_t i = 0;
+    BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
+        std::stringstream g; g << i;
+        b.second->writeHDF5(gr, g.str().c_str());
+        for(size_t j=0; j<N; ++j) {
+            coords[N*i+j] = b.first[j];
+        }
+        ++i;
+    }
+    
+    //write mapping block coordinate -> block dataset
+    {
+        hsize_t x[2] = {blocks_.size(), N};
+        
+        hid_t space     = H5Screate_simple(2, x, NULL);
+        hid_t dataset   = H5Dcreate(gr, "blocks", H5T_STD_U32LE, space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        
+        H5Dwrite(dataset, H5T_NATIVE_UINT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, coords);
+        
+        H5Dclose(dataset);
+        H5Sclose(space);
+    }
+    
+    //deleteEmptyBlocks_;
+    {
+        hsize_t one = 1;
+        hid_t space = H5Screate_simple(1, &one, NULL); 
+        hid_t attr = H5Acreate(gr, "deb", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
+        unsigned char d = deleteEmptyBlocks_ ? 1 : 0;
+        H5Awrite(attr, H5T_NATIVE_UINT8, &d);
+        H5Aclose(attr);
+        H5Sclose(space);
+    }
+    
+    //enableCompression_
+    {
+        hsize_t one = 1;
+        hid_t space = H5Screate_simple(1, &one, NULL); 
+        hid_t attr = H5Acreate(gr, "ec", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
+        unsigned char d = enableCompression_ ? 1 : 0;
+        H5Awrite(attr, H5T_NATIVE_UINT8, &d);
+        H5Aclose(attr);
+        H5Sclose(space);
+    }
+    
+    //minMaxTracking_
+    {
+        hsize_t one = 1;
+        hid_t space = H5Screate_simple(1, &one, NULL); 
+        hid_t attr = H5Acreate(gr, "mmt", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
+        unsigned char d = minMaxTracking_ ? 1 : 0;
+        H5Awrite(attr, H5T_NATIVE_UINT8, &d);
+        H5Aclose(attr);
+        H5Sclose(space);
+    }
+    
+    //manageCoordinateLists
+    {
+        hsize_t one = 1;
+        hid_t space = H5Screate_simple(1, &one, NULL); 
+        hid_t attr = H5Acreate(gr, "mcl", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
+        unsigned char d = manageCoordinateLists_ ? 1 : 0;
+        H5Awrite(attr, H5T_NATIVE_UINT8, &d);
+        H5Aclose(attr);
+        H5Sclose(space);
+    }
+    
+    H5Gclose(gr);
+    
+    delete[] coords;
 }
 
 } /* namespace BW */

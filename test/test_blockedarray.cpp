@@ -28,7 +28,23 @@ typedef typename BA::V V;
 typedef typename BA::BlockPtr BlockPtr;
 typedef typename BA::BlockList BlockList;
 typedef vigra::MultiArray<N,T> A;
-   
+  
+static void testHdf5(
+    int verbose = false
+) {
+    
+    V sh(100,100);
+    V blockShape(10,10);
+    
+    vigra::MultiArray<2,T> theData(sh, 1);
+    FillRandom<T, typename vigra::MultiArray<2,T>::iterator>::fillRandom(theData.begin(), theData.end());
+    BA blockedArray(blockShape, theData);
+    
+    hid_t file = H5Fcreate("test_ba.h5", H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    blockedArray.writeHDF5(file, "ba");
+    H5Fclose(file);
+}
+
 static void testDirtySlicewise(
     int verbose = false
 ) {
@@ -416,6 +432,10 @@ static void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
 }; /*struct ArrayTest*/
 
 struct ArrayTestImpl {
+    void dim2_testHdf5() {
+        ArrayTest<2, float>::testHdf5();
+        std::cout << "... passed dim2_testHdf5" << std::endl;
+    }
     void dim2_testDirtySlicewise() {
         ArrayTest<2, vigra::UInt8>::testDirtySlicewise();
         std::cout << "... passed dim2_testDirtySlicewise" << std::endl;
@@ -468,6 +488,7 @@ struct ArrayTestSuite : public vigra::test_suite {
     ArrayTestSuite()
         : vigra::test_suite("ArrayTestSuite")
     {
+        add( testCase(&ArrayTestImpl::dim2_testHdf5));
         add( testCase(&ArrayTestImpl::dim2_testDirtySlicewise));
         add( testCase(&ArrayTestImpl::dim2_testDirty));
         add( testCase(&ArrayTestImpl::dim3_testWriteSubarrayNonzero));
