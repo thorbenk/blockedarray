@@ -8,6 +8,7 @@ target_link_libraries(test_blockedarray
 if(BUILD_COMMON_DTYPES_LIBRARY)
     target_link_libraries(test_blockedarray bw)
 endif()
+target_link_libraries(test_blockedarray ${HDF5_LIBRARY})
 add_test("test_blockedarray" test_blockedarray)
 
 add_executable(test_compressedarray test_compressedarray.cpp)
@@ -17,6 +18,7 @@ target_link_libraries(test_compressedarray
 if(BUILD_COMMON_DTYPES_LIBRARY)
     target_link_libraries(test_compressedarray bw)
 endif()
+target_link_libraries(test_compressedarray ${HDF5_LIBRARY})
 add_test("test_compressedarray" test_compressedarray)
 
 add_executable(test_blockedcc test_blockedcc.cpp)

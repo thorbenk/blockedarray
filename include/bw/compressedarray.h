@@ -22,12 +22,47 @@
     }     
 #endif
 
-namespace BW {
+//these defines are copied from vigra/hdf5impex.hxx
+#define H5Gcreate_vers 2
+#define H5Gopen_vers 2
+#define H5Dopen_vers 2
+#define H5Dcreate_vers 2
+#define H5Acreate_vers 2
 
+#include "hdf5.h"
+
+#if (H5_VERS_MAJOR == 1 && H5_VERS_MINOR <= 6)
+# ifndef H5Gopen
+#   define H5Gopen(a, b, c) H5Gopen(a, b)
+# endif
+# ifndef H5Gcreate
+#  define H5Gcreate(a, b, c, d, e) H5Gcreate(a, b, 1)
+# endif
+# ifndef H5Dopen
+#  define H5Dopen(a, b, c) H5Dopen(a, b)
+# endif
+# ifndef H5Dcreate
+#  define H5Dcreate(a, b, c, d, e, f, g) H5Dcreate(a, b, c, d, f)
+# endif
+# ifndef H5Acreate
+#  define H5Acreate(a, b, c, d, e, f) H5Acreate(a, b, c, d, e)
+# endif
+# ifndef H5Pset_obj_track_times
+#  define H5Pset_obj_track_times(a, b) do {} while (0)
+# endif
+# include <H5LT.h>
+#else
+# include <hdf5_hl.h>
+#endif
+
+#include <iostream>
+
+namespace BW {
+    
 template<int N, class T>
 class CompressedArray {
     public:
-    
+   
     typedef typename vigra::MultiArray<N, T>::difference_type difference_type;
     
     CompressedArray();
@@ -51,6 +86,10 @@ class CompressedArray {
      * destructor
      */
     ~CompressedArray();
+   
+    static CompressedArray<N,T> readHDF5(hid_t group, const char* name);
+    
+    void writeHDF5(hid_t group, const char* name) const;
    
     /**
      * returns whether this array is marked as dirty 
@@ -454,6 +493,147 @@ CompressedArray<N,T>::shape() const {
     return shape_;
 }
 
+template<int N, typename T>
+void CompressedArray<N,T>::writeHDF5(
+    hid_t group,
+    const char* name
+) const {
+    hsize_t size = currentSizeBytes();
+   
+    hid_t dataspace = H5Screate_simple(1, &size, NULL); 
+    hid_t datatype  = H5Tcopy(H5T_STD_U8LE);
+    hid_t dataset   = H5Dcreate(group, name, datatype, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    
+    //data_
+    H5Dwrite(dataset, H5T_STD_U8LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_);
+  
+    //dirtyDimensions_
+    {
+        hsize_t dsSize = dirtyDimensions_.size();
+        unsigned char* ds = new unsigned char[dsSize];
+        std::copy(dirtyDimensions_.begin(), dirtyDimensions_.end(), ds);
+        
+        hid_t filetype = H5Tcopy(H5T_STD_U8LE);
+        hid_t memtype  = H5Tcopy(H5T_NATIVE_UINT8);
+        hid_t space    = H5Screate_simple(1, &dsSize, NULL);
+        hid_t attr     = H5Acreate(dataset, "ds", filetype, space, H5P_DEFAULT, H5P_DEFAULT);
+        H5Awrite(attr, memtype, ds);
+        
+        H5Aclose(attr);
+        H5Sclose(space);
+        H5Tclose(filetype);
+        H5Tclose(memtype);
+        
+        delete[] ds;
+    }
+    //isDirty_;
+    {
+        hsize_t one = 1;
+        hid_t space = H5Screate_simple(1, &one, NULL); 
+        hid_t attr = H5Acreate(dataset, "d", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
+        unsigned char d = isDirty_ ? 1 : 0;
+        H5Awrite(attr, H5T_NATIVE_UINT8, &d);
+        
+        H5Aclose(attr);
+        H5Sclose(space);
+    }
+    //isCompressed_;
+    {
+        hsize_t one = 1;
+        hid_t space = H5Screate_simple(1, &one, NULL); 
+        hid_t attr = H5Acreate(dataset, "c", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
+        unsigned char c = isCompressed_ ? 1 : 0;
+        H5Awrite(attr, H5T_NATIVE_UINT8, &c);
+        
+        H5Aclose(attr);
+        H5Sclose(space);
+    }
+    //shape_;
+    {
+        hsize_t n = N;
+        uint32_t* sh = new uint32_t[N];
+        std::copy(shape_.begin(), shape_.end(), sh);
+        
+        hid_t filetype = H5Tcopy(H5T_STD_U32LE);
+        hid_t memtype  = H5Tcopy(H5T_NATIVE_UINT32);
+        hid_t space    = H5Screate_simple(1, &n, NULL);
+        hid_t attr     = H5Acreate(dataset, "sh", filetype, space, H5P_DEFAULT, H5P_DEFAULT);
+        H5Awrite(attr, memtype, sh);
+        
+        H5Aclose(attr);
+        H5Sclose(space);
+        H5Tclose(filetype);
+        H5Tclose(memtype);
+        
+        delete[] sh;
+    }
+    
+    H5Tclose(datatype);
+    H5Dclose(dataset);
+    H5Sclose(dataspace); 
+}
+
+template<int N, typename T>
+CompressedArray<N,T>
+CompressedArray<N,T>::readHDF5(
+    hid_t group,
+    const char* name
+) {
+    hid_t dataset   = H5Dopen(group, name, H5P_DEFAULT);
+    hid_t filespace = H5Dget_space(dataset);
+    
+    CompressedArray<N,T> ca;
+   
+    //data_
+    {
+        hsize_t shape;
+        H5Sget_simple_extent_dims(filespace, &shape, NULL);
+        ca.data_ = new T[shape/sizeof(T)];
+        H5Dread(dataset, H5T_STD_U8LE /*memtype*/, H5S_ALL, H5S_ALL, H5P_DEFAULT, reinterpret_cast<unsigned char*>(ca.data_));
+    }
+    //dirtyDimensions_
+    {
+        hid_t attr  = H5Aopen(dataset, "ds", H5P_DEFAULT);
+        hid_t space = H5Aget_space(attr);
+        hsize_t dim;
+        H5Sget_simple_extent_dims(space, &dim, NULL);
+        
+        unsigned char* ds = new unsigned char[dim];
+        H5Aread(attr, H5T_NATIVE_UINT8, ds);
+        ca.dirtyDimensions_.resize(dim);
+        std::copy(ds, ds+dim, ca.dirtyDimensions_.begin());
+        delete[] ds;
+    }
+    //isDirty_
+    {
+        hid_t attr = H5Aopen(dataset, "d", H5P_DEFAULT);
+        uint8_t d;
+        H5Aread(attr, H5T_NATIVE_UINT8, &d);
+        ca.isDirty_ = d > 0;
+        H5Aclose(attr);
+    }
+    //isCompressed_
+    {
+        uint8_t c;
+        hid_t attr = H5Aopen(dataset, "c", H5P_DEFAULT);
+        H5Aread(attr, H5T_NATIVE_UINT8, &c);
+        ca.isCompressed_ = c > 0;
+        H5Aclose(attr);
+    }
+    //shape_
+    {
+        hid_t attr = H5Aopen(dataset, "sh", H5P_DEFAULT);
+        uint32_t sh[N];
+        H5Aread(attr, H5T_NATIVE_UINT32 /*memtype*/, sh);
+        H5Aclose(attr);
+        std::copy(sh, sh+N, ca.shape_.begin());
+    }
+    
+    H5Dclose(dataset);
+    H5Sclose(filespace);
+    
+    return ca;
+}
 
 } /* namespace BW */
 

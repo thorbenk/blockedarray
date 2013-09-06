@@ -11,6 +11,27 @@
 using namespace BW;
 
 template<int N, class T>
+void testHdf5(typename vigra::MultiArray<N,T>::difference_type dataShape)
+{
+    std::cout << "testHdf5" << std::endl;
+    
+    vigra::MultiArray<N,T> theData(dataShape);
+    FillRandom<T, typename vigra::MultiArray<N,T>::iterator>::fillRandom(theData.begin(), theData.end());
+    CompressedArray<N,T> ca(theData);
+    
+    hid_t file = H5Fcreate("test_ca.h5", H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    ca.writeHDF5(file, "ca");
+    H5Fclose(file);
+  
+    file = H5Fopen("test_ca.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
+    CompressedArray<N,T> ca2 = CompressedArray<N,T>::readHDF5(file, "ca");
+   
+    vigra::MultiArray<N,T> r(dataShape);
+    ca2.readArray(r);
+    shouldEqualSequence(theData.begin(), theData.end(), r.begin());
+}
+
+template<int N, class T>
 void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataShape)
 {
     vigra::MultiArray<N,T> theData(dataShape);
@@ -200,12 +221,17 @@ void testDim5() {
     testCompressedArray<5, float        >(vigra::Shape5(2,23,31,2,1));
     testCompressedArray<5, vigra::Int64 >(vigra::Shape5(2,15,30,5,1));
 }
+
+void test_dim3_Hdf5() {
+    testHdf5<3, vigra::UInt32>(vigra::Shape3(25,30,50));
+}
 }; /* struct CompressedArrayTest */
 
 struct CompressedArrayTestSuite : public vigra::test_suite {
     CompressedArrayTestSuite()
-        : vigra::test_suite("BlockedArrayTestSuite")
+        : vigra::test_suite("CompressedArrayTestSuite")
     {
+        add( testCase(&CompressedArrayTest::test_dim3_Hdf5));
         add( testCase(&CompressedArrayTest::dirtyness3));
         add( testCase(&CompressedArrayTest::testDim1));
         add( testCase(&CompressedArrayTest::testDim2));
