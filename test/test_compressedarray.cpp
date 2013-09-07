@@ -11,7 +11,30 @@
 using namespace BW;
 
 template<int N, class T>
-void testHdf5(typename vigra::MultiArray<N,T>::difference_type dataShape)
+struct CompressedArrayTest {
+
+static void rw(const CompressedArray<N,T> ca) {
+    hid_t file = H5Fcreate("test_ca.h5", H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    ca.writeHDF5(file, "ca");
+    H5Fclose(file);
+  
+    file = H5Fopen("test_ca.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
+    CompressedArray<N,T> ca2 = CompressedArray<N,T>::readHDF5(file, "ca");
+    H5Fclose(file);
+    
+    shouldEqual(ca.compressedSize_, ca2.compressedSize_);
+    shouldEqual(ca.isCompressed_,   ca2.isCompressed_);
+    shouldEqual(ca.shape_,   ca2.shape_);
+    shouldEqual(ca.dirtyDimensions_.size(), ca2.dirtyDimensions_.size());
+    shouldEqualSequence(ca.dirtyDimensions_.begin(), ca.dirtyDimensions_.end(),
+                        ca2.dirtyDimensions_.begin());
+    shouldEqual(ca.currentSizeBytes(), ca2.currentSizeBytes());
+    shouldEqualSequence(reinterpret_cast<uint8_t*>(ca.data_),
+                        reinterpret_cast<uint8_t*>(ca.data_)+ca.currentSizeBytes(),
+                        reinterpret_cast<uint8_t*>(ca2.data_));
+}
+
+static void testHdf5(typename vigra::MultiArray<N,T>::difference_type dataShape)
 {
     std::cout << "testHdf5" << std::endl;
     
@@ -25,14 +48,16 @@ void testHdf5(typename vigra::MultiArray<N,T>::difference_type dataShape)
   
     file = H5Fopen("test_ca.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
     CompressedArray<N,T> ca2 = CompressedArray<N,T>::readHDF5(file, "ca");
+    H5Fclose(file);
    
     vigra::MultiArray<N,T> r(dataShape);
     ca2.readArray(r);
     shouldEqualSequence(theData.begin(), theData.end(), r.begin());
+    
+    rw(ca);
 }
 
-template<int N, class T>
-void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataShape)
+static void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataShape)
 {
     vigra::MultiArray<N,T> theData(dataShape);
     FillRandom<T, typename vigra::MultiArray<N,T>::iterator>::fillRandom(theData.begin(), theData.end());
@@ -41,6 +66,7 @@ void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataSh
     
     {
         CA e; //empty
+        rw(e);
         should(!e.isCompressed());
         shouldEqual(e.compressedSize(), 0);
         should(!e.isDirty());
@@ -48,6 +74,7 @@ void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataSh
 
     //std::cout << "construct" << std::endl;
     CA ca(theData);
+    rw(ca);
     should(!ca.isDirty());
     should(!ca.isCompressed());
     shouldEqual(ca.compressedSize(), 0);
@@ -60,6 +87,7 @@ void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataSh
     
     //std::cout << "compress & uncompress" << std::endl;
     ca.compress();
+    rw(ca);
     std::fill(r.begin(), r.end(), 0);
     ca.readArray(r);
     should(arraysEqual(theData, r)); 
@@ -67,6 +95,7 @@ void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataSh
     should(ca.isCompressed());
     should(ca.compressedSize() > 0);
     ca.uncompress();
+    rw(ca);
     should(ca.compressedSize() > 0);
     should(!ca.isCompressed());
     std::fill(r.begin(), r.end(), 0);
@@ -102,6 +131,7 @@ void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataSh
    
     should(!ca.isDirty());
     ca.setDirty(true);
+    rw(ca);
     should(ca.isDirty());
   
     {
@@ -135,8 +165,9 @@ void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type dataSh
         should(arraysEqual(r, toWrite));
     }
 }
+}; /* struct CompressedArayTest */
 
-struct CompressedArrayTest {
+struct CompressedArrayTestImpl {
 void dirtyness3() {
     typedef vigra::MultiArray<3, int> Array;
     using vigra::Shape3;
@@ -190,40 +221,40 @@ void dirtyness3() {
 }
 
 void testDim1() {
-    testCompressedArray<1, vigra::UInt8 >(vigra::Shape1(20));
-    testCompressedArray<1, vigra::UInt16>(vigra::Shape1(21));
-    testCompressedArray<1, vigra::UInt32>(vigra::Shape1(22));
-    testCompressedArray<1, vigra::UInt64>(vigra::Shape1(23));
-    testCompressedArray<1, vigra::Int32 >(vigra::Shape1(24));
-    testCompressedArray<1, float        >(vigra::Shape1(25));
-    testCompressedArray<1, vigra::Int64 >(vigra::Shape1(26));
+    CompressedArrayTest<1, vigra::UInt8 >::testCompressedArray(vigra::Shape1(20));
+    CompressedArrayTest<1, vigra::UInt16>::testCompressedArray(vigra::Shape1(21));
+    CompressedArrayTest<1, vigra::UInt32>::testCompressedArray(vigra::Shape1(22));
+    CompressedArrayTest<1, vigra::UInt64>::testCompressedArray(vigra::Shape1(23));
+    CompressedArrayTest<1, vigra::Int32 >::testCompressedArray(vigra::Shape1(24));
+    CompressedArrayTest<1, float        >::testCompressedArray(vigra::Shape1(25));
+    CompressedArrayTest<1, vigra::Int64 >::testCompressedArray(vigra::Shape1(26));
 }
     
 void testDim2() {
-    testCompressedArray<1, vigra::UInt8 >(vigra::Shape1(20));
-    testCompressedArray<2, vigra::UInt8 >(vigra::Shape2(20,30));
-    testCompressedArray<2, vigra::UInt32>(vigra::Shape2(21,31));
-    testCompressedArray<2, float        >(vigra::Shape2(25,32));
-    testCompressedArray<2, vigra::Int64 >(vigra::Shape2(22,33));
+    CompressedArrayTest<1, vigra::UInt8 >::testCompressedArray(vigra::Shape1(20));
+    CompressedArrayTest<2, vigra::UInt8 >::testCompressedArray(vigra::Shape2(20,30));
+    CompressedArrayTest<2, vigra::UInt32>::testCompressedArray(vigra::Shape2(21,31));
+    CompressedArrayTest<2, float        >::testCompressedArray(vigra::Shape2(25,32));
+    CompressedArrayTest<2, vigra::Int64 >::testCompressedArray(vigra::Shape2(22,33));
 }
     
 void testDim3() {
-    testCompressedArray<1, vigra::UInt8 >(vigra::Shape1(20));
-    testCompressedArray<3, vigra::UInt8 >(vigra::Shape3(24,31,45));
-    testCompressedArray<3, vigra::UInt32>(vigra::Shape3(25,32,44));
-    testCompressedArray<3, float        >(vigra::Shape3(26,34,43));
-    testCompressedArray<3, vigra::Int64 >(vigra::Shape3(27,38,41));
+    CompressedArrayTest<1, vigra::UInt8 >::testCompressedArray(vigra::Shape1(20));
+    CompressedArrayTest<3, vigra::UInt8 >::testCompressedArray(vigra::Shape3(24,31,45));
+    CompressedArrayTest<3, vigra::UInt32>::testCompressedArray(vigra::Shape3(25,32,44));
+    CompressedArrayTest<3, float        >::testCompressedArray(vigra::Shape3(26,34,43));
+    CompressedArrayTest<3, vigra::Int64 >::testCompressedArray(vigra::Shape3(27,38,41));
 }
     
 void testDim5() {
-    testCompressedArray<5, vigra::UInt8 >(vigra::Shape5(2,20,30,4,1));
-    testCompressedArray<5, vigra::UInt32>(vigra::Shape5(2,18,35,3,1));
-    testCompressedArray<5, float        >(vigra::Shape5(2,23,31,2,1));
-    testCompressedArray<5, vigra::Int64 >(vigra::Shape5(2,15,30,5,1));
+    CompressedArrayTest<5, vigra::UInt8 >::testCompressedArray(vigra::Shape5(2,20,30,4,1));
+    CompressedArrayTest<5, vigra::UInt32>::testCompressedArray(vigra::Shape5(2,18,35,3,1));
+    CompressedArrayTest<5, float        >::testCompressedArray(vigra::Shape5(2,23,31,2,1));
+    CompressedArrayTest<5, vigra::Int64 >::testCompressedArray(vigra::Shape5(2,15,30,5,1));
 }
 
 void test_dim3_Hdf5() {
-    testHdf5<3, vigra::UInt32>(vigra::Shape3(25,30,50));
+    CompressedArrayTest<3, vigra::UInt32>::testHdf5(vigra::Shape3(25,30,50));
 }
 }; /* struct CompressedArrayTest */
 
@@ -231,12 +262,12 @@ struct CompressedArrayTestSuite : public vigra::test_suite {
     CompressedArrayTestSuite()
         : vigra::test_suite("CompressedArrayTestSuite")
     {
-        add( testCase(&CompressedArrayTest::test_dim3_Hdf5));
-        add( testCase(&CompressedArrayTest::dirtyness3));
-        add( testCase(&CompressedArrayTest::testDim1));
-        add( testCase(&CompressedArrayTest::testDim2));
-        add( testCase(&CompressedArrayTest::testDim3));
-        add( testCase(&CompressedArrayTest::testDim5));
+        add( testCase(&CompressedArrayTestImpl::test_dim3_Hdf5));
+        add( testCase(&CompressedArrayTestImpl::dirtyness3));
+        add( testCase(&CompressedArrayTestImpl::testDim1));
+        add( testCase(&CompressedArrayTestImpl::testDim2));
+        add( testCase(&CompressedArrayTestImpl::testDim3));
+        add( testCase(&CompressedArrayTestImpl::testDim5));
     }
 };
 

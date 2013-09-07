@@ -57,12 +57,18 @@
 
 #include <iostream>
 
+template<int Dim, class Type>
+class CompressedArrayTest;
+
 namespace BW {
     
 template<int N, class T>
 class CompressedArray {
     public:
    
+    //give unittest access
+    friend class CompressedArrayTest<N, T>;
+        
     typedef typename vigra::MultiArray<N, T>::difference_type difference_type;
     
     CompressedArray();
@@ -501,8 +507,7 @@ void CompressedArray<N,T>::writeHDF5(
     hsize_t size = currentSizeBytes();
    
     hid_t dataspace = H5Screate_simple(1, &size, NULL); 
-    hid_t datatype  = H5Tcopy(H5T_STD_U8LE);
-    hid_t dataset   = H5Dcreate(group, name, datatype, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    hid_t dataset   = H5Dcreate(group, name, H5T_STD_U8LE, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
     
     //data_
     H5Dwrite(dataset, H5T_STD_U8LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_);
@@ -513,26 +518,38 @@ void CompressedArray<N,T>::writeHDF5(
         unsigned char* ds = new unsigned char[dsSize];
         std::copy(dirtyDimensions_.begin(), dirtyDimensions_.end(), ds);
         
-        hid_t filetype = H5Tcopy(H5T_STD_U8LE);
-        hid_t memtype  = H5Tcopy(H5T_NATIVE_UINT8);
         hid_t space    = H5Screate_simple(1, &dsSize, NULL);
-        hid_t attr     = H5Acreate(dataset, "ds", filetype, space, H5P_DEFAULT, H5P_DEFAULT);
-        H5Awrite(attr, memtype, ds);
+        hid_t attr     = H5Acreate(dataset, "ds", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
+        
+        H5Awrite(attr, H5T_NATIVE_UINT8, ds);
         
         H5Aclose(attr);
         H5Sclose(space);
-        H5Tclose(filetype);
-        H5Tclose(memtype);
         
         delete[] ds;
     }
     //isDirty_;
     {
         hsize_t one = 1;
+        
         hid_t space = H5Screate_simple(1, &one, NULL); 
-        hid_t attr = H5Acreate(dataset, "d", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
+        hid_t attr  = H5Acreate(dataset, "d", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
+        
         unsigned char d = isDirty_ ? 1 : 0;
         H5Awrite(attr, H5T_NATIVE_UINT8, &d);
+        
+        H5Aclose(attr);
+        H5Sclose(space);
+    }
+    //compressedSize_
+    {
+        hsize_t one = 1;
+        
+        hid_t space = H5Screate_simple(1, &one, NULL); 
+        hid_t attr  = H5Acreate(dataset, "cs", H5T_STD_U64LE, space, H5P_DEFAULT, H5P_DEFAULT);
+        
+        uint64_t cs = compressedSize_; 
+        H5Awrite(attr, H5T_NATIVE_UINT64, &cs);
         
         H5Aclose(attr);
         H5Sclose(space);
@@ -540,8 +557,10 @@ void CompressedArray<N,T>::writeHDF5(
     //isCompressed_;
     {
         hsize_t one = 1;
+        
         hid_t space = H5Screate_simple(1, &one, NULL); 
-        hid_t attr = H5Acreate(dataset, "c", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
+        hid_t attr  = H5Acreate(dataset, "c", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
+        
         unsigned char c = isCompressed_ ? 1 : 0;
         H5Awrite(attr, H5T_NATIVE_UINT8, &c);
         
@@ -554,21 +573,16 @@ void CompressedArray<N,T>::writeHDF5(
         uint32_t* sh = new uint32_t[N];
         std::copy(shape_.begin(), shape_.end(), sh);
         
-        hid_t filetype = H5Tcopy(H5T_STD_U32LE);
-        hid_t memtype  = H5Tcopy(H5T_NATIVE_UINT32);
         hid_t space    = H5Screate_simple(1, &n, NULL);
-        hid_t attr     = H5Acreate(dataset, "sh", filetype, space, H5P_DEFAULT, H5P_DEFAULT);
-        H5Awrite(attr, memtype, sh);
+        hid_t attr     = H5Acreate(dataset, "sh", H5T_STD_U32LE, space, H5P_DEFAULT, H5P_DEFAULT);
+        H5Awrite(attr, H5T_NATIVE_UINT32, sh);
         
         H5Aclose(attr);
         H5Sclose(space);
-        H5Tclose(filetype);
-        H5Tclose(memtype);
         
         delete[] sh;
     }
     
-    H5Tclose(datatype);
     H5Dclose(dataset);
     H5Sclose(dataspace); 
 }
@@ -579,22 +593,32 @@ CompressedArray<N,T>::readHDF5(
     hid_t group,
     const char* name
 ) {
+    CompressedArray<N,T> ca;
+    
     hid_t dataset   = H5Dopen(group, name, H5P_DEFAULT);
     hid_t filespace = H5Dget_space(dataset);
     
-    CompressedArray<N,T> ca;
+    hsize_t dataSize;
    
+    //compressedSize_
+    {
+        hid_t attr = H5Aopen(dataset, "cs", H5P_DEFAULT);
+        uint64_t cs;
+        H5Aread(attr, H5T_NATIVE_UINT64, &cs);
+        ca.compressedSize_ = cs;
+        H5Aclose(attr);
+    }
     //data_
     {
-        hsize_t shape;
-        H5Sget_simple_extent_dims(filespace, &shape, NULL);
-        ca.data_ = new T[shape/sizeof(T)];
+        H5Sget_simple_extent_dims(filespace, &dataSize, NULL);
+        ca.data_ = new T[dataSize/sizeof(T)];
         H5Dread(dataset, H5T_STD_U8LE /*memtype*/, H5S_ALL, H5S_ALL, H5P_DEFAULT, reinterpret_cast<unsigned char*>(ca.data_));
     }
     //dirtyDimensions_
     {
         hid_t attr  = H5Aopen(dataset, "ds", H5P_DEFAULT);
         hid_t space = H5Aget_space(attr);
+        
         hsize_t dim;
         H5Sget_simple_extent_dims(space, &dim, NULL);
         
@@ -603,6 +627,9 @@ CompressedArray<N,T>::readHDF5(
         ca.dirtyDimensions_.resize(dim);
         std::copy(ds, ds+dim, ca.dirtyDimensions_.begin());
         delete[] ds;
+        
+        H5Sclose(space);
+        H5Aclose(attr);
     }
     //isDirty_
     {
