@@ -292,6 +292,7 @@ static void testCompression(
     }
     
     blockedArray.setCompressionEnabled(true);
+    rw(blockedArray);
     
     BOOST_FOREACH(const typename BA::BlocksMap::value_type& b, blockedArray.blocks_) {
         should(b.second->isCompressed());
@@ -299,6 +300,7 @@ static void testCompression(
     should(blockedArray.averageCompressionRatio() < 0.9);
     
     blockedArray.setCompressionEnabled(false);
+    rw(blockedArray);
     
     BOOST_FOREACH(const typename BA::BlocksMap::value_type& b, blockedArray.blocks_) {
         should(!b.second->isCompressed());

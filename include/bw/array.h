@@ -870,8 +870,8 @@ Array<N,T> Array<N,T>::readHDF5(hid_t group, const char* name) {
         size_t i = 0;
         BOOST_FOREACH(const typename BlocksMap::value_type& b, a.blocks_) {
             std::pair<T,T> minMax;
-            minMax.first = mM[N*i+0];
-            minMax.second = mM[N*i+0];
+            minMax.first = mM[2*i+0];
+            minMax.second = mM[2*i+1];
             a.blockMinMax_[b.first] = minMax;
             ++i;
         }
@@ -973,10 +973,10 @@ void Array<N,T>::writeHDF5(hid_t group, const char* name) const {
             
             H5Awrite(attr, H5Type<T>::get_NATIVE(), mM);
             
-            delete[] mM;
-            
             H5Aclose(attr);
             H5Sclose(space);
+            
+            delete[] mM;
         }
     }
     
