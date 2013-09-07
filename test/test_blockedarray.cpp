@@ -43,6 +43,10 @@ static void testHdf5(
     hid_t file = H5Fcreate("test_ba.h5", H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     blockedArray.writeHDF5(file, "ba");
     H5Fclose(file);
+    
+    file = H5Fopen("test_ba.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
+    BA ba2 = BA::readHDF5(file, "ba");
+    H5Fclose(file);
 }
 
 static void testDirtySlicewise(

@@ -208,6 +208,7 @@ class Array {
     VoxelValues nonzero() const;
     
     private:
+    Array() {}
     
     //delete block and all data associated with it
     // (including sparse coordinate lists, min/max information etc.)
@@ -804,7 +805,89 @@ void Array<N,T>::deleteBlock(V blockCoord) {
 
 template<int N, typename T>
 Array<N,T> Array<N,T>::readHDF5(hid_t group, const char* name) {
+    hsize_t adims[2];
     
+    Array<N,T> a;
+    
+    hid_t baGroup  = H5Gopen(group, name, H5P_DEFAULT);
+    
+    //blockShape_ attribute
+    {
+        hid_t attr = H5Aopen(baGroup, "sh", H5P_DEFAULT);
+        uint32_t sh[N];
+        H5Aread(attr, H5T_NATIVE_UINT32 /*memtype*/, sh);
+        H5Aclose(attr);
+        std::copy(sh, sh+N, a.blockShape_.begin());
+    }
+    
+    //blocks
+    {
+        hid_t blocksDset = H5Dopen(baGroup, "blocks", H5P_DEFAULT);
+        hid_t filetype   = H5Dget_type(blocksDset);
+        hid_t space      = H5Dget_space(blocksDset);
+        
+        H5Sget_simple_extent_dims(space, adims, NULL);
+        uint32_t* coords = new uint32_t[adims[0]*adims[1]];
+        H5Dread(blocksDset, H5T_STD_U32LE /*memtype*/, H5S_ALL, H5S_ALL, H5P_DEFAULT, coords);
+        
+        for(size_t i=0; i<adims[0]; ++i) {
+            V coord;
+            for(size_t j=0; j<N; ++j) {
+                coord[j] = coords[N*i+j];
+            }
+            std::stringstream g; g << i;
+            BlockPtr ca = BlockPtr(new CompressedArray<N,T>());
+            
+            *ca = CompressedArray<N,T>::readHDF5(baGroup, g.str().c_str());
+            a.blocks_[coord] = ca;
+        }
+        
+        delete[] coords;
+        
+        H5Sclose(space);
+        H5Tclose(filetype);
+        H5Dclose(blocksDset);
+    }
+    
+    //deleteEmptyBlocks_
+    {
+        hid_t attr = H5Aopen(baGroup, "deb", H5P_DEFAULT);
+        uint8_t d;
+        H5Aread(attr, H5T_NATIVE_UINT8, &d);
+        a.deleteEmptyBlocks_ = d > 0;
+        H5Aclose(attr);
+    }
+    
+    //enableCompression_
+    {
+        hid_t attr = H5Aopen(baGroup, "ec", H5P_DEFAULT);
+        uint8_t d;
+        H5Aread(attr, H5T_NATIVE_UINT8, &d);
+        a.enableCompression_ = d > 0;
+        H5Aclose(attr);
+    }
+    
+    //minMaxTracking_
+    {
+        hid_t attr = H5Aopen(baGroup, "mmt", H5P_DEFAULT);
+        uint8_t d;
+        H5Aread(attr, H5T_NATIVE_UINT8, &d);
+        a.minMaxTracking_ = d > 0;
+        H5Aclose(attr);
+    }
+    
+    //manageCoordinateLists_
+    {
+        hid_t attr = H5Aopen(baGroup, "mcl", H5P_DEFAULT);
+        uint8_t d;
+        H5Aread(attr, H5T_NATIVE_UINT8, &d);
+        a.manageCoordinateLists_ = d > 0;
+        H5Aclose(attr);
+    }
+    
+    H5Gclose(baGroup);
+    
+    return a;
 }
     
 template<int N, typename T>
@@ -821,6 +904,27 @@ void Array<N,T>::writeHDF5(hid_t group, const char* name) const {
             coords[N*i+j] = b.first[j];
         }
         ++i;
+    }
+    
+    
+    //shape_;
+    {
+        hsize_t n = N;
+        uint32_t* sh = new uint32_t[N];
+        std::copy(blockShape_.begin(), blockShape_.end(), sh);
+        
+        hid_t filetype = H5Tcopy(H5T_STD_U32LE);
+        hid_t memtype  = H5Tcopy(H5T_NATIVE_UINT32);
+        hid_t space    = H5Screate_simple(1, &n, NULL);
+        hid_t attr     = H5Acreate(gr, "sh", filetype, space, H5P_DEFAULT, H5P_DEFAULT);
+        H5Awrite(attr, memtype, sh);
+        
+        H5Aclose(attr);
+        H5Sclose(space);
+        H5Tclose(filetype);
+        H5Tclose(memtype);
+        
+        delete[] sh;
     }
     
     //write mapping block coordinate -> block dataset
