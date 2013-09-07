@@ -4,6 +4,12 @@ find_package(PythonInterp REQUIRED)
 find_package(Numpy REQUIRED)
 find_package(Boost COMPONENTS python REQUIRED)
 
+if(BUILD_COMMON_DTYPES_LIBRARY)
+    set(EXTRA_SRCS " ")
+else()
+    set(EXTRA_SRCS ${PROJECT_SOURCE_DIR}/src/hdf5utils.cxx)
+endif()
+
 #
 # The _blockedarray python module
 #
@@ -18,6 +24,7 @@ add_library(_blockedarray SHARED
     module_py.cxx
     blockedarray_py.cxx
     blockwisecc_py.cxx
+    ${EXTRA_SRCS}
 )
 
 if(WIN32 OR APPLE)

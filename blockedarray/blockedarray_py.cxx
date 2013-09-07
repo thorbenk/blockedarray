@@ -181,6 +181,7 @@ void export_blockedArray() {
         .def("blocks", registerConverters(&PyBA::blocks))
         .def("dirtyBlocks", registerConverters(&PyBA::dirtyBlocks))
         .def("nonzero", registerConverters(&PyBA::nonzero))
+        .def("writeHDF5", &BA::writeHDF5)
     ;
 }
 

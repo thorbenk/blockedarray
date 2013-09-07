@@ -1,10 +1,22 @@
-from _blockedarray import *
 import numpy
 import vigra
+import h5py
+
+from _blockedarray import *
+
+def rw(ba):
+    f = h5py.File("test_ba_py.h5", 'w')
+    ba.writeHDF5(f.fid.id, "ba")
+    f.close()
+    
+    #f = h5py.File("test_ba_py.h5", 'w')
+    #ba2.readHDF5(f.fid.id, "ba")
+    #f.close()
 
 def test1():
     blockShape = (20,30,40)
     ba = BlockedArray3uint8(blockShape)
+    rw(ba)
     assert ba.numBlocks() == 0
     assert ba.sizeBytes() == 0
 

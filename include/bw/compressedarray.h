@@ -498,18 +498,16 @@ void CompressedArray<N,T>::writeHDF5(
     //dirtyDimensions_
     {
         hsize_t dsSize = dirtyDimensions_.size();
-        unsigned char* ds = new unsigned char[dsSize];
-        std::copy(dirtyDimensions_.begin(), dirtyDimensions_.end(), ds);
-        
-        hid_t space    = H5Screate_simple(1, &dsSize, NULL);
-        hid_t attr     = H5Acreate(dataset, "ds", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
-        
-        H5Awrite(attr, H5T_NATIVE_UINT8, ds);
-        
-        H5Aclose(attr);
-        H5Sclose(space);
-        
-        delete[] ds;
+        if(dsSize > 0) {
+            unsigned char* ds = new unsigned char[dsSize];
+            std::copy(dirtyDimensions_.begin(), dirtyDimensions_.end(), ds);
+            hid_t space    = H5Screate_simple(1, &dsSize, NULL);
+            hid_t attr     = H5Acreate(dataset, "ds", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
+            H5Awrite(attr, H5T_NATIVE_UINT8, ds);
+            H5Aclose(attr);
+            H5Sclose(space);
+            delete[] ds;
+        }
     }
     H5A<size_t>::write(dataset, "cs", compressedSize_);
     H5A<bool>::write(dataset, "d", isDirty_);
@@ -556,10 +554,10 @@ CompressedArray<N,T>::readHDF5(
         H5Dread(dataset, H5T_STD_U8LE /*memtype*/, H5S_ALL, H5S_ALL, H5P_DEFAULT, reinterpret_cast<unsigned char*>(ca.data_));
     }
     //dirtyDimensions_
-    {
+    if(H5Aexists(dataset, "ds")) {
         hid_t attr  = H5Aopen(dataset, "ds", H5P_DEFAULT);
         hid_t space = H5Aget_space(attr);
-        
+    
         hsize_t dim;
         H5Sget_simple_extent_dims(space, &dim, NULL);
         
@@ -568,7 +566,6 @@ CompressedArray<N,T>::readHDF5(
         ca.dirtyDimensions_.resize(dim);
         std::copy(ds, ds+dim, ca.dirtyDimensions_.begin());
         delete[] ds;
-        
         H5Sclose(space);
         H5Aclose(attr);
     }

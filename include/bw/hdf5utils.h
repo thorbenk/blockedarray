@@ -69,6 +69,8 @@ void H5D<T>::readShape(hid_t f, const char* name, hsize_t* shape) {
 
 template<typename T>
 void H5D<T>::read(hid_t f, const char* name, int N, hsize_t*& shape, T*& data) {
+    throw std::runtime_error("xxxxx ttttt");
+    
     hid_t dataset  = H5Dopen(f, name, H5P_DEFAULT);
     hid_t filetype = H5Dget_type(dataset);
     hid_t space    = H5Dget_space(dataset);
@@ -86,6 +88,8 @@ void H5D<T>::read(hid_t f, const char* name, int N, hsize_t*& shape, T*& data) {
 
 template<typename T>
 void H5D<T>::write(hid_t f, const char* name, int N, hsize_t* shape, T* data) {
+    throw std::runtime_error("xxxxx ttttt");
+    
     hid_t space   = H5Screate_simple(N, shape, NULL);
     hid_t dataset = H5Dcreate(f, name, H5Type<T>::get_STD_LE(), space,
                               H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
