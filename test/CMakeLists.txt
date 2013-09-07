@@ -1,6 +1,12 @@
 ADD_DEFINITIONS(-DBOOST_ALL_DYN_LINK) 
 
-add_executable(test_blockedarray test_blockedarray.cpp)
+if(BUILD_COMMON_DTYPES_LIBRARY)
+    set(EXTRA_SRCS " ")
+else()
+    set(EXTRA_SRCS ${PROJECT_SOURCE_DIR}/src/hdf5utils.cxx)
+endif()
+
+add_executable(test_blockedarray test_blockedarray.cpp ${EXTRA_SRCS})
 target_link_libraries(test_blockedarray
     snappy
     ${VIGRA_IMPEX_LIBRARY}
@@ -17,8 +23,9 @@ target_link_libraries(test_compressedarray
 )
 if(BUILD_COMMON_DTYPES_LIBRARY)
     target_link_libraries(test_compressedarray bw)
+else()
+    target_link_libraries(test_compressedarray ${HDF5_LIBRARY})
 endif()
-target_link_libraries(test_compressedarray ${HDF5_LIBRARY})
 add_test("test_compressedarray" test_compressedarray)
 
 add_executable(test_blockedcc test_blockedcc.cpp)
@@ -27,6 +34,8 @@ target_link_libraries(test_blockedcc
 )
 if(BUILD_COMMON_DTYPES_LIBRARY)
     target_link_libraries(test_blockedcc bw)
+else()
+    target_link_libraries(test_blockedcc ${HDF5_LIBRARY})
 endif()
 add_test("test_blockedcc" test_blockedcc)
 

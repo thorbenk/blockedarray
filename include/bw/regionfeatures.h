@@ -219,6 +219,7 @@ class RegionFeatures {
             }
             f.write("regionAxes", regionAxes); 
         }
+        f.close();
         
         std::cout << "....." << std::endl;
         

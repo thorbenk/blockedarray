@@ -2,6 +2,7 @@
 #define BW_ARRAY_H
 
 #include <map>
+#include <cassert>
 
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
@@ -849,32 +850,40 @@ Array<N,T> Array<N,T>::readHDF5(hid_t group, const char* name) {
         H5Dclose(blocksDset);
     }
     
-    //deleteEmptyBlocks_
-    {
-        hid_t attr = H5Aopen(baGroup, "deb", H5P_DEFAULT);
-        uint8_t d;
-        H5Aread(attr, H5T_NATIVE_UINT8, &d);
-        a.deleteEmptyBlocks_ = d > 0;
-        H5Aclose(attr);
-    }
+    a.deleteEmptyBlocks_     = H5A<bool>::read(baGroup, "deb");
+    a.enableCompression_     = H5A<bool>::read(baGroup, "ec");
+    a.minMaxTracking_        = H5A<bool>::read(baGroup, "mmt");
+    a.manageCoordinateLists_ = H5A<bool>::read(baGroup, "mcl");
     
-    //enableCompression_
-    {
-        hid_t attr = H5Aopen(baGroup, "ec", H5P_DEFAULT);
-        uint8_t d;
-        H5Aread(attr, H5T_NATIVE_UINT8, &d);
-        a.enableCompression_ = d > 0;
+    #if 0
+    if(a.minMaxTracking_) {
+        hid_t attr       = H5Aopen(baGroup, "minMax", H5P_DEFAULT);
+        hid_t filetype   = H5Dget_type(attr);
+        hid_t space      = H5Dget_space(attr);
+        
+        H5Sget_simple_extent_dims(space, adims, NULL);
+        T* mM = new T[adims[0]*adims[1]];
+        H5Aread(attr, H5Type<T>::get_NATIVE(), mM);
+        
+        assert(adims[0] == a.blocks_.size());
+        assert(adims[1] == 2);
+        
+        size_t i = 0;
+        BOOST_FOREACH(const typename BlocksMap::value_type& b, a.blocks_) {
+            std::pair<T,T> minMax;
+            minMax.first = mM[N*i+0];
+            minMax.second = mM[N*i+0];
+            a.blockMinMax_[b.first] = minMax;
+            ++i;
+        }
+        
+        delete[] mM;
+        
+        H5Sclose(space);
+        H5Tclose(filetype);
         H5Aclose(attr);
     }
-    
-    //minMaxTracking_
-    {
-        hid_t attr = H5Aopen(baGroup, "mmt", H5P_DEFAULT);
-        uint8_t d;
-        H5Aread(attr, H5T_NATIVE_UINT8, &d);
-        a.minMaxTracking_ = d > 0;
-        H5Aclose(attr);
-    }
+    #endif
     
     //manageCoordinateLists_
     {
@@ -940,49 +949,40 @@ void Array<N,T>::writeHDF5(hid_t group, const char* name) const {
         H5Sclose(space);
     }
     
-    //deleteEmptyBlocks_;
-    {
-        hsize_t one = 1;
-        hid_t space = H5Screate_simple(1, &one, NULL); 
-        hid_t attr = H5Acreate(gr, "deb", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
-        unsigned char d = deleteEmptyBlocks_ ? 1 : 0;
-        H5Awrite(attr, H5T_NATIVE_UINT8, &d);
-        H5Aclose(attr);
-        H5Sclose(space);
-    }
+    H5A<bool>::write(gr, "deb", deleteEmptyBlocks_);
+    H5A<bool>::write(gr, "ec",  enableCompression_);
+    H5A<bool>::write(gr, "mmt", minMaxTracking_);
+    H5A<bool>::write(gr, "mcl", manageCoordinateLists_);
     
-    //enableCompression_
+    //blockMinMax_
+    #if 0
     {
-        hsize_t one = 1;
-        hid_t space = H5Screate_simple(1, &one, NULL); 
-        hid_t attr = H5Acreate(gr, "ec", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
-        unsigned char d = enableCompression_ ? 1 : 0;
-        H5Awrite(attr, H5T_NATIVE_UINT8, &d);
-        H5Aclose(attr);
-        H5Sclose(space);
+        if(minMaxTracking_) {
+            hsize_t x[2] = {blockMinMax_.size(), 2};
+            
+            hid_t space     = H5Screate_simple(2, x, NULL);
+            hid_t dataset   = H5Acreate(gr, "minMax", H5Type<T>::get_STD_LE(), space, H5P_DEFAULT, H5P_DEFAULT);
+           
+            T* mM = new T[2*blockMinMax_.size()];
+            size_t i = 0;
+            assert(blocks_.size() == blockMinMax_.size());
+            BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
+                typename BlockMinMax::mapped_type x = blockMinMax_.find(b.first)->second; 
+                mM[N*i+0] = x.first;
+                mM[N*i+1] = x.second;
+                ++i;
+            }
+            
+            H5Dwrite(dataset, H5Type<T>::get_NATIVE(), H5S_ALL, H5S_ALL, H5P_DEFAULT, mM);
+            
+            delete[] mM;
+            
+            H5Dclose(dataset);
+            H5Sclose(space);
+        }
     }
+    #endif
     
-    //minMaxTracking_
-    {
-        hsize_t one = 1;
-        hid_t space = H5Screate_simple(1, &one, NULL); 
-        hid_t attr = H5Acreate(gr, "mmt", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
-        unsigned char d = minMaxTracking_ ? 1 : 0;
-        H5Awrite(attr, H5T_NATIVE_UINT8, &d);
-        H5Aclose(attr);
-        H5Sclose(space);
-    }
-    
-    //manageCoordinateLists
-    {
-        hsize_t one = 1;
-        hid_t space = H5Screate_simple(1, &one, NULL); 
-        hid_t attr = H5Acreate(gr, "mcl", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
-        unsigned char d = manageCoordinateLists_ ? 1 : 0;
-        H5Awrite(attr, H5T_NATIVE_UINT8, &d);
-        H5Aclose(attr);
-        H5Sclose(space);
-    }
     
     H5Gclose(gr);
     

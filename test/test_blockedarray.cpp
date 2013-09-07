@@ -29,6 +29,26 @@ typedef typename BA::BlockPtr BlockPtr;
 typedef typename BA::BlockList BlockList;
 typedef vigra::MultiArray<N,T> A;
   
+static void rw(const BA& ba) {
+    hid_t file = H5Fcreate("test_ba.h5", H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    ba.writeHDF5(file, "ba");
+    H5Fclose(file);
+    
+    file = H5Fopen("test_ba.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
+    BA ba2 = BA::readHDF5(file, "ba");
+    H5Fclose(file);
+
+    shouldEqual(ba.blockShape_,            ba2.blockShape_);
+    shouldEqual(ba.blocks_.size(),         ba2.blocks_.size());
+    shouldEqual(ba.deleteEmptyBlocks_,     ba2.deleteEmptyBlocks_);
+    shouldEqual(ba.enableCompression_,     ba2.enableCompression_);
+    shouldEqual(ba.minMaxTracking_,        ba2.minMaxTracking_);
+    shouldEqual(ba.manageCoordinateLists_, ba2.manageCoordinateLists_);
+    
+    shouldEqualSequence(ba.blockMinMax_.begin(), ba.blockMinMax_.end(),
+                        ba2.blockMinMax_.begin());
+}
+
 static void testHdf5(
     int verbose = false
 ) {
@@ -47,6 +67,8 @@ static void testHdf5(
     file = H5Fopen("test_ba.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
     BA ba2 = BA::readHDF5(file, "ba");
     H5Fclose(file);
+    
+    rw(blockedArray);
 }
 
 static void testDirtySlicewise(
@@ -58,8 +80,8 @@ static void testDirtySlicewise(
     vigra::MultiArray<2,T> initialData(sh, 1);
     BA blockedArray(blockShape, initialData);
     
-    blockedArray.setDirty(V(), sh, true); //set everything dirty
-    blockedArray.setDirty(V(5,0), V(6,100), false); // x-slice 5 is not dirty anymore
+    blockedArray.setDirty(V(), sh, true); rw(blockedArray); //set everything dirty
+    blockedArray.setDirty(V(5,0), V(6,100), false); rw(blockedArray); // x-slice 5 is not dirty anymore
     shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 100); //all blocks still dirty
     should(!blockedArray.isDirty(V(5,0), V(6,100)));
     should(!blockedArray.isDirty(V(5,50), V(6,75)));
@@ -225,6 +247,8 @@ static void testMinMax(
     shouldEqual(mm.second, std::numeric_limits<T>::min());
     
     blockedArray.setMinMaxTrackingEnabled(true);
+    //rw(blockedArray); //FIXME
+    
     mm = blockedArray.minMax();
     shouldEqual(mm.first, 0);
     shouldEqual(mm.second, 0);
@@ -235,6 +259,7 @@ static void testMinMax(
     mm = blockedArray.minMax();
     shouldEqual(mm.first, 0);
     shouldEqual(mm.second, 1);
+    //rw(blockedArray); //FIXME
     
     vigra::MultiArray<3,T> zeros2(V(3,3,2));
     blockedArray.writeSubarray(V(2,3,4), V(5,6,6), zeros);
@@ -242,6 +267,7 @@ static void testMinMax(
     mm = blockedArray.minMax();
     shouldEqual(mm.first, 0);
     shouldEqual(mm.second, 0);
+    //rw(blockedArray); //FIXME
 }
     
 static void testCompression(
