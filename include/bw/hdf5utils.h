@@ -48,6 +48,54 @@ struct H5A {
     static T read(hid_t f, const char* name);
 };
 
+template<typename T>
+struct H5D {
+    static void readShape(hid_t f, const char* name, hsize_t* shape);
+    
+    static void read(hid_t f, const char* name, int N, hsize_t*& shape, T*& data);
+    static void write(hid_t f, const char* name, int N, hsize_t* shape, T* data);
+};
+
+template<typename T>
+void H5D<T>::readShape(hid_t f, const char* name, hsize_t* shape) {
+    hid_t dataset  = H5Dopen(f, name, H5P_DEFAULT);
+    hid_t filetype = H5Dget_type(dataset);
+    hid_t space    = H5Dget_space(dataset);
+    H5Sget_simple_extent_dims(space, shape, NULL);
+    H5Sclose(space);
+    H5Tclose(filetype);
+    H5Dclose(dataset);
+}
+
+template<typename T>
+void H5D<T>::read(hid_t f, const char* name, int N, hsize_t*& shape, T*& data) {
+    hid_t dataset  = H5Dopen(f, name, H5P_DEFAULT);
+    hid_t filetype = H5Dget_type(dataset);
+    hid_t space    = H5Dget_space(dataset);
+   
+    H5Sget_simple_extent_dims(space, shape, NULL);
+    size_t sz = 1;
+    for(size_t i=0; i<N; ++i) { sz *= shape[i]; }
+    data = new T[sz]; 
+    H5Dread(dataset, H5Type<T>::get_NATIVE(), H5S_ALL, H5S_ALL, H5P_DEFAULT, data);
+    
+    H5Sclose(space);
+    H5Tclose(filetype);
+    H5Dclose(dataset);
+}
+
+template<typename T>
+void H5D<T>::write(hid_t f, const char* name, int N, hsize_t* shape, T* data) {
+    hid_t space   = H5Screate_simple(N, shape, NULL);
+    hid_t dataset = H5Dcreate(f, name, H5Type<T>::get_STD_LE(), space,
+                              H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dataset, H5Type<T>::get_NATIVE(), H5S_ALL, H5S_ALL, H5P_DEFAULT, data);
+    H5Dclose(dataset);
+    H5Sclose(space);
+}
+
+
+
 } /* namespace Hdf5 */
 
 #endif /* BW_HDF5UTILS_H */

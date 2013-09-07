@@ -56,6 +56,8 @@ class CompressedArray {
      * assignment operator
      */
     CompressedArray& operator=(const CompressedArray& other);
+    
+    bool operator==(const CompressedArray<N,T>& other) const;
 
     /**
      * destructor
@@ -214,6 +216,18 @@ CompressedArray<N,T>& CompressedArray<N,T>::operator=(
         std::copy(other.data_, other.data_+other.currentSize(), data_);
     }
     return *this;
+}
+
+template<int N, typename T>
+bool CompressedArray<N,T>::operator==(const CompressedArray<N,T>& other) const {
+    if(compressedSize_ != other.compressedSize_)   { return false; }
+    if(isCompressed_ != other.isCompressed_)       { return false; }
+    if(shape_ != other.shape_)                     { return false; }
+    if(isDirty_ != other.isDirty_)                 { return false; }
+    if(dirtyDimensions_ != other.dirtyDimensions_) { return false; }
+    return std::equal(reinterpret_cast<char*>(data_),
+                      reinterpret_cast<char*>(data_)+currentSizeBytes(),
+                      reinterpret_cast<char*>(other.data_)); 
 }
 
 template<int N, typename T>
@@ -533,15 +547,6 @@ CompressedArray<N,T>::readHDF5(
     
     hsize_t dataSize;
    
-    //compressedSize_
-    {
-        hid_t attr = H5Aopen(dataset, "cs", H5P_DEFAULT);
-        uint64_t cs;
-        H5Aread(attr, H5T_NATIVE_UINT64, &cs);
-        ca.compressedSize_ = cs;
-        H5Aclose(attr);
-    }
-    
     ca.compressedSize_ = H5A<size_t>::read(dataset, "cs");
     
     //data_

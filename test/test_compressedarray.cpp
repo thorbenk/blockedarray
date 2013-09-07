@@ -32,6 +32,8 @@ static void rw(const CompressedArray<N,T> ca) {
     shouldEqualSequence(reinterpret_cast<uint8_t*>(ca.data_),
                         reinterpret_cast<uint8_t*>(ca.data_)+ca.currentSizeBytes(),
                         reinterpret_cast<uint8_t*>(ca2.data_));
+    
+    should(ca == ca2);
 }
 
 static void testHdf5(typename vigra::MultiArray<N,T>::difference_type dataShape)

@@ -44,9 +44,20 @@ static void rw(const BA& ba) {
     shouldEqual(ba.enableCompression_,     ba2.enableCompression_);
     shouldEqual(ba.minMaxTracking_,        ba2.minMaxTracking_);
     shouldEqual(ba.manageCoordinateLists_, ba2.manageCoordinateLists_);
-    
+
+    shouldEqual(ba.blockMinMax_.size(), ba2.blockMinMax_.size());
     shouldEqualSequence(ba.blockMinMax_.begin(), ba.blockMinMax_.end(),
                         ba2.blockMinMax_.begin());
+    
+    shouldEqual(ba.blockVoxelValues_.size(), ba2.blockVoxelValues_.size());
+    should(ba.blockVoxelValues_ == ba2.blockVoxelValues_);
+   
+    typename BA::BlocksMap::const_iterator it1 = ba.blocks_.begin();
+    typename BA::BlocksMap::const_iterator it2 = ba2.blocks_.begin();
+    for(; it2 != ba2.blocks_.end(); ++it1, ++it2) {
+        shouldEqual(it1->first, it2->first);
+        should(*it1->second.get() == *it2->second.get()); //make sure to compare data, not pointer
+    }
 }
 
 static void testHdf5(
@@ -87,24 +98,23 @@ static void testDirtySlicewise(
     should(!blockedArray.isDirty(V(5,50), V(6,75)));
     should(blockedArray.isDirty(V(5,0), V(7,100)));
     should(blockedArray.isDirty(V(5,25), V(7,75)));
-    blockedArray.setDirty(V(), V(10,10), false);
+    blockedArray.setDirty(V(), V(10,10), false); rw(blockedArray);
     shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 99);
-    blockedArray.setDirty(V(), V(10,10), true);
+    blockedArray.setDirty(V(), V(10,10), true); rw(blockedArray);
     shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 100);
    
     //same in y-direction
-    blockedArray.setDirty(V(), sh, true); //set everything dirty
-    blockedArray.setDirty(V(0,5), V(100,6), false); //y-slice 5 is not dirty anymore
+    blockedArray.setDirty(V(), sh, true); rw(blockedArray);//set everything dirty
+    blockedArray.setDirty(V(0,5), V(100,6), false); rw(blockedArray); //y-slice 5 is not dirty anymore
     shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 100); //all blocks still dirty
     should(!blockedArray.isDirty(V(0,5), V(100,6)));
     should(!blockedArray.isDirty(V(50,5), V(75,6)));
     should(blockedArray.isDirty(V(0,5), V(100,7)));
     should(blockedArray.isDirty(V(25,5), V(75,7)));
-    blockedArray.setDirty(V(), V(10,10), false);
+    blockedArray.setDirty(V(), V(10,10), false); rw(blockedArray);
     shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 99);
-    blockedArray.setDirty(V(), V(10,10), true);
+    blockedArray.setDirty(V(), V(10,10), true); rw(blockedArray);
     shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 100);
-    
 }
 
 static void testDirty(
@@ -169,9 +179,9 @@ static void testWriteSubarrayNonzero(
     shouldEqual(blockedArray[V(1,0,0)], 0);
 
     V p(7,60,43);
-    blockedArray.write(p, 55);
+    blockedArray.write(p, 55); rw(blockedArray);
     shouldEqual(blockedArray[p], 55);
-    blockedArray.write(p, 59);
+    blockedArray.write(p, 59); rw(blockedArray);
     shouldEqual(blockedArray[p], 59);
 }
 
@@ -206,6 +216,7 @@ static void testManageCoordinateLists(
     
     BA blockedArray(V(20,30,40), initialData);
     blockedArray.setManageCoordinateLists(true);
+    rw(blockedArray);
     
     typename BA::VoxelValues vv = blockedArray.nonzero();
     shouldEqual(vv.first[0], V(3,4,5));
@@ -215,6 +226,7 @@ static void testManageCoordinateLists(
     
     blockedArray.setManageCoordinateLists(false);
     shouldEqual(blockedArray.nonzero().first.size(), 0);
+    rw(blockedArray);
     
     blockedArray.setManageCoordinateLists(true);
     typename BA::VoxelValues vv2 = blockedArray.nonzero();
@@ -233,6 +245,7 @@ static void testManageCoordinateLists(
     shouldEqual(vv3.second[1], 2);
     shouldEqual(vv3.first[2], V(80,99,260));
     shouldEqual(vv3.second[2], 3);
+    rw(blockedArray);
 }
     
 static void testMinMax(

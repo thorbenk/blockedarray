@@ -836,7 +836,7 @@ Array<N,T> Array<N,T>::readHDF5(hid_t group, const char* name) {
             for(size_t j=0; j<N; ++j) {
                 coord[j] = coords[N*i+j];
             }
-            std::stringstream g; g << i;
+            std::stringstream g; g << i << "d";
             BlockPtr ca = BlockPtr(new CompressedArray<N,T>());
             
             *ca = CompressedArray<N,T>::readHDF5(baGroup, g.str().c_str());
@@ -883,13 +883,57 @@ Array<N,T> Array<N,T>::readHDF5(hid_t group, const char* name) {
         H5Aclose(attr);
     }
     
-    //manageCoordinateLists_
-    {
-        hid_t attr = H5Aopen(baGroup, "mcl", H5P_DEFAULT);
-        uint8_t d;
-        H5Aread(attr, H5T_NATIVE_UINT8, &d);
-        a.manageCoordinateLists_ = d > 0;
-        H5Aclose(attr);
+    if(a.manageCoordinateLists_) {
+        size_t i = 0;
+        BOOST_FOREACH(const typename BlocksMap::value_type& b, a.blocks_) {
+            a.blockVoxelValues_[b.first] = std::make_pair(std::vector<V>(), std::vector<T>());
+            std::vector<V>& idx = a.blockVoxelValues_[b.first].first;
+            std::vector<T>& val = a.blockVoxelValues_[b.first].second;
+               
+            std::stringstream idxG; idxG << i << "s-idx";
+            hid_t idxDset     = H5Dopen(baGroup, idxG.str().c_str(), H5P_DEFAULT);
+            hid_t idxFiletype = H5Dget_type(idxDset);
+            hid_t idxSpace    = H5Dget_space(idxDset);
+            hsize_t idxDims[2];
+        
+            H5Sget_simple_extent_dims(idxSpace, idxDims, NULL);
+            
+            size_t sz = idxDims[0]*idxDims[1];
+            if(sz > 0) {
+                uint32_t* idx_array = new uint32_t[sz];
+                H5Dread(idxDset, H5T_STD_U32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, idx_array);
+                idx.resize(idxDims[0]);
+                for(size_t j=0; j<idxDims[0]; ++j) {
+                    for(size_t k=0; k<N; ++k) {
+                        idx[j][k] = idx_array[N*j+k];
+                    }
+                }
+                delete[] idx_array;
+            }
+            
+            H5Sclose(idxSpace);
+            H5Tclose(idxFiletype);
+            H5Dclose(idxDset);
+            
+            //val
+            std::stringstream valG; valG << i << "s-val";
+            hid_t valDset     = H5Dopen(baGroup, valG.str().c_str(), H5P_DEFAULT);
+            hid_t valFiletype = H5Dget_type(valDset);
+            hid_t valSpace    = H5Dget_space(valDset);
+            hsize_t valDim;
+            H5Sget_simple_extent_dims(valSpace, &valDim, NULL);
+            
+            if(valDim > 0) {
+                val.resize(valDim);
+                H5Dread(valDset, H5Type<T>::get_STD_LE(), H5S_ALL, H5S_ALL, H5P_DEFAULT, &val[0]);
+            }
+            
+            H5Sclose(valSpace);
+            H5Tclose(valFiletype);
+            H5Dclose(valDset);
+            
+            ++i;
+        }
     }
     
     H5Gclose(baGroup);
@@ -905,7 +949,7 @@ void Array<N,T>::writeHDF5(hid_t group, const char* name) const {
     
     size_t i = 0;
     BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
-        std::stringstream g; g << i;
+        std::stringstream g; g << i << "d";
         b.second->writeHDF5(gr, g.str().c_str());
         for(size_t j=0; j<N; ++j) {
             coords[N*i+j] = b.first[j];
@@ -913,23 +957,17 @@ void Array<N,T>::writeHDF5(hid_t group, const char* name) const {
         ++i;
     }
     
-    
     //shape_;
     {
         hsize_t n = N;
         uint32_t* sh = new uint32_t[N];
         std::copy(blockShape_.begin(), blockShape_.end(), sh);
         
-        hid_t filetype = H5Tcopy(H5T_STD_U32LE);
-        hid_t memtype  = H5Tcopy(H5T_NATIVE_UINT32);
         hid_t space    = H5Screate_simple(1, &n, NULL);
-        hid_t attr     = H5Acreate(gr, "sh", filetype, space, H5P_DEFAULT, H5P_DEFAULT);
-        H5Awrite(attr, memtype, sh);
-        
+        hid_t attr     = H5Acreate(gr, "sh", H5T_STD_U32LE, space, H5P_DEFAULT, H5P_DEFAULT);
+        H5Awrite(attr, H5T_NATIVE_UINT32, sh);
         H5Aclose(attr);
         H5Sclose(space);
-        H5Tclose(filetype);
-        H5Tclose(memtype);
         
         delete[] sh;
     }
@@ -952,31 +990,79 @@ void Array<N,T>::writeHDF5(hid_t group, const char* name) const {
     H5A<bool>::write(gr, "mmt", minMaxTracking_);
     H5A<bool>::write(gr, "mcl", manageCoordinateLists_);
     
-    //blockMinMax_
-    {
-        if(minMaxTracking_) {
-            hsize_t x[2] = {blockMinMax_.size(), 2};
+    if(minMaxTracking_) {
+        hsize_t x[2] = {blockMinMax_.size(), 2};
+        
+        hid_t space  = H5Screate_simple(2, x, NULL);
+        hid_t attr   = H5Acreate(gr, "minMax", H5Type<T>::get_STD_LE(), space, H5P_DEFAULT, H5P_DEFAULT);
+        
+        T* mM = new T[2*blockMinMax_.size()];
+        size_t i = 0;
+        assert(blocks_.size() == blockMinMax_.size());
+        BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
+            assert(blockMinMax_.find(b.first) != blockMinMax_.end());
+            typename BlockMinMax::mapped_type x = blockMinMax_.find(b.first)->second; 
+            mM[2*i+0] = x.first;
+            mM[2*i+1] = x.second;
+            ++i;
+        }
+        
+        H5Awrite(attr, H5Type<T>::get_NATIVE(), mM);
+        
+        H5Aclose(attr);
+        H5Sclose(space);
+        
+        delete[] mM;
+    }
+    
+    if(manageCoordinateLists_) {
+        size_t i = 0;
+        BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
+            assert(blockVoxelValues_.find(b.first) != blockVoxelValues_.end());
+            typename BlockVoxelValues::mapped_type x = blockVoxelValues_.find(b.first)->second; 
+            const std::vector<V>& idx = x.first;
+            const std::vector<T>& val = x.second;
             
-            hid_t space  = H5Screate_simple(2, x, NULL);
-            hid_t attr   = H5Acreate(gr, "minMax", H5Type<T>::get_STD_LE(), space, H5P_DEFAULT, H5P_DEFAULT);
+            //for each block (e.g. block 42), we create a group called 42s-idx
+            //  (where s stands for sparse)
+            {
+                std::stringstream gIdx; gIdx << i << "s-idx";
+            
+                const size_t rows = idx.size();
+                
+                hsize_t shape[2] = {rows, N};
+                hid_t space   = H5Screate_simple(2, shape, NULL);
+                hid_t dataset = H5Dcreate(gr, gIdx.str().c_str(), H5T_STD_U32LE, space,
+                                            H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+                if(rows*N > 0) {
+                    uint32_t* idx_array = new uint32_t[rows*N];
+                    for(size_t i=0; i<idx.size(); ++i) {
+                        for(size_t j=0; j<N; ++j) {
+                            idx_array[N*i+j] = idx[i][j];
+                        }
+                    }
+                    H5Dwrite(dataset, H5T_NATIVE_UINT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, idx_array);
+                    delete[] idx_array;
+                }
+                H5Dclose(dataset);
+                H5Sclose(space);
+            }
            
-            T* mM = new T[2*blockMinMax_.size()];
-            size_t i = 0;
-            assert(blocks_.size() == blockMinMax_.size());
-            BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
-                assert(blockMinMax_.find(b.first) != blockMinMax_.end());
-                typename BlockMinMax::mapped_type x = blockMinMax_.find(b.first)->second; 
-                mM[2*i+0] = x.first;
-                mM[2*i+1] = x.second;
-                ++i;
+            //also, write the voxel values for each row
+            {
+                std::stringstream gVal; gVal << i << "s-val";
+                hsize_t rows = val.size();
+                hid_t space   = H5Screate_simple(1, &rows, NULL);
+                hid_t dataset = H5Dcreate(gr, gVal.str().c_str(), H5Type<T>::get_STD_LE(), space,
+                                          H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+                if(val.size() > 0) {
+                    H5Dwrite(dataset, H5Type<T>::get_NATIVE(), H5S_ALL, H5S_ALL, H5P_DEFAULT, &val[0]);
+                }
+                H5Dclose(dataset);
+                H5Sclose(space);
             }
             
-            H5Awrite(attr, H5Type<T>::get_NATIVE(), mM);
-            
-            H5Aclose(attr);
-            H5Sclose(space);
-            
-            delete[] mM;
+            ++i;
         }
     }
     
