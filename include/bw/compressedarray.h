@@ -497,45 +497,9 @@ void CompressedArray<N,T>::writeHDF5(
         
         delete[] ds;
     }
-    //isDirty_;
-    {
-        hsize_t one = 1;
-        
-        hid_t space = H5Screate_simple(1, &one, NULL); 
-        hid_t attr  = H5Acreate(dataset, "d", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
-        
-        unsigned char d = isDirty_ ? 1 : 0;
-        H5Awrite(attr, H5T_NATIVE_UINT8, &d);
-        
-        H5Aclose(attr);
-        H5Sclose(space);
-    }
-    //compressedSize_
-    {
-        hsize_t one = 1;
-        
-        hid_t space = H5Screate_simple(1, &one, NULL); 
-        hid_t attr  = H5Acreate(dataset, "cs", H5T_STD_U64LE, space, H5P_DEFAULT, H5P_DEFAULT);
-        
-        uint64_t cs = compressedSize_; 
-        H5Awrite(attr, H5T_NATIVE_UINT64, &cs);
-        
-        H5Aclose(attr);
-        H5Sclose(space);
-    }
-    //isCompressed_;
-    {
-        hsize_t one = 1;
-        
-        hid_t space = H5Screate_simple(1, &one, NULL); 
-        hid_t attr  = H5Acreate(dataset, "c", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
-        
-        unsigned char c = isCompressed_ ? 1 : 0;
-        H5Awrite(attr, H5T_NATIVE_UINT8, &c);
-        
-        H5Aclose(attr);
-        H5Sclose(space);
-    }
+    H5A<size_t>::write(dataset, "cs", compressedSize_);
+    H5A<bool>::write(dataset, "d", isDirty_);
+    H5A<bool>::write(dataset, "c", isCompressed_);
     //shape_;
     {
         hsize_t n = N;
@@ -577,6 +541,9 @@ CompressedArray<N,T>::readHDF5(
         ca.compressedSize_ = cs;
         H5Aclose(attr);
     }
+    
+    ca.compressedSize_ = H5A<size_t>::read(dataset, "cs");
+    
     //data_
     {
         H5Sget_simple_extent_dims(filespace, &dataSize, NULL);
@@ -600,22 +567,10 @@ CompressedArray<N,T>::readHDF5(
         H5Sclose(space);
         H5Aclose(attr);
     }
-    //isDirty_
-    {
-        hid_t attr = H5Aopen(dataset, "d", H5P_DEFAULT);
-        uint8_t d;
-        H5Aread(attr, H5T_NATIVE_UINT8, &d);
-        ca.isDirty_ = d > 0;
-        H5Aclose(attr);
-    }
-    //isCompressed_
-    {
-        uint8_t c;
-        hid_t attr = H5Aopen(dataset, "c", H5P_DEFAULT);
-        H5Aread(attr, H5T_NATIVE_UINT8, &c);
-        ca.isCompressed_ = c > 0;
-        H5Aclose(attr);
-    }
+    
+    ca.isDirty_      = H5A<bool>::read(dataset, "d");
+    ca.isCompressed_ = H5A<bool>::read(dataset, "c");
+    
     //shape_
     {
         hid_t attr = H5Aopen(dataset, "sh", H5P_DEFAULT);

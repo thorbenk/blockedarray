@@ -17,7 +17,7 @@ endif()
 target_link_libraries(test_blockedarray ${HDF5_LIBRARY})
 add_test("test_blockedarray" test_blockedarray)
 
-add_executable(test_compressedarray test_compressedarray.cpp)
+add_executable(test_compressedarray test_compressedarray.cpp ${EXTRA_SRCS})
 target_link_libraries(test_compressedarray
     snappy
 )
