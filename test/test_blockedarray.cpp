@@ -247,7 +247,7 @@ static void testMinMax(
     shouldEqual(mm.second, std::numeric_limits<T>::min());
     
     blockedArray.setMinMaxTrackingEnabled(true);
-    //rw(blockedArray); //FIXME
+    rw(blockedArray);
     
     mm = blockedArray.minMax();
     shouldEqual(mm.first, 0);
@@ -259,7 +259,7 @@ static void testMinMax(
     mm = blockedArray.minMax();
     shouldEqual(mm.first, 0);
     shouldEqual(mm.second, 1);
-    //rw(blockedArray); //FIXME
+    rw(blockedArray);
     
     vigra::MultiArray<3,T> zeros2(V(3,3,2));
     blockedArray.writeSubarray(V(2,3,4), V(5,6,6), zeros);
@@ -267,7 +267,7 @@ static void testMinMax(
     mm = blockedArray.minMax();
     shouldEqual(mm.first, 0);
     shouldEqual(mm.second, 0);
-    //rw(blockedArray); //FIXME
+    rw(blockedArray);
 }
     
 static void testCompression(

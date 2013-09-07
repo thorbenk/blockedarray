@@ -855,11 +855,10 @@ Array<N,T> Array<N,T>::readHDF5(hid_t group, const char* name) {
     a.minMaxTracking_        = H5A<bool>::read(baGroup, "mmt");
     a.manageCoordinateLists_ = H5A<bool>::read(baGroup, "mcl");
     
-    #if 0
     if(a.minMaxTracking_) {
         hid_t attr       = H5Aopen(baGroup, "minMax", H5P_DEFAULT);
-        hid_t filetype   = H5Dget_type(attr);
-        hid_t space      = H5Dget_space(attr);
+        hid_t filetype   = H5Aget_type(attr);
+        hid_t space      = H5Aget_space(attr);
         
         H5Sget_simple_extent_dims(space, adims, NULL);
         T* mM = new T[adims[0]*adims[1]];
@@ -883,7 +882,6 @@ Array<N,T> Array<N,T>::readHDF5(hid_t group, const char* name) {
         H5Tclose(filetype);
         H5Aclose(attr);
     }
-    #endif
     
     //manageCoordinateLists_
     {
@@ -955,34 +953,32 @@ void Array<N,T>::writeHDF5(hid_t group, const char* name) const {
     H5A<bool>::write(gr, "mcl", manageCoordinateLists_);
     
     //blockMinMax_
-    #if 0
     {
         if(minMaxTracking_) {
             hsize_t x[2] = {blockMinMax_.size(), 2};
             
-            hid_t space     = H5Screate_simple(2, x, NULL);
-            hid_t dataset   = H5Acreate(gr, "minMax", H5Type<T>::get_STD_LE(), space, H5P_DEFAULT, H5P_DEFAULT);
+            hid_t space  = H5Screate_simple(2, x, NULL);
+            hid_t attr   = H5Acreate(gr, "minMax", H5Type<T>::get_STD_LE(), space, H5P_DEFAULT, H5P_DEFAULT);
            
             T* mM = new T[2*blockMinMax_.size()];
             size_t i = 0;
             assert(blocks_.size() == blockMinMax_.size());
             BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
+                assert(blockMinMax_.find(b.first) != blockMinMax_.end());
                 typename BlockMinMax::mapped_type x = blockMinMax_.find(b.first)->second; 
-                mM[N*i+0] = x.first;
-                mM[N*i+1] = x.second;
+                mM[2*i+0] = x.first;
+                mM[2*i+1] = x.second;
                 ++i;
             }
             
-            H5Dwrite(dataset, H5Type<T>::get_NATIVE(), H5S_ALL, H5S_ALL, H5P_DEFAULT, mM);
+            H5Awrite(attr, H5Type<T>::get_NATIVE(), mM);
             
             delete[] mM;
             
-            H5Dclose(dataset);
+            H5Aclose(attr);
             H5Sclose(space);
         }
     }
-    #endif
-    
     
     H5Gclose(gr);
     
