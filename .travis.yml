@@ -12,4 +12,4 @@ before_script:
    - "export LD_LIBRARY_PATH=/usr/local/lib:$VIRTUAL_ENV/lib:$LD_LIBRARY_PATH"
    - "export PYTHONPATH=$VIRTUAL_ENV/lib/python2.7/site-packages:$PYTHONPATH"
 script:
-   - make test
+   - ./test/test_blockedarray
