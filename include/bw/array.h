@@ -71,6 +71,8 @@ class Array {
      * construct a new Array with given 'blockShape' and initialize with data 'a'
      */
     Array(typename vigra::MultiArrayShape<N>::type blockShape, const vigra::MultiArrayView<N, T>& a);
+    
+    Array() {}
 
     typename vigra::MultiArrayShape<N>::type blockShape()
     {
@@ -209,7 +211,6 @@ class Array {
     VoxelValues nonzero() const;
     
     private:
-    Array() {}
     
     //delete block and all data associated with it
     // (including sparse coordinate lists, min/max information etc.)

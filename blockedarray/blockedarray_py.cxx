@@ -74,6 +74,10 @@ struct PyBlockedArray {
     typedef Array<N, T> BA;
     typedef typename BA::V V;
     
+    static BA* init() {
+        return new BA();
+    }
+    
     static void readSubarray(BA& ba, V p, V q, vigra::NumpyArray<N, T> out
     ) {
         ba.readSubarray(p, q, out);
@@ -155,6 +159,7 @@ void export_blockedArray() {
     std::stringstream name; name << "BlockedArray" << N << DtypeName<T>::dtypeName();
     
     class_<BA>(name.str().c_str(), init<typename BA::V>())
+        .def("__init__", make_constructor(&PyBA::init, default_call_policies()))                                                                                                            
         .def("setDeleteEmptyBlocks", &BA::setDeleteEmptyBlocks,
              (arg("deleteEmpty")))
         .def("setCompressionEnabled", &BA::setCompressionEnabled,
@@ -182,6 +187,8 @@ void export_blockedArray() {
         .def("dirtyBlocks", registerConverters(&PyBA::dirtyBlocks))
         .def("nonzero", registerConverters(&PyBA::nonzero))
         .def("writeHDF5", &BA::writeHDF5)
+        .def("readHDF5", &BA::writeHDF5)
+        .staticmethod("readHDF5")
     ;
 }
 

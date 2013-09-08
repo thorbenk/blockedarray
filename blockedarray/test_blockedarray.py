@@ -9,9 +9,10 @@ def rw(ba):
     ba.writeHDF5(f.fid.id, "ba")
     f.close()
     
-    #f = h5py.File("test_ba_py.h5", 'w')
-    #ba2.readHDF5(f.fid.id, "ba")
-    #f.close()
+    f = h5py.File("test_ba_py.h5", 'w')
+    ba2 = BlockedArray3uint8() 
+    BlockedArray3uint8.readHDF5(ba2, f.fid.id, "ba")
+    f.close()
 
 def test1():
     blockShape = (20,30,40)
@@ -75,3 +76,4 @@ def test1():
 
 if __name__ == "__main__":
     test1()
+    print "success"
