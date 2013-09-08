@@ -131,7 +131,7 @@ class Array {
     /**
      *  returns the total number of blocks currently in use
      */
-    size_t numBlocks() const;
+    size_t numBlocks() const { return blocks_.size(); }
     
     /**
      * returns the total size of all currently allocated blocks in bytes
@@ -253,7 +253,9 @@ class Array {
     BlockVoxelValues blockVoxelValues_;
 };
 
-//==== IMPLEMENTATION ====//
+//==========================================================================//
+// Constructors, Destructor                                                 //
+//==========================================================================//
 
 template<int N, typename T>
 Array<N,T>::Array(typename vigra::MultiArrayShape<N>::type blockShape)
@@ -267,7 +269,10 @@ Array<N,T>::Array(typename vigra::MultiArrayShape<N>::type blockShape)
 }
 
 template<int N, typename T>
-Array<N,T>::Array(typename vigra::MultiArrayShape<N>::type blockShape, const vigra::MultiArrayView<N, T>& a)
+Array<N,T>::Array(
+    typename vigra::MultiArrayShape<N>::type blockShape,
+    const vigra::MultiArrayView<N, T>& a
+)
     : blockShape_(blockShape)
     , tmpBlock_(blockShape)
     , deleteEmptyBlocks_(false)
@@ -277,6 +282,10 @@ Array<N,T>::Array(typename vigra::MultiArrayShape<N>::type blockShape, const vig
 {
     writeSubarray(V(), a.shape(), a);
 }
+
+//==========================================================================//
+// operator[]                                                               //
+//==========================================================================//
 
 template<int N, typename T>
 T Array<N,T>::operator[](V p) const {
@@ -289,6 +298,10 @@ T Array<N,T>::operator[](V p) const {
     for(size_t i=0; i<N; ++i) { pBlock[i] = p[i] % blockShape_[i]; }
     return tmpBlock_[pBlock];
 }
+
+//==========================================================================//
+// option setter                                                            //
+//==========================================================================//
 
 template<int N, typename T>
 void Array<N,T>::setDeleteEmptyBlocks(bool deleteEmpty) {
@@ -332,6 +345,10 @@ void Array<N,T>::setMinMaxTrackingEnabled(bool enableMinMaxTracking) {
     }
 }
 
+//==========================================================================//
+// option getter                                                            //
+//==========================================================================//
+
 template<int N, typename T>
 std::pair<T, T> Array<N,T>::minMax() const {
     T m = std::numeric_limits<T>::max();
@@ -344,17 +361,36 @@ std::pair<T, T> Array<N,T>::minMax() const {
 }
 
 template<int N, typename T>
+typename Array<N,T>::VoxelValues
+Array<N,T>::nonzero(
+) const {
+    VoxelValues ret;
+    std::vector<V>& coords = ret.first;
+    std::vector<T>& vals = ret.second;
+    BOOST_FOREACH(const typename BlockVoxelValues::value_type& b, blockVoxelValues_) {
+        const V& blockCoord = b.first;
+        V p, q;
+        blockBounds(blockCoord, p,q);
+        const VoxelValues blockVV = b.second;
+        for(size_t i=0; i<blockVV.first.size(); ++i) {
+            coords.push_back( blockVV.first[i]+p );
+            vals.push_back( blockVV.second[i] );
+        }
+    }
+    return ret;
+}
+
+//==========================================================================//
+// other getters                                                            //
+//==========================================================================//
+
+template<int N, typename T>
 double Array<N,T>::averageCompressionRatio() const {
     double avg = 0.0;
     BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
         avg += b.second->compressionRatio();
     }
     return avg / blocks_.size();
-}
-
-template<int N, typename T>
-size_t Array<N,T>::numBlocks() const {
-    return blocks_.size();
 }
 
 template<int N, typename T>
@@ -365,6 +401,10 @@ size_t Array<N,T>::sizeBytes() const {
     }
     return bytes;
 }
+
+//==========================================================================//
+// read & write data                                                        //
+//==========================================================================//
 
 template<int N, typename T>
 void Array<N,T>::readSubarray(
@@ -511,6 +551,21 @@ void Array<N,T>::writeSubarrayNonzero(
     }
 }
 
+//==========================================================================//
+// delete data                                                              //
+//==========================================================================//
+
+template<int N, typename T>
+void Array<N,T>::deleteSubarray(V p, V q) {
+    const BlockList bb = enumerateBlocksInRange(p, q);
+    BOOST_FOREACH(V blockCoor, bb) {
+        deleteBlock(blockCoor);
+    }
+}
+
+//==========================================================================//
+// data transformations                                                     //
+//==========================================================================//
 
 template<int N, typename T>
 void Array<N,T>::applyRelabeling(
@@ -538,24 +593,9 @@ void Array<N,T>::applyRelabeling(
     }
 }
 
-template<int N, typename T>
-void Array<N,T>::deleteSubarray(V p, V q) {
-    const BlockList bb = enumerateBlocksInRange(p, q);
-    BOOST_FOREACH(V blockCoor, bb) {
-        deleteBlock(blockCoor);
-    }
-}
-
-template<int N, typename T>
-void Array<N,T>::setDirty(V p, V q, bool dirty) {
-    for(RwIterator wIt(*this,p,q); wIt.hasMore(); wIt.next()) {
-        typename BlocksMap::const_iterator it = blocks_.find(wIt.blockCoord);
-        if(it==blocks_.end()) {
-            continue;
-        }
-        it->second->setDirty(wIt.withinBlock.p, wIt.withinBlock.q, dirty);
-    }
-}
+//==========================================================================//
+// dirtyness                                                                //
+//==========================================================================//
 
 template<int N, typename T>
 bool Array<N,T>::isDirty(V p, V q) const {
@@ -572,12 +612,14 @@ bool Array<N,T>::isDirty(V p, V q) const {
 }
 
 template<int N, typename T>
-typename Array<N,T>::BlockList Array<N,T>::blocks(V p, V q) const {
-    BlockList bL;
-    BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
-        bL.push_back(b.first);
+void Array<N,T>::setDirty(V p, V q, bool dirty) {
+    for(RwIterator wIt(*this,p,q); wIt.hasMore(); wIt.next()) {
+        typename BlocksMap::const_iterator it = blocks_.find(wIt.blockCoord);
+        if(it==blocks_.end()) {
+            continue;
+        }
+        it->second->setDirty(wIt.withinBlock.p, wIt.withinBlock.q, dirty);
     }
-    return bL;
 }
 
 template<int N, typename T>
@@ -596,6 +638,20 @@ typename Array<N,T>::BlockList Array<N,T>::dirtyBlocks(V p, V q) const {
     return dB;
 }
 
+//==========================================================================//
+// blocks                                                                   //
+//==========================================================================//
+
+template<int N, typename T>
+typename Array<N,T>::BlockList Array<N,T>::blocks(V p, V q) const {
+    BlockList bL;
+    BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
+        bL.push_back(b.first);
+    }
+    return bL;
+}
+
+
 template<int N, typename T>
 void Array<N,T>::blockBounds(
     V c, V&p, V& q) const {
@@ -606,26 +662,6 @@ void Array<N,T>::blockBounds(
         CHECK_OP(q[i],>,p[i]," "); 
         #endif
     }
-}
-
-template<int N, typename T>
-typename Array<N,T>::VoxelValues
-Array<N,T>::nonzero(
-) const {
-    VoxelValues ret;
-    std::vector<V>& coords = ret.first;
-    std::vector<T>& vals = ret.second;
-    BOOST_FOREACH(const typename BlockVoxelValues::value_type& b, blockVoxelValues_) {
-        const V& blockCoord = b.first;
-        V p, q;
-        blockBounds(blockCoord, p,q);
-        const VoxelValues blockVV = b.second;
-        for(size_t i=0; i<blockVV.first.size(); ++i) {
-            coords.push_back( blockVV.first[i]+p );
-            vals.push_back( blockVV.second[i] );
-        }
-    }
-    return ret;
 }
 
 //==== IMPLEMENTATION (RwIterator) =====//
@@ -767,7 +803,9 @@ bool Array<N,T>::allzero(const vigra::MultiArrayView<N,T>& block) const {
 }
 
 template<int N, typename T>
-std::pair<T, T> Array<N,T>::minMax(const vigra::MultiArrayView<N,T>& block) const {
+std::pair<T, T> Array<N,T>::minMax(
+    const vigra::MultiArrayView<N,T>& block
+) const {
     vigra::FindMinMax<T> minmax;
     vigra::inspectSequence(block.begin(), block.end(), minmax);
     return std::make_pair(minmax.min, minmax.max);
@@ -892,47 +930,47 @@ Array<N,T> Array<N,T>::readHDF5(hid_t group, const char* name) {
             std::vector<T>& val = a.blockVoxelValues_[b.first].second;
                
             std::stringstream idxG; idxG << i << "s-idx";
-	    if(H5Lexists(baGroup, idxG.str().c_str(), H5P_DEFAULT)) {
-		    hid_t idxDset     = H5Dopen(baGroup, idxG.str().c_str(), H5P_DEFAULT);
-		    hid_t idxFiletype = H5Dget_type(idxDset);
-		    hid_t idxSpace    = H5Dget_space(idxDset);
-		    hsize_t idxDims[2];
-		
-		    H5Sget_simple_extent_dims(idxSpace, idxDims, NULL);
-		    
-		    size_t sz = idxDims[0]*idxDims[1];
-		    if(sz > 0) {
-			uint32_t* idx_array = new uint32_t[sz];
-			H5Dread(idxDset, H5T_STD_U32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, idx_array);
-			idx.resize(idxDims[0]);
-			for(size_t j=0; j<idxDims[0]; ++j) {
-			    for(size_t k=0; k<N; ++k) {
-				idx[j][k] = idx_array[N*j+k];
-			    }
-			}
-			delete[] idx_array;
-		    }
-		    
-		    H5Sclose(idxSpace);
-		    H5Tclose(idxFiletype);
-		    H5Dclose(idxDset);
-		    
-		    //val
-		    std::stringstream valG; valG << i << "s-val";
-		    hid_t valDset     = H5Dopen(baGroup, valG.str().c_str(), H5P_DEFAULT);
-		    hid_t valFiletype = H5Dget_type(valDset);
-		    hid_t valSpace    = H5Dget_space(valDset);
-		    hsize_t valDim;
-		    H5Sget_simple_extent_dims(valSpace, &valDim, NULL);
-		    
-		    if(valDim > 0) {
-			val.resize(valDim);
-			H5Dread(valDset, H5Type<T>::get_STD_LE(), H5S_ALL, H5S_ALL, H5P_DEFAULT, &val[0]);
-		    }
-		    
-		    H5Sclose(valSpace);
-		    H5Tclose(valFiletype);
-		    H5Dclose(valDset);
+            if(H5Lexists(baGroup, idxG.str().c_str(), H5P_DEFAULT)) {
+                hid_t idxDset     = H5Dopen(baGroup, idxG.str().c_str(), H5P_DEFAULT);
+                hid_t idxFiletype = H5Dget_type(idxDset);
+                hid_t idxSpace    = H5Dget_space(idxDset);
+                hsize_t idxDims[2];
+            
+                H5Sget_simple_extent_dims(idxSpace, idxDims, NULL);
+                
+                size_t sz = idxDims[0]*idxDims[1];
+                if(sz > 0) {
+                uint32_t* idx_array = new uint32_t[sz];
+                H5Dread(idxDset, H5T_STD_U32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, idx_array);
+                idx.resize(idxDims[0]);
+                for(size_t j=0; j<idxDims[0]; ++j) {
+                    for(size_t k=0; k<N; ++k) {
+                    idx[j][k] = idx_array[N*j+k];
+                    }
+                }
+                delete[] idx_array;
+                }
+                
+                H5Sclose(idxSpace);
+                H5Tclose(idxFiletype);
+                H5Dclose(idxDset);
+                
+                //val
+                std::stringstream valG; valG << i << "s-val";
+                hid_t valDset     = H5Dopen(baGroup, valG.str().c_str(), H5P_DEFAULT);
+                hid_t valFiletype = H5Dget_type(valDset);
+                hid_t valSpace    = H5Dget_space(valDset);
+                hsize_t valDim;
+                H5Sget_simple_extent_dims(valSpace, &valDim, NULL);
+                
+                if(valDim > 0) {
+                val.resize(valDim);
+                H5Dread(valDset, H5Type<T>::get_STD_LE(), H5S_ALL, H5S_ALL, H5P_DEFAULT, &val[0]);
+                }
+                
+                H5Sclose(valSpace);
+                H5Tclose(valFiletype);
+                H5Dclose(valDset);
             }
             
             ++i;
