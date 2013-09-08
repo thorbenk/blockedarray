@@ -139,7 +139,7 @@ static void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type
     {
         vigra::MultiArray<N,T> toWrite(ca.shape());
         std::fill(toWrite.begin(), toWrite.end(), 42);
-        ca.writeArray(typename CA::difference_type(), ca.shape(), toWrite);
+        ca.writeArray(typename CA::V(), ca.shape(), toWrite);
         should(!ca.isDirty());
         std::fill(r.begin(), r.end(), 0);
         ca.readArray(r);
@@ -149,10 +149,10 @@ static void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type
         //now, write only a subset of the data.
         //the whole block has to stay dirty
         std::fill(toWrite.begin(), toWrite.end(), 41);
-        typename CA::difference_type end;
+        typename CA::V end;
         std::fill(end.begin(), end.end(), 1);
         should(ca.shape()[0] > 1);
-        ca.writeArray(typename CA::difference_type(), end, toWrite.subarray(typename CA::difference_type(), end));
+        ca.writeArray(typename CA::V(), end, toWrite.subarray(typename CA::V(), end));
         should(ca.isDirty());
     }
     
@@ -161,7 +161,7 @@ static void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type
     {
         vigra::MultiArray<N,T> toWrite(ca.shape());
         std::fill(toWrite.begin(), toWrite.end(), 42);
-        ca.writeArray(typename CA::difference_type(), ca.shape(), toWrite);
+        ca.writeArray(typename CA::V(), ca.shape(), toWrite);
         std::fill(r.begin(), r.end(), 0);
         ca.readArray(r);
         should(arraysEqual(r, toWrite));

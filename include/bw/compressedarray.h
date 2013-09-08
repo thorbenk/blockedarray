@@ -31,6 +31,13 @@ class CompressedArrayTest;
 
 namespace BW {
     
+/**
+ * A multidimensional array which supports in-memory compression.
+ * 
+ * CompressedArray<N,T> is an array of dimension N and voxel type T.
+ * It supports in memory compression using the google snappy compression
+ * algorithm.
+ */
 template<int N, class T>
 class CompressedArray {
     public:
@@ -38,7 +45,7 @@ class CompressedArray {
     //give unittest access
     friend class CompressedArrayTest<N, T>;
         
-    typedef typename vigra::MultiArray<N, T>::difference_type difference_type;
+    typedef typename vigra::MultiArray<N, T>::difference_type V;
     
     CompressedArray();
     
@@ -71,7 +78,7 @@ class CompressedArray {
     /**
      * returns whether this array is marked as dirty 
      */
-    bool isDirty() const;
+    bool isDirty() const { return isDirty_; }
     
     /**
      * set the dirty flag of this array 
@@ -80,16 +87,16 @@ class CompressedArray {
     
     bool isDirty(int dimension, int slice) const;
     
-    bool isDirty(difference_type p, difference_type q) const;
+    bool isDirty(V p, V q) const;
     
-    void setDirty(difference_type p, difference_type q, bool dirty);
+    void setDirty(V p, V q, bool dirty);
     
     void setDirty(int dimension, int slice, bool dirty);
     
     /**
      * returns whether this array is currently stored in compressed form
      */
-    bool isCompressed() const;
+    bool isCompressed() const { return isCompressed_; }
 
     /**
      * returns the uncompressed size (in number of elements T, _not_ in bytes)
@@ -99,7 +106,7 @@ class CompressedArray {
     /**
      * returns the compressed size (in number of elements T, _not_ in bytes)
      */
-    size_t compressedSize() const;
+    size_t compressedSize() const { return compressedSize_; }
 
     /**
      * ensures that this array's data is stored uncompressed
@@ -119,7 +126,7 @@ class CompressedArray {
     /**
      * write the array 'a' into the region of interest [p,q)
      */
-    void writeArray(difference_type p, difference_type q,
+    void writeArray(V p, V q,
                     const vigra::MultiArrayView<N,T>& a);
     
     /**
@@ -145,18 +152,20 @@ class CompressedArray {
      */
     double compressionRatio() const;
     
-    difference_type shape() const;
+    V shape() const { return shape_; }
 
     private:
-    T*              data_;
-    size_t          compressedSize_;
-    bool            isCompressed_;
-    difference_type shape_;
-    bool            isDirty_;
+    T*                data_;
+    size_t            compressedSize_;
+    bool              isCompressed_;
+    V                 shape_;
+    bool              isDirty_;
     std::vector<bool> dirtyDimensions_;
 };
 
-//==== implementation ====//
+//==========================================================================//
+// Constructors, Destructor                                                 //
+//==========================================================================//
 
 template<int N, typename T>
 CompressedArray<N,T>::CompressedArray()
@@ -200,6 +209,15 @@ CompressedArray<N,T>::CompressedArray(const CompressedArray<N,T> &other)
 }
 
 template<int N, typename T>
+CompressedArray<N,T>::~CompressedArray() {
+    delete[] data_;
+}
+
+//==========================================================================//
+// operator=, operator==                                                    //
+//==========================================================================//
+
+template<int N, typename T>
 CompressedArray<N,T>& CompressedArray<N,T>::operator=(
     const CompressedArray& other
 ) {
@@ -219,7 +237,9 @@ CompressedArray<N,T>& CompressedArray<N,T>::operator=(
 }
 
 template<int N, typename T>
-bool CompressedArray<N,T>::operator==(const CompressedArray<N,T>& other) const {
+bool CompressedArray<N,T>::operator==(
+    const CompressedArray<N,T>& other
+) const {
     if(compressedSize_ != other.compressedSize_)   { return false; }
     if(isCompressed_ != other.isCompressed_)       { return false; }
     if(shape_ != other.shape_)                     { return false; }
@@ -230,13 +250,9 @@ bool CompressedArray<N,T>::operator==(const CompressedArray<N,T>& other) const {
                       reinterpret_cast<char*>(other.data_)); 
 }
 
-template<int N, typename T>
-CompressedArray<N,T>::~CompressedArray() {
-    delete[] data_;
-}
-
-template<int N, typename T>
-bool CompressedArray<N,T>::isDirty() const { return isDirty_; }
+//==========================================================================//
+// dirtyness                                                                //
+//==========================================================================//
 
 template<int N, typename T>
 void CompressedArray<N,T>::setDirty(bool dirty) { 
@@ -252,14 +268,15 @@ bool CompressedArray<N,T>::isDirty(int dimension, int slice) const {
 }
 
 template<int N, typename T>
-void CompressedArray<N,T>::setDirty(difference_type p, difference_type q, bool dirty) {
-    if(p == difference_type() && q == shape_) {
+void CompressedArray<N,T>::setDirty(V p, V q, bool dirty) {
+    if(p == V() && q == shape_) {
         //The whole block has been addressed.
         setDirty(dirty);
         return;
     }
     for(size_t d=0; d<N; ++d) { //go over all dimensions
-        for(size_t i=p[d]; i<q[d]; ++i) { //in current dimension, go over the dimensions's range
+        //in current dimension, go over the dimensions's range
+        for(size_t i=p[d]; i<q[d]; ++i) {
             if(dirty) {
                 setDirty(d, i, true);
                 continue;
@@ -281,7 +298,7 @@ void CompressedArray<N,T>::setDirty(difference_type p, difference_type q, bool d
 }
 
 template<int N, typename T>
-bool CompressedArray<N,T>::isDirty(difference_type p, difference_type q) const {
+bool CompressedArray<N,T>::isDirty(V p, V q) const {
     for(size_t d=0; d<N; ++d) {
         bool dirty = false;
         for(size_t i=p[d]; i<q[d]; ++i) {
@@ -304,35 +321,31 @@ void CompressedArray<N,T>::setDirty(int dimension, int slice, bool dirty) {
     dirtyDimensions_[n+slice] = dirty;
 }
 
-template<int N, typename T>
-bool CompressedArray<N,T>::isCompressed() const {
-    return isCompressed_;
-}
+//==========================================================================//
+// compression & (byte) size                                                //
+//==========================================================================//
 
 template<int N, typename T>
 size_t CompressedArray<N,T>::uncompressedSize() const {
     size_t s = 1;
-    BOOST_FOREACH(typename difference_type::size_type x, shape_) { s *= x; }
+    BOOST_FOREACH(typename V::size_type x, shape_) { s *= x; }
     return s;
 }
 
 template<int N, typename T>
-size_t CompressedArray<N,T>::compressedSize() const {
-    return compressedSize_;
-}
-
-template<int N, typename T>
 void CompressedArray<N,T>::uncompress() {
-    if(!isCompressed_) {
-        return;
-    }
+    using namespace snappy;
+    if(!isCompressed_) return;
+    
     T* a = new T[uncompressedSize()];
     size_t r;
-    snappy::GetUncompressedLength(reinterpret_cast<char*>(data_), compressedSize_*sizeof(T), &r);
+    GetUncompressedLength(reinterpret_cast<char*>(data_),
+                          compressedSize_*sizeof(T), &r);
     if(r != uncompressedSize()*sizeof(T)) {
         throw std::runtime_error("CompressedArray::uncompress: error");
     }
-    snappy::RawUncompress(reinterpret_cast<char*>(data_), compressedSize_*sizeof(T), reinterpret_cast<char*>(a));
+    RawUncompress(reinterpret_cast<char*>(data_), compressedSize_*sizeof(T),
+                  reinterpret_cast<char*>(a));
     delete[] data_;
     data_ = a;
     isCompressed_ = false;
@@ -340,10 +353,9 @@ void CompressedArray<N,T>::uncompress() {
 
 template<int N, typename T>
 void CompressedArray<N,T>::compress() {
-    if(isCompressed_) {
-        return;
-    }
+    if(isCompressed_) return;
 
+    using namespace snappy;
     if(compressedSize_ == 0) {
         //this is the first time
         
@@ -351,8 +363,8 @@ void CompressedArray<N,T>::compress() {
         size_t l = CEIL_INT_DIV(M, sizeof(T));
         T* d = new T[l];
         size_t outLength;
-        snappy::RawCompress(reinterpret_cast<char*>(data_), uncompressedSizeBytes(),
-                            reinterpret_cast<char*>(d), &outLength);
+        RawCompress(reinterpret_cast<char*>(data_), uncompressedSizeBytes(),
+                    reinterpret_cast<char*>(d), &outLength);
         outLength = CEIL_INT_DIV(outLength, sizeof(T));
         delete[] data_;
         data_ = new T[outLength];
@@ -364,8 +376,8 @@ void CompressedArray<N,T>::compress() {
     else {
         size_t outputLength;
         T* d = new T[compressedSize_];
-        snappy::RawCompress(reinterpret_cast<char*>(data_), uncompressedSizeBytes(),
-                            reinterpret_cast<char *>(d), &outputLength);
+        RawCompress(reinterpret_cast<char*>(data_), uncompressedSizeBytes(),
+                    reinterpret_cast<char *>(d), &outputLength);
         if(CEIL_INT_DIV(outputLength, sizeof(T)) != compressedSize_) {
             throw std::runtime_error("CompressedArray::compress error");
         }
@@ -376,24 +388,60 @@ void CompressedArray<N,T>::compress() {
 }
 
 template<int N, typename T>
+size_t CompressedArray<N,T>::currentSize() const {
+    return isCompressed_ ? compressedSize_ : uncompressedSize();
+}
+
+template<int N, typename T>
+size_t CompressedArray<N,T>::currentSizeBytes() const {
+    return isCompressed_ ? compressedSize()*sizeof(T)
+                         : uncompressedSize()*sizeof(T);
+}
+
+template<int N, typename T>
+size_t CompressedArray<N,T>::uncompressedSizeBytes() const {
+    return uncompressedSize()*sizeof(T);
+}
+
+template<int N, typename T>
+double CompressedArray<N,T>::compressionRatio() const {
+    if(isCompressed_) {
+        return compressedSize_*sizeof(T)/((double)uncompressedSizeBytes());
+    }
+    return 1.0;
+}
+
+//==========================================================================//
+// read data                                                                //
+//==========================================================================//
+
+template<int N, typename T>
 void CompressedArray<N,T>::readArray(vigra::MultiArray<N,T>& a) const {
+    using namespace snappy;
     vigra_precondition(a.shape() == shape_, "shapes differ");
     if(isCompressed_) {
         size_t r;
-        snappy::GetUncompressedLength(reinterpret_cast<char *>(data_), compressedSize_*sizeof(T), &r);
+        GetUncompressedLength(reinterpret_cast<char *>(data_),
+                              compressedSize_*sizeof(T), &r);
         if(r != uncompressedSize()*sizeof(T) || a.size()*sizeof(T) != r) {
             throw std::runtime_error("CompressedArray::uncompress: error");
         }
-        snappy::RawUncompress(reinterpret_cast<char*>(data_), compressedSize_*sizeof(T), reinterpret_cast<char*>(a.data()));
+        RawUncompress(reinterpret_cast<char*>(data_),
+                      compressedSize_*sizeof(T),
+                      reinterpret_cast<char*>(a.data()));
     }
     else {
         std::copy(data_, data_+uncompressedSize(), a.data());
     }
 }
 
+//==========================================================================//
+// write data                                                               //
+//==========================================================================//
+
 template<int N, typename T>
 void CompressedArray<N,T>::writeArray(
-    difference_type p, difference_type q,
+    V p, V q,
     const vigra::MultiArrayView<N,T>& a
 ) {
     #ifdef DEBUG_CHECKS
@@ -405,18 +453,16 @@ void CompressedArray<N,T>::writeArray(
     if(isCompressed_) {
         uncompress();
     }
-    compressedSize_ = 0; //we are writing new data, need to recompute compressed size
+    //we are writing new data, need to recompute compressed size
+    compressedSize_ = 0;
     vigra::MultiArrayView<N,T> oldA(shape_, (T*)data_);
     oldA.subarray(p,q) = a;
     if(wasCompressed) {
         compress();
     }
 
-    //
     //keep track of dirtyness
-    //
-    
-    if(p == difference_type() && q == shape_) {
+    if(p == V() && q == shape_) {
         //the whole block gets overwritten
         setDirty(false);
         std::fill(dirtyDimensions_.begin(), dirtyDimensions_.end(), false);
@@ -447,40 +493,9 @@ void CompressedArray<N,T>::writeArray(
     }
 }
 
-template<int N, typename T>
-size_t CompressedArray<N,T>::currentSize() const {
-    if(isCompressed_) {
-        return compressedSize_;
-    }
-    return uncompressedSize();
-}
-
-template<int N, typename T>
-size_t CompressedArray<N,T>::currentSizeBytes() const {
-    if(isCompressed_) {
-        return compressedSize() * sizeof(T);
-    }
-    return uncompressedSize() * sizeof(T);
-}
-
-template<int N, typename T>
-size_t CompressedArray<N,T>::uncompressedSizeBytes() const {
-    return uncompressedSize()*sizeof(T);
-}
-
-template<int N, typename T>
-double CompressedArray<N,T>::compressionRatio() const {
-    if(isCompressed_) {
-        return compressedSize_*sizeof(T)/((double)uncompressedSizeBytes());
-    }
-    return 1.0;
-}
-
-template<int N, typename T>
-typename CompressedArray<N,T>::difference_type
-CompressedArray<N,T>::shape() const {
-    return shape_;
-}
+//==========================================================================//
+// HDF5                                                                     //
+//==========================================================================//
 
 template<int N, typename T>
 void CompressedArray<N,T>::writeHDF5(
@@ -490,33 +505,29 @@ void CompressedArray<N,T>::writeHDF5(
     hsize_t size = currentSizeBytes();
   
     hid_t dataspace;
-    if(size>  0) { 
-        dataspace = H5Screate_simple(1, &size, NULL); 
-    }
+    if(size>  0) { dataspace = H5Screate_simple(1, &size, NULL); }
     else {
         hsize_t one = 1;
         dataspace = H5Screate_simple(1, &one, NULL); 
     }
-    hid_t dataset   = H5Dcreate(group, name, H5T_STD_U8LE, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    hid_t dataset = H5Dcreate(group, name, H5T_STD_U8LE, dataspace,
+                              H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
     H5A<bool>::write(dataset, "empty", size == 0);
-   
     if(size > 0) { 
-	H5Dwrite(dataset, H5T_STD_U8LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_);
+        H5Dwrite(dataset, H5T_STD_U8LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_);
     }
   
-    //dirtyDimensions_
-    {
+    if(dirtyDimensions_.size() > 0) {
         hsize_t dsSize = dirtyDimensions_.size();
-        if(dsSize > 0) {
-            unsigned char* ds = new unsigned char[dsSize];
-            std::copy(dirtyDimensions_.begin(), dirtyDimensions_.end(), ds);
-            hid_t space    = H5Screate_simple(1, &dsSize, NULL);
-            hid_t attr     = H5Acreate(dataset, "ds", H5T_STD_U8LE, space, H5P_DEFAULT, H5P_DEFAULT);
-            H5Awrite(attr, H5T_NATIVE_UINT8, ds);
-            H5Aclose(attr);
-            H5Sclose(space);
-            delete[] ds;
-        }
+        unsigned char* ds = new unsigned char[dsSize];
+        std::copy(dirtyDimensions_.begin(), dirtyDimensions_.end(), ds);
+        hid_t space    = H5Screate_simple(1, &dsSize, NULL);
+        hid_t attr     = H5Acreate(dataset, "ds", H5T_STD_U8LE, space,
+                                   H5P_DEFAULT, H5P_DEFAULT);
+        H5Awrite(attr, H5T_NATIVE_UINT8, ds);
+        H5Aclose(attr);
+        H5Sclose(space);
+        delete[] ds;
     }
     H5A<size_t>::write(dataset, "cs", compressedSize_);
     H5A<bool>::write(dataset, "d", isDirty_);
@@ -528,7 +539,8 @@ void CompressedArray<N,T>::writeHDF5(
         std::copy(shape_.begin(), shape_.end(), sh);
         
         hid_t space    = H5Screate_simple(1, &n, NULL);
-        hid_t attr     = H5Acreate(dataset, "sh", H5T_STD_U32LE, space, H5P_DEFAULT, H5P_DEFAULT);
+        hid_t attr     = H5Acreate(dataset, "sh", H5T_STD_U32LE, space,
+                                   H5P_DEFAULT, H5P_DEFAULT);
         H5Awrite(attr, H5T_NATIVE_UINT32, sh);
         
         H5Aclose(attr);
@@ -565,7 +577,8 @@ CompressedArray<N,T>::readHDF5(
         }
         if(!empty) {
             ca.data_ = new T[dataSize/sizeof(T)];
-            H5Dread(dataset, H5T_STD_U8LE /*memtype*/, H5S_ALL, H5S_ALL, H5P_DEFAULT, reinterpret_cast<unsigned char*>(ca.data_));
+            H5Dread(dataset, H5T_STD_U8LE, H5S_ALL, H5S_ALL, H5P_DEFAULT,
+                    reinterpret_cast<unsigned char*>(ca.data_));
         }
     }
     //dirtyDimensions_
