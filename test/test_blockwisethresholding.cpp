@@ -16,7 +16,7 @@ using namespace BW;
 struct ThresholdingTest {
 void test() {
     using namespace vigra;
-    typedef typename Thresholding<3, float>::V V;
+    typedef Thresholding<3, float>::V V;
    
     MultiArray<3, float> data(V(24,33,40));
     FillRandom<float, float*>::fillRandom(data.data(), data.data()+data.size());

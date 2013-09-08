@@ -14,7 +14,7 @@ using namespace BW;
 struct SourceHDF5Test {
 void test() {
     using namespace vigra;
-    typedef typename SourceHDF5<3, float>::V V;
+    typedef SourceHDF5<3, float>::V V;
    
     HDF5File f("test.h5", HDF5File::Open);
     MultiArray<3, float> data(V(10,20,30));

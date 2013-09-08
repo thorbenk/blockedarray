@@ -488,12 +488,21 @@ void CompressedArray<N,T>::writeHDF5(
     const char* name
 ) const {
     hsize_t size = currentSizeBytes();
-   
-    hid_t dataspace = H5Screate_simple(1, &size, NULL); 
+  
+    hid_t dataspace;
+    if(size>  0) { 
+        dataspace = H5Screate_simple(1, &size, NULL); 
+    }
+    else {
+        hsize_t one = 1;
+        dataspace = H5Screate_simple(1, &one, NULL); 
+    }
     hid_t dataset   = H5Dcreate(group, name, H5T_STD_U8LE, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    
-    //data_
-    H5Dwrite(dataset, H5T_STD_U8LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_);
+    H5A<bool>::write(dataset, "empty", size == 0);
+   
+    if(size > 0) { 
+	H5Dwrite(dataset, H5T_STD_U8LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_);
+    }
   
     //dirtyDimensions_
     {
@@ -547,11 +556,17 @@ CompressedArray<N,T>::readHDF5(
    
     ca.compressedSize_ = H5A<size_t>::read(dataset, "cs");
     
+    bool empty = false; 
     //data_
     {
         H5Sget_simple_extent_dims(filespace, &dataSize, NULL);
-        ca.data_ = new T[dataSize/sizeof(T)];
-        H5Dread(dataset, H5T_STD_U8LE /*memtype*/, H5S_ALL, H5S_ALL, H5P_DEFAULT, reinterpret_cast<unsigned char*>(ca.data_));
+        if(dataSize == 1) {
+	    empty = H5A<bool>::read(dataset, "empty");
+        }
+        if(!empty) {
+            ca.data_ = new T[dataSize/sizeof(T)];
+            H5Dread(dataset, H5T_STD_U8LE /*memtype*/, H5S_ALL, H5S_ALL, H5P_DEFAULT, reinterpret_cast<unsigned char*>(ca.data_));
+        }
     }
     //dirtyDimensions_
     if(H5Aexists(dataset, "ds")) {

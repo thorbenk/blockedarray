@@ -14,7 +14,7 @@ using namespace BW;
 struct SinkHDF5Test {
 void test() {
     using namespace vigra;
-    typedef typename SinkHDF5<3, float>::V V;
+    typedef SinkHDF5<3, float>::V V;
    
     MultiArray<3, float> data(V(10,20,30));
     FillRandom<float, float*>::fillRandom(data.data(), data.data()+data.size());

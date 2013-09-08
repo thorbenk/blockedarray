@@ -822,7 +822,7 @@ Array<N,T> Array<N,T>::readHDF5(hid_t group, const char* name) {
     }
     
     //blocks
-    {
+    if(H5Lexists(baGroup, "blocks", H5P_DEFAULT)) {
         hid_t blocksDset = H5Dopen(baGroup, "blocks", H5P_DEFAULT);
         hid_t filetype   = H5Dget_type(blocksDset);
         hid_t space      = H5Dget_space(blocksDset);
@@ -855,7 +855,7 @@ Array<N,T> Array<N,T>::readHDF5(hid_t group, const char* name) {
     a.minMaxTracking_        = H5A<bool>::read(baGroup, "mmt");
     a.manageCoordinateLists_ = H5A<bool>::read(baGroup, "mcl");
     
-    if(a.minMaxTracking_) {
+    if(a.minMaxTracking_ && H5Aexists(baGroup, "minMax")) {
         hid_t attr       = H5Aopen(baGroup, "minMax", H5P_DEFAULT);
         hid_t filetype   = H5Aget_type(attr);
         hid_t space      = H5Aget_space(attr);
@@ -891,46 +891,48 @@ Array<N,T> Array<N,T>::readHDF5(hid_t group, const char* name) {
             std::vector<T>& val = a.blockVoxelValues_[b.first].second;
                
             std::stringstream idxG; idxG << i << "s-idx";
-            hid_t idxDset     = H5Dopen(baGroup, idxG.str().c_str(), H5P_DEFAULT);
-            hid_t idxFiletype = H5Dget_type(idxDset);
-            hid_t idxSpace    = H5Dget_space(idxDset);
-            hsize_t idxDims[2];
-        
-            H5Sget_simple_extent_dims(idxSpace, idxDims, NULL);
-            
-            size_t sz = idxDims[0]*idxDims[1];
-            if(sz > 0) {
-                uint32_t* idx_array = new uint32_t[sz];
-                H5Dread(idxDset, H5T_STD_U32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, idx_array);
-                idx.resize(idxDims[0]);
-                for(size_t j=0; j<idxDims[0]; ++j) {
-                    for(size_t k=0; k<N; ++k) {
-                        idx[j][k] = idx_array[N*j+k];
-                    }
-                }
-                delete[] idx_array;
+	    if(H5Lexists(baGroup, idxG.str().c_str(), H5P_DEFAULT)) {
+		    hid_t idxDset     = H5Dopen(baGroup, idxG.str().c_str(), H5P_DEFAULT);
+		    hid_t idxFiletype = H5Dget_type(idxDset);
+		    hid_t idxSpace    = H5Dget_space(idxDset);
+		    hsize_t idxDims[2];
+		
+		    H5Sget_simple_extent_dims(idxSpace, idxDims, NULL);
+		    
+		    size_t sz = idxDims[0]*idxDims[1];
+		    if(sz > 0) {
+			uint32_t* idx_array = new uint32_t[sz];
+			H5Dread(idxDset, H5T_STD_U32LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, idx_array);
+			idx.resize(idxDims[0]);
+			for(size_t j=0; j<idxDims[0]; ++j) {
+			    for(size_t k=0; k<N; ++k) {
+				idx[j][k] = idx_array[N*j+k];
+			    }
+			}
+			delete[] idx_array;
+		    }
+		    
+		    H5Sclose(idxSpace);
+		    H5Tclose(idxFiletype);
+		    H5Dclose(idxDset);
+		    
+		    //val
+		    std::stringstream valG; valG << i << "s-val";
+		    hid_t valDset     = H5Dopen(baGroup, valG.str().c_str(), H5P_DEFAULT);
+		    hid_t valFiletype = H5Dget_type(valDset);
+		    hid_t valSpace    = H5Dget_space(valDset);
+		    hsize_t valDim;
+		    H5Sget_simple_extent_dims(valSpace, &valDim, NULL);
+		    
+		    if(valDim > 0) {
+			val.resize(valDim);
+			H5Dread(valDset, H5Type<T>::get_STD_LE(), H5S_ALL, H5S_ALL, H5P_DEFAULT, &val[0]);
+		    }
+		    
+		    H5Sclose(valSpace);
+		    H5Tclose(valFiletype);
+		    H5Dclose(valDset);
             }
-            
-            H5Sclose(idxSpace);
-            H5Tclose(idxFiletype);
-            H5Dclose(idxDset);
-            
-            //val
-            std::stringstream valG; valG << i << "s-val";
-            hid_t valDset     = H5Dopen(baGroup, valG.str().c_str(), H5P_DEFAULT);
-            hid_t valFiletype = H5Dget_type(valDset);
-            hid_t valSpace    = H5Dget_space(valDset);
-            hsize_t valDim;
-            H5Sget_simple_extent_dims(valSpace, &valDim, NULL);
-            
-            if(valDim > 0) {
-                val.resize(valDim);
-                H5Dread(valDset, H5Type<T>::get_STD_LE(), H5S_ALL, H5S_ALL, H5P_DEFAULT, &val[0]);
-            }
-            
-            H5Sclose(valSpace);
-            H5Tclose(valFiletype);
-            H5Dclose(valDset);
             
             ++i;
         }
@@ -973,7 +975,7 @@ void Array<N,T>::writeHDF5(hid_t group, const char* name) const {
     }
     
     //write mapping block coordinate -> block dataset
-    {
+    if(blocks_.size() > 0) {
         hsize_t x[2] = {blocks_.size(), N};
         
         hid_t space     = H5Screate_simple(2, x, NULL);
@@ -990,7 +992,7 @@ void Array<N,T>::writeHDF5(hid_t group, const char* name) const {
     H5A<bool>::write(gr, "mmt", minMaxTracking_);
     H5A<bool>::write(gr, "mcl", manageCoordinateLists_);
     
-    if(minMaxTracking_) {
+    if(blockMinMax_.size() > 0) {
         hsize_t x[2] = {blockMinMax_.size(), 2};
         
         hid_t space  = H5Screate_simple(2, x, NULL);
@@ -1015,7 +1017,7 @@ void Array<N,T>::writeHDF5(hid_t group, const char* name) const {
         delete[] mM;
     }
     
-    if(manageCoordinateLists_) {
+    if(manageCoordinateLists_ && blockVoxelValues_.size() > 0) {
         size_t i = 0;
         BOOST_FOREACH(const typename BlocksMap::value_type& b, blocks_) {
             assert(blockVoxelValues_.find(b.first) != blockVoxelValues_.end());
@@ -1025,7 +1027,7 @@ void Array<N,T>::writeHDF5(hid_t group, const char* name) const {
             
             //for each block (e.g. block 42), we create a group called 42s-idx
             //  (where s stands for sparse)
-            {
+            if(idx.size() > 0) {
                 std::stringstream gIdx; gIdx << i << "s-idx";
             
                 const size_t rows = idx.size();
@@ -1049,7 +1051,7 @@ void Array<N,T>::writeHDF5(hid_t group, const char* name) const {
             }
            
             //also, write the voxel values for each row
-            {
+            if(val.size() > 0) {
                 std::stringstream gVal; gVal << i << "s-val";
                 hsize_t rows = val.size();
                 hid_t space   = H5Screate_simple(1, &rows, NULL);

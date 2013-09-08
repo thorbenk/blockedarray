@@ -16,7 +16,7 @@ using namespace BW;
 struct SourceKnossosTest {
 void test() {
     using namespace vigra;
-    typedef typename SourceKnossos<3, float>::V V;
+    typedef SourceKnossos<3, float>::V V;
     
 #if 0 /*FIXME*/
     V p(0,1000,0);

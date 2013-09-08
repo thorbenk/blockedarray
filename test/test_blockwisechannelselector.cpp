@@ -16,7 +16,7 @@ using namespace BW;
 struct ChannelSelectorTest {
 void test() {
     using namespace vigra;
-    typedef typename ChannelSelector<4, float>::V V;
+    typedef ChannelSelector<4, float>::V V;
    
     for(int ch=0; ch<=1; ++ch) {
         std::cout << "* channel = " << ch << std::endl;
@@ -48,7 +48,7 @@ void test() {
 
 void testRoi() {
     using namespace vigra;
-    typedef typename ChannelSelector<4, float>::V V;
+    typedef ChannelSelector<4, float>::V V;
     typedef vigra::TinyVector<int, 4> V4;
     
     int ch = 0;
