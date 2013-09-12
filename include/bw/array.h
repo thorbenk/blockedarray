@@ -210,6 +210,8 @@ class Array {
     
     VoxelValues nonzero() const;
     
+    std::vector<V> enumerateBlocksInRange(V p, V q) const;
+
     private:
     
     //delete block and all data associated with it
@@ -219,8 +221,6 @@ class Array {
     VoxelValues blockNonzero(const vigra::MultiArrayView<N,T>& block) const;
         
     BlockPtr addBlock(V c, vigra::MultiArrayView<N, T>& a);
-
-    std::vector<V> enumerateBlocksInRange(V p, V q) const;
 
     V blockGivenCoordinateP(V p) const;
 

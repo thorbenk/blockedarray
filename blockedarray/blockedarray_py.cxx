@@ -146,6 +146,22 @@ struct PyBlockedArray {
     static void applyRelabeling(BA& ba, vigra::NumpyArray<1, T> relabeling) {
         ba.applyRelabeling(relabeling);
     }
+
+    static boost::python::list enumerateBlocksInRange(const BA& ba, V p, V q) {
+    	std::vector<V> blocks = ba.enumerateBlocksInRange(p, q);
+    	boost::python::list blockList ;
+    	for (int i=0; i < blocks.size(); ++i)
+    	{
+    		boost::python::list coord;
+    		for (int c=0; c < N; ++c)
+    		{
+    			coord.append(blocks[i][c]);
+    		}
+    		blockList.append(coord);
+    	}
+    	return blockList;
+    }
+
 };
 
 template<int N, class T>
@@ -186,6 +202,7 @@ void export_blockedArray() {
         .def("blocks", registerConverters(&PyBA::blocks))
         .def("dirtyBlocks", registerConverters(&PyBA::dirtyBlocks))
         .def("nonzero", registerConverters(&PyBA::nonzero))
+        .def("enumerateBlocksInRange", registerConverters(&PyBA::enumerateBlocksInRange))
         .def("writeHDF5", &BA::writeHDF5)
         .def("readHDF5", &BA::writeHDF5)
         .staticmethod("readHDF5")
