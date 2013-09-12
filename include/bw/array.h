@@ -733,10 +733,7 @@ typename Array<N,T>::BlockPtr Array<N,T>::addBlock(
     V c,
     vigra::MultiArrayView<N, T>& a
 ) {
-    vigra::MultiArray<N,T> block(blockShape_);
-    block.subarray(V(), a.shape()) = a;
-
-    BlockPtr ca(new BLOCK(block));
+    BlockPtr ca(new BLOCK(a));
     ca->setDirty(true);
     blocks_[c] = ca; //TODO: use std::move here
     if(enableCompression_) {
