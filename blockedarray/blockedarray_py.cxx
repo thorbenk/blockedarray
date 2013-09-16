@@ -3,6 +3,7 @@
 
 #include "Python.h" 
 
+#include <boost/shared_ptr.hpp>
 #include <boost/python.hpp>
 #include <boost/python/slice.hpp>
 
@@ -74,23 +75,50 @@ struct PyBlockedArray {
     typedef Array<N, T> BA;
     typedef typename BA::V V;
     
-    static BA* init() {
-        return new BA();
+    /**
+     * Convert from a python sequence into the appropriate shape type.
+     * This is useful when the python sequence contains numpy int types
+     * (e.g. numpy.uint32), which are not automatically registered for
+     * conversion in vigranumpy/src/core/converters.cxx.
+     *
+     * Ideally, such types would be registered via the usual boost::python
+     * mechanism (for example, like in http://github.com/ndarray/Boost.NumPy).
+     * For now, this function is the workaround suggested from
+     * http://shitohichiumaya.blogspot.com/2012/01/passing-user-defined-python-object-to-c_4561.html
+     */
+    static V extractCoordinate(boost::python::object const & seq)
+    {
+        int length = boost::python::extract<int>( seq.attr("__len__")() );
+        vigra_precondition(length==N, "coordinate sequence has wrong length");
+
+        V coord;
+        for(int i=0; i<N; ++i)
+        {
+        	const boost::python::object obj = seq.attr("__getitem__")(i);
+            coord[i] = boost::python::extract<typename V::value_type>( obj.attr("__int__")() );
+        }
+        return coord;
+    }
+
+    static void readSubarray(BA& ba, boost::python::object p, boost::python::object q, vigra::NumpyArray<N, T> out)
+    {
+    	V _p = extractCoordinate(p);
+    	V _q = extractCoordinate(q);
+    	ba.readSubarray(_p, _q, out);
     }
     
-    static void readSubarray(BA& ba, V p, V q, vigra::NumpyArray<N, T> out
+    static void writeSubarray(BA& ba, boost::python::object p, boost::python::object q, vigra::NumpyArray<N, T> a
     ) {
-        ba.readSubarray(p, q, out);
+    	V _p = extractCoordinate(p);
+    	V _q = extractCoordinate(q);
+        ba.writeSubarray(_p, _q, a);
     }
     
-    static void writeSubarray(BA& ba, V p, V q, vigra::NumpyArray<N, T> a
+    static void writeSubarrayNonzero(BA& ba, boost::python::object p, boost::python::object q, vigra::NumpyArray<N, T> a, T writeAsZero
     ) {
-        ba.writeSubarray(p, q, a);
-    }
-    
-    static void writeSubarrayNonzero(BA& ba, V p, V q, vigra::NumpyArray<N, T> a, T writeAsZero
-    ) {
-        ba.writeSubarrayNonzero(p, q, a, writeAsZero);
+    	V _p = extractCoordinate(p);
+    	V _q = extractCoordinate(q);
+        ba.writeSubarrayNonzero(_p, _q, a, writeAsZero);
     }
     
     static void sliceToPQ(boost::python::tuple sl, V &p, V &q) {
@@ -126,12 +154,16 @@ struct PyBlockedArray {
     	return shapeToPythonTuple( ba.blockShape() ).release();
     }
 
-    static boost::python::tuple blocks(BA& ba, V p, V q) {
-        return blockListToPython(ba, ba.blocks(p, q));
+    static boost::python::tuple blocks(BA& ba, boost::python::object p, boost::python::object q) {
+    	V _p = extractCoordinate(p);
+    	V _q = extractCoordinate(q);
+        return blockListToPython(ba, ba.blocks(_p, _q));
     }
     
-    static boost::python::tuple dirtyBlocks(BA& ba, V p, V q) {
-        return blockListToPython(ba, ba.dirtyBlocks(p, q));
+    static boost::python::tuple dirtyBlocks(BA& ba, boost::python::object p, boost::python::object q) {
+    	V _p = extractCoordinate(p);
+    	V _q = extractCoordinate(q);
+        return blockListToPython(ba, ba.dirtyBlocks(_p, _q));
     }
     
     static boost::python::tuple minMax(const BA& ba) {
@@ -147,8 +179,11 @@ struct PyBlockedArray {
         ba.applyRelabeling(relabeling);
     }
 
-    static boost::python::list enumerateBlocksInRange(const BA& ba, V p, V q) {
-    	std::vector<V> blocks = ba.enumerateBlocksInRange(p, q);
+    static boost::python::list enumerateBlocksInRange(const BA& ba, boost::python::object p, boost::python::object q) {
+    	V _p = extractCoordinate(p);
+    	V _q = extractCoordinate(q);
+
+    	std::vector<V> blocks = ba.enumerateBlocksInRange(_p, _q);
     	boost::python::list blockList ;
     	for (int i=0; i < blocks.size(); ++i)
     	{
@@ -162,6 +197,10 @@ struct PyBlockedArray {
     	return blockList;
     }
 
+    static boost::shared_ptr<BA> init( boost::python::object const & blockshape )
+    {
+    	return boost::shared_ptr<BA>( new BA( extractCoordinate(blockshape) ) );
+    }
 };
 
 template<int N, class T>
@@ -174,8 +213,8 @@ void export_blockedArray() {
     
     std::stringstream name; name << "BlockedArray" << N << DtypeName<T>::dtypeName();
     
-    class_<BA>(name.str().c_str(), init<typename BA::V>())
-        .def("__init__", make_constructor(&PyBA::init, default_call_policies()))                                                                                                            
+    class_<BA, boost::shared_ptr<BA> >(name.str().c_str(), no_init) // No auto-provided init.  Use make_constructor, below.
+    	.def("__init__", make_constructor(&PyBA::init))
         .def("setDeleteEmptyBlocks", &BA::setDeleteEmptyBlocks,
              (arg("deleteEmpty")))
         .def("setCompressionEnabled", &BA::setCompressionEnabled,

@@ -212,7 +212,7 @@ class Array {
     
     std::vector<V> enumerateBlocksInRange(V p, V q) const;
 
-    private:
+private:
     
     //delete block and all data associated with it
     // (including sparse coordinate lists, min/max information etc.)
