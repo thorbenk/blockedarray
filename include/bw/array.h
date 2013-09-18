@@ -468,16 +468,31 @@ void Array<N,T>::writeSubarray(
     for(RwIterator wIt(*this,p,q); wIt.hasMore(); wIt.next()) {
         typename BlocksMap::iterator it = blocks_.find(wIt.blockCoord);
 
-        //block does not exist, create an empty block
+        //block does not exist, create it first
         if(it == blocks_.end()) {
-            vigra::MultiArray<N,T> emptyBlock(blockShape_);
-            addBlock(wIt.blockCoord, emptyBlock);
-            it = blocks_.find(wIt.blockCoord);
-        }
+        	V block_p = wIt.withinBlock.p ;
+        	V block_q = wIt.withinBlock.q ;
 
-        //write data to block
-        const view_type toWrite = a.subarray(wIt.read.p, wIt.read.q);
-        it->second->writeArray(wIt.withinBlock.p, wIt.withinBlock.q, toWrite);
+			// Fast path: If subarray overlaps this block entirely,
+        	// copy it directly to new block to avoid a copy
+        	if (block_p == V() && block_q - block_p == blockShape_) {
+				const view_type toWrite = a.subarray(wIt.read.p, wIt.read.q);
+				addBlock(wIt.blockCoord, toWrite);
+        	} else {
+        		// The array we were given doesn't span the entire block.
+        		// Add a full empty block, then copy from the subarray.
+				vigra::MultiArray<N,T> emptyBlock(blockShape_);
+				addBlock(wIt.blockCoord, emptyBlock);
+				it = blocks_.find(wIt.blockCoord);
+				const view_type toWrite = a.subarray(wIt.read.p, wIt.read.q);
+				it->second->writeArray(wIt.withinBlock.p, wIt.withinBlock.q, toWrite);
+        	}
+        }
+        else {
+			//write data to block
+			const view_type toWrite = a.subarray(wIt.read.p, wIt.read.q);
+			it->second->writeArray(wIt.withinBlock.p, wIt.withinBlock.q, toWrite);
+        }
 
         //re-compute, if necessary, information from the _whole_ blocks's
         //data
