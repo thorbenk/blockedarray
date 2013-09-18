@@ -188,7 +188,11 @@ CompressedArray<N,T>::CompressedArray(
     , isDirty_(false)
 {
     data_ = new T[a.size()];
-    std::copy(a.begin(), a.end(), data_);
+
+    // MultiArrayView assign is faster than std::copy(a.begin(), a.end(), data_)
+    // (By 2x on my machine!)
+    vigra::MultiArrayView<N,T> mydata(shape_, (T*)data_);
+    mydata = a;
 
     size_t n = 0;
     for(int d=0; d<N; ++d) {
@@ -433,7 +437,8 @@ void CompressedArray<N,T>::readArray(vigra::MultiArray<N,T>& a) const {
                       reinterpret_cast<char*>(a.data()));
     }
     else {
-    	std::copy(data_, data_+uncompressedSize(), a.data());
+        vigra::MultiArrayView<N,T> mydata(shape_, (T*)data_);
+        a = mydata;
     }
 }
 
