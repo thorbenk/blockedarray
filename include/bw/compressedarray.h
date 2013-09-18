@@ -52,7 +52,8 @@ class CompressedArray {
     /**
      * construct a CompressedArray from the data 'a'
      */
-    CompressedArray(const vigra::MultiArrayView<N, T, vigra::UnstridedArrayTag>& a);
+    template <typename StrideTag>
+    CompressedArray(const vigra::MultiArrayView<N, T, StrideTag>& a);
 
     /**
      * copy constructor
@@ -176,8 +177,9 @@ CompressedArray<N,T>::CompressedArray()
 {}
 
 template<int N, typename T>
+template <typename StrideTag>
 CompressedArray<N,T>::CompressedArray(
-    const vigra::MultiArrayView<N, T, vigra::UnstridedArrayTag>& a
+    const vigra::MultiArrayView<N, T, StrideTag>& a
 )
     : data_(0)
     , isCompressed_(false)
@@ -187,7 +189,7 @@ CompressedArray<N,T>::CompressedArray(
 {
     data_ = new T[a.size()];
     std::copy(a.begin(), a.end(), data_);
-    
+
     size_t n = 0;
     for(int d=0; d<N; ++d) {
         n += a.shape(d);
@@ -431,7 +433,7 @@ void CompressedArray<N,T>::readArray(vigra::MultiArray<N,T>& a) const {
                       reinterpret_cast<char*>(a.data()));
     }
     else {
-        std::copy(data_, data_+uncompressedSize(), a.data());
+    	std::copy(data_, data_+uncompressedSize(), a.data());
     }
 }
 

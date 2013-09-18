@@ -220,7 +220,7 @@ private:
 
     VoxelValues blockNonzero(const vigra::MultiArrayView<N,T>& block) const;
         
-    BlockPtr addBlock(V c, vigra::MultiArrayView<N, T>& a);
+    BlockPtr addBlock(V c, vigra::MultiArrayView<N, T> const & a);
 
     V blockGivenCoordinateP(V p) const;
 
@@ -731,9 +731,9 @@ bool Array<N,T>::RwIterator::hasMore() const {
 template<int N, typename T>
 typename Array<N,T>::BlockPtr Array<N,T>::addBlock(
     V c,
-    vigra::MultiArrayView<N, T>& a
+    vigra::MultiArrayView<N, T> const & a
 ) {
-    BlockPtr ca(new BLOCK(a));
+    BlockPtr ca(new BLOCK(vigra::MultiArrayView<N, T, vigra::StridedArrayTag>(a)));
     ca->setDirty(true);
     blocks_[c] = ca; //TODO: use std::move here
     if(enableCompression_) {
