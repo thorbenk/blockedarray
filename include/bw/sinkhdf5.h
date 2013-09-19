@@ -44,6 +44,8 @@ class SinkHDF5 : public Sink<N,T> {
         HDF5File out(hdf5file_, HDF5File::Open);
         out.writeBlock(hdf5group_, roi.p, block);
         out.close();
+
+        return true;
     }
         
     private:
