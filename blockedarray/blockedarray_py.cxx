@@ -207,6 +207,11 @@ struct PyBlockedArray {
     {
     	return boost::shared_ptr<BA>( new BA( extractCoordinate(blockshape) ) );
     }
+    
+    static boost::shared_ptr<BA> initEmpty()
+    {
+        return boost::shared_ptr<BA>( new BA() );
+    }
 };
 
 template<int N, class T>
@@ -221,6 +226,7 @@ void export_blockedArray() {
     
     class_<BA, boost::shared_ptr<BA> >(name.str().c_str(), no_init) // No auto-provided init.  Use make_constructor, below.
     	.def("__init__", make_constructor(&PyBA::init))
+        .def("__init__", make_constructor(&PyBA::initEmpty))
         .def("setDeleteEmptyBlocks", &BA::setDeleteEmptyBlocks,
              (arg("deleteEmpty")))
         .def("setCompressionEnabled", &BA::setCompressionEnabled,
