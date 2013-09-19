@@ -477,7 +477,8 @@ void Array<N,T>::writeSubarray(
         	// copy it directly to new block to avoid a copy
         	if (block_p == V() && block_q - block_p == blockShape_) {
 				const view_type toWrite = a.subarray(wIt.read.p, wIt.read.q);
-				addBlock(wIt.blockCoord, toWrite);
+				BlockPtr ptr = addBlock(wIt.blockCoord, toWrite);
+                ptr->setDirty(false);
         	} else {
         		// The array we were given doesn't span the entire block.
         		// Add a full empty block, then copy from the subarray.
