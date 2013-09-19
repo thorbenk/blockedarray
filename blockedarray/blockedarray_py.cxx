@@ -107,7 +107,13 @@ struct PyBlockedArray {
     	ba.readSubarray(_p, _q, out);
     }
     
-    static void writeSubarray(BA& ba, boost::python::object p, boost::python::object q, vigra::NumpyArray<N, T> a
+    static void deleteSubarray(BA& ba, boost::python::object p, boost::python::object q)
+    {
+    	V _p = extractCoordinate(p);
+    	V _q = extractCoordinate(q);
+    	ba.deleteSubarray(_p, _q);
+    }
+        static void writeSubarray(BA& ba, boost::python::object p, boost::python::object q, vigra::NumpyArray<N, T> a
     ) {
     	V _p = extractCoordinate(p);
     	V _q = extractCoordinate(q);
@@ -232,7 +238,7 @@ void export_blockedArray() {
         .def("writeSubarrayNonzero", registerConverters(&PyBA::writeSubarrayNonzero),
             (arg("p"), arg("q"), arg("a"), arg("writeAsZero")))
         .def("readSubarray", registerConverters(&PyBA::readSubarray))
-        .def("deleteSubarray", registerConverters(&BA::deleteSubarray))
+        .def("deleteSubarray", registerConverters(&PyBA::deleteSubarray))
         .def("applyRelabeling", registerConverters(&PyBA::applyRelabeling),
             (arg("relabeling")))
         .def("__getitem__", registerConverters(&PyBA::getitem))
