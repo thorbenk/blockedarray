@@ -1,3 +1,32 @@
+/************************************************************************/
+/*                                                                      */
+/*    Copyright 2013 by Thorben Kroeger                                 */
+/*    thorben.kroeger@iwr.uni-heidelberg.de                             */
+/*                                                                      */
+/*    Permission is hereby granted, free of charge, to any person       */
+/*    obtaining a copy of this software and associated documentation    */
+/*    files (the "Software"), to deal in the Software without           */
+/*    restriction, including without limitation the rights to use,      */
+/*    copy, modify, merge, publish, distribute, sublicense, and/or      */
+/*    sell copies of the Software, and to permit persons to whom the    */
+/*    Software is furnished to do so, subject to the following          */
+/*    conditions:                                                       */
+/*                                                                      */
+/*    The above copyright notice and this permission notice shall be    */
+/*    included in all copies or substantial portions of the             */
+/*    Software.                                                         */
+/*                                                                      */
+/*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND    */
+/*    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES   */
+/*    OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND          */
+/*    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT       */
+/*    HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,      */
+/*    WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING      */
+/*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR     */
+/*    OTHER DEALINGS IN THE SOFTWARE.                                   */
+/*                                                                      */
+/************************************************************************/
+
 #include <vector>
 #include <iostream>
 #include <map>
@@ -22,18 +51,18 @@ using namespace BW;
 
 template<int N, class T>
 struct ArrayTest {
-    
+
 typedef Array<N,T> BA;
 typedef typename BA::V V;
 typedef typename BA::BlockPtr BlockPtr;
 typedef typename BA::BlockList BlockList;
 typedef vigra::MultiArray<N,T> A;
-  
+
 static void rw(const BA& ba) {
     hid_t file = H5Fcreate("test_ba.h5", H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     ba.writeHDF5(file, "ba");
     H5Fclose(file);
-    
+
     file = H5Fopen("test_ba.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
     BA ba2 = BA::readHDF5(file, "ba");
     H5Fclose(file);
@@ -48,10 +77,10 @@ static void rw(const BA& ba) {
     shouldEqual(ba.blockMinMax_.size(), ba2.blockMinMax_.size());
     shouldEqualSequence(ba.blockMinMax_.begin(), ba.blockMinMax_.end(),
                         ba2.blockMinMax_.begin());
-    
+
     shouldEqual(ba.blockVoxelValues_.size(), ba2.blockVoxelValues_.size());
     should(ba.blockVoxelValues_ == ba2.blockVoxelValues_);
-   
+
     typename BA::BlocksMap::const_iterator it1 = ba.blocks_.begin();
     typename BA::BlocksMap::const_iterator it2 = ba2.blocks_.begin();
     for(; it2 != ba2.blocks_.end(); ++it1, ++it2) {
@@ -63,22 +92,22 @@ static void rw(const BA& ba) {
 static void testHdf5(
     int verbose = false
 ) {
-    
+
     V sh(100,100);
     V blockShape(10,10);
-    
+
     vigra::MultiArray<2,T> theData(sh, 1);
     FillRandom<T, typename vigra::MultiArray<2,T>::iterator>::fillRandom(theData.begin(), theData.end());
     BA blockedArray(blockShape, theData);
-    
+
     hid_t file = H5Fcreate("test_ba.h5", H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     blockedArray.writeHDF5(file, "ba");
     H5Fclose(file);
-    
+
     file = H5Fopen("test_ba.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
     BA ba2 = BA::readHDF5(file, "ba");
     H5Fclose(file);
-    
+
     rw(blockedArray);
 }
 
@@ -87,10 +116,10 @@ static void testDirtySlicewise(
 ) {
     V sh(100,100);
     V blockShape(10,10);
-    
+
     vigra::MultiArray<2,T> initialData(sh, 1);
     BA blockedArray(blockShape, initialData);
-    
+
     blockedArray.setDirty(V(), sh, true); rw(blockedArray); //set everything dirty
     blockedArray.setDirty(V(5,0), V(6,100), false); rw(blockedArray); // x-slice 5 is not dirty anymore
     shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 100); //all blocks still dirty
@@ -102,7 +131,7 @@ static void testDirtySlicewise(
     shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 99);
     blockedArray.setDirty(V(), V(10,10), true); rw(blockedArray);
     shouldEqual(blockedArray.dirtyBlocks(V(), sh).size(), 100);
-   
+
     //same in y-direction
     blockedArray.setDirty(V(), sh, true); rw(blockedArray);//set everything dirty
     blockedArray.setDirty(V(0,5), V(100,6), false); rw(blockedArray); //y-slice 5 is not dirty anymore
@@ -122,35 +151,35 @@ static void testDirty(
 ) {
     V sh(100,100);
     V blockShape(10,10);
-    
+
     vigra::MultiArray<2,T> initialData(sh, 1);
     BA blockedArray(blockShape, initialData);
-    
+
     BlockList bl = blockedArray.dirtyBlocks(V(), sh);
     shouldEqual(bl.size(), 0);
-    
+
     blockedArray.setDirty(V(), sh, true);
     BlockList bl2 = blockedArray.dirtyBlocks(V(), sh);
     shouldEqual(bl2.size(), 10*10);
-    
+
     blockedArray.deleteSubarray(V(), sh);
     shouldEqual(blockedArray.numBlocks(), 0);
-   
+
     //partial write to block (0,0)
-    blockedArray.writeSubarray(V(1,1), V(3,4), A(V(2,3), 77) ); //write 
+    blockedArray.writeSubarray(V(1,1), V(3,4), A(V(2,3), 77) ); //write
     BlockList bl3 = blockedArray.dirtyBlocks(V(), sh);
     shouldEqual(bl3.size(), 1);
     shouldEqual(bl3[0], V(0,0));
-   
+
     //partial write to block (0,1)
-    blockedArray.writeSubarray(V(2,12), V(4,16), A(V(2,6), 99) ); //write 
+    blockedArray.writeSubarray(V(2,12), V(4,16), A(V(2,6), 99) ); //write
     BlockList bl4 = blockedArray.dirtyBlocks(V(), sh);
     shouldEqual(bl4.size(), 2);
     shouldEqual(bl4[0], V(0,0));
     shouldEqual(bl4[1], V(0,1));
-    
+
     //full write to block (0,0)
-    blockedArray.writeSubarray(V(0,0), V(10,10), A(V(10,10), 11) ); //write 
+    blockedArray.writeSubarray(V(0,0), V(10,10), A(V(10,10), 11) ); //write
     BlockList bl5 = blockedArray.dirtyBlocks(V(), sh);
     shouldEqual(bl5.size(), 1);
     shouldEqual(bl5[0], V(0,1));
@@ -161,13 +190,13 @@ static void testWriteSubarrayNonzero(
 ) {
     vigra::MultiArray<3,T> initialData(V(100,75,111), 1);
     BA blockedArray(V(20,30,40), initialData);
-    
+
     vigra::MultiArray<3,T> w(V(4,4,4));
     w[V(0,1,0)] = 42;
     w[V(1,0,0)] = 100;
-    
+
     blockedArray.writeSubarrayNonzero(V(), w.shape(), w, 100);
-    
+
     vigra::MultiArray<3,T> r(initialData.shape());
     blockedArray.readSubarray(V(), r.shape(), r);
     shouldEqual(r[V(0,0,0)], 1);
@@ -192,49 +221,49 @@ static void testApplyRelabeling(
     initialData[V(3,4,5)]     = 2;
     initialData[V(80,99,260)] = 3;
     BA blockedArray(V(20,30,40), initialData);
-    
-    vigra::MultiArray<1, T> relabeling(vigra::Shape1(5)); 
+
+    vigra::MultiArray<1, T> relabeling(vigra::Shape1(5));
     relabeling[2] = 42;
     relabeling[3] = 99;
     blockedArray.applyRelabeling(relabeling);
-    
+
     initialData[V(3,4,5)]     = 42;
     initialData[V(80,99,260)] = 99;
-    
+
     vigra::MultiArray<3,T> read(V(100,200,300));
     blockedArray.readSubarray(V(), V(100,200,300), read);
-    
+
     shouldEqualSequence(initialData.begin(), initialData.end(), read.begin());
 }
-    
+
 static void testManageCoordinateLists(
     int verbose = false
 ) {
     vigra::MultiArray<3,T> initialData(V(100,200,300));
     initialData[V(3,4,5)]     = 2;
     initialData[V(80,99,260)] = 3;
-    
+
     BA blockedArray(V(20,30,40), initialData);
     blockedArray.setManageCoordinateLists(true);
     rw(blockedArray);
-    
+
     typename BA::VoxelValues vv = blockedArray.nonzero();
     shouldEqual(vv.first[0], V(3,4,5));
     shouldEqual(vv.second[0], 2);
     shouldEqual(vv.first[1], V(80,99,260));
     shouldEqual(vv.second[1], 3);
-    
+
     blockedArray.setManageCoordinateLists(false);
     shouldEqual(blockedArray.nonzero().first.size(), 0);
     rw(blockedArray);
-    
+
     blockedArray.setManageCoordinateLists(true);
     typename BA::VoxelValues vv2 = blockedArray.nonzero();
     shouldEqual(vv2.first[0], V(3,4,5));
     shouldEqual(vv2.second[0], 2);
     shouldEqual(vv2.first[1], V(80,99,260));
     shouldEqual(vv2.second[1], 3);
-    
+
     vigra::MultiArray<3,T> toWrite(V(2,2,2));
     toWrite(0,1,1) = 42;
     blockedArray.writeSubarray(V(1,1,1), V(3,3,3), toWrite);
@@ -247,74 +276,74 @@ static void testManageCoordinateLists(
     shouldEqual(vv3.second[2], 3);
     rw(blockedArray);
 }
-    
+
 static void testMinMax(
     int verbose = false
 ) {
     vigra::MultiArray<3,T> zeros(V(100,200,300));
-    
+
     BA blockedArray(V(20,30,40), zeros);
-    
+
     std::pair<T,T> mm = blockedArray.minMax();
     shouldEqual(mm.first, std::numeric_limits<T>::max());
     shouldEqual(mm.second, std::numeric_limits<T>::min());
-    
+
     blockedArray.setMinMaxTrackingEnabled(true);
     rw(blockedArray);
-    
+
     mm = blockedArray.minMax();
     shouldEqual(mm.first, 0);
     shouldEqual(mm.second, 0);
-   
+
     vigra::MultiArray<3,T> ones(V(3,3,2), 1);
     blockedArray.writeSubarray(V(2,3,4), V(5,6,6), ones);
-    
+
     mm = blockedArray.minMax();
     shouldEqual(mm.first, 0);
     shouldEqual(mm.second, 1);
     rw(blockedArray);
-    
+
     vigra::MultiArray<3,T> zeros2(V(3,3,2));
     blockedArray.writeSubarray(V(2,3,4), V(5,6,6), zeros);
-    
+
     mm = blockedArray.minMax();
     shouldEqual(mm.first, 0);
     shouldEqual(mm.second, 0);
     rw(blockedArray);
 }
-    
+
 static void testCompression(
     typename vigra::MultiArray<N,T>::difference_type dataShape,
     typename vigra::MultiArray<N,T>::difference_type blockShape,
     int verbose = false
 ) {
-    
+
     vigra::MultiArray<N,T> theData(dataShape);
     FillRandom<T, typename vigra::MultiArray<N,T>::iterator>::fillRandom(theData.begin(), theData.end());
-    
+
     if(verbose) std::cout << "* constructing Array with blockShape=" << blockShape << ", dataShape=" << theData.shape() << std::endl;
-    
+
     BA blockedArray(blockShape, theData);
-    
+
     shouldEqualTolerance(blockedArray.averageCompressionRatio(), 1.0, 1E-10);
     should(blockedArray.numBlocks() > 0);
     should(blockedArray.sizeBytes() > 0);
-    
+
     BOOST_FOREACH(const typename BA::BlocksMap::value_type& b, blockedArray.blocks_) {
         should(!b.second->isCompressed());
     }
-    
+
     blockedArray.setCompressionEnabled(true);
     rw(blockedArray);
-    
+
     BOOST_FOREACH(const typename BA::BlocksMap::value_type& b, blockedArray.blocks_) {
         should(b.second->isCompressed());
     }
     should(blockedArray.averageCompressionRatio() < 0.9);
-    
+
     blockedArray.setCompressionEnabled(false);
     rw(blockedArray);
-    
+
     BOOST_FOREACH(const typename BA::BlocksMap::value_type& b, blockedArray.blocks_) {
         should(!b.second->isCompressed());
     }
@@ -327,7 +356,7 @@ static void testDeleteEmptyBlocks(
     int verbose = false
 ) {
     vigra::MultiArray<N,T> theData(dataShape);
-    
+
     //If delete empty blocks is disabled, all-zero blocks remain
     //after overwriting the whole array with zeros
     {
@@ -356,32 +385,32 @@ static void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
           int verbose = false
 ) {
     if(verbose) { std::cout << "TEST" << std::endl; }
-    
+
     vigra::MultiArray<N,T> theData(dataShape);
     FillRandom<T, typename vigra::MultiArray<N,T>::iterator>::fillRandom(theData.begin(), theData.end());
-    
+
     if(verbose) std::cout << "* constructing Array with blockShape=" << blockShape << ", dataShape=" << theData.shape() << std::endl;
-    
+
     {
         BA emptyArray(blockShape);
         shouldEqual(emptyArray.numBlocks(), 0);
         shouldEqual(emptyArray.sizeBytes(), 0);
     }
-    
+
     BA blockedArray(blockShape, theData);
     shouldEqualTolerance(blockedArray.averageCompressionRatio(), 1.0, 1E-10);
     should(blockedArray.numBlocks() > 0);
     should(blockedArray.sizeBytes() > 0);
-    
+
     typedef std::vector<std::pair<V, V> > BoundsList;
     BoundsList bounds;
-    
+
     vigra::RandomMT19937 random;
     while(bounds.size() < nSamples) {
         V p, q;
         for(int i=0; i<N; ++i) { p[i] = random.uniformInt(theData.shape(i)); }
         for(int i=0; i<N; ++i) { q[i] = p[i]+1+random.uniformInt(theData.shape(i)-p[i]); }
-        
+
         bool ok = true;
         for(int i=0; i<N; ++i) {
             if(p[i] < 0 || p[i] >= theData.shape(i) || q[i] < 0 || q[i] > theData.shape(i)) {
@@ -398,7 +427,7 @@ static void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
             bounds.push_back(std::make_pair(p,q));
         }
     }
-    
+
     //
     // test read access of ROI
     //
@@ -406,7 +435,7 @@ static void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
     BOOST_FOREACH(typename BoundsList::value_type pq, bounds) {
         const V p= pq.first;
         const V q = pq.second;
-        
+
         if(verbose) {
             std::cout << "* unit test read from " << p << " to " << q << " (" << std::sqrt((double)((q-p)[0]*(q-p)[1]*(q-p)[2])) << "^2" << ")" << std::endl;
         }
@@ -429,7 +458,7 @@ static void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
         ++n;
     }
     if(!verbose) { std::cout << std::endl; }
-    
+
     //
     // test write access of ROI
     //
@@ -437,41 +466,41 @@ static void test(typename vigra::MultiArray<N,T>::difference_type dataShape,
     BOOST_FOREACH(typename BoundsList::value_type pq, bounds) {
         const V p = pq.first;
         const V q = pq.second;
-        
+
         if(verbose) {
             std::cout << "* unit test write from " << p << " to " << q << " (" << std::sqrt((double)((q-p)[0]*(q-p)[1]*(q-p)[2])) << "^2" << ")" << std::endl;
         }
         else {
             std::cout << "write: " << n << " of " << nSamples << "             \r" << std::flush;
         }
-       
+
         vigra::MultiArray<N, T> a(q-p);
         FillRandom<T, typename vigra::MultiArray<N,T>::iterator>::fillRandom(a.begin(), a.end());
-        
+
         //for(int i=0; i<a.size(); ++i) {
         //    a[i] = random.uniformInt(256);
         //}
-        
+
         USETICTOC
         TIC
         blockedArray.writeSubarray(p,q, a);
         if(verbose) std::cout << "  write blocked: " << TOCS << std::endl;
-        
+
         theData.subarray(p,q) = a;
-        
+
         vigra::MultiArray<N, T> r(theData.shape());
         blockedArray.readSubarray(V(), theData.shape(), r);
-        
-        should(arraysEqual(theData, r)); 
+
+        should(arraysEqual(theData, r));
         ++n;
     }
     if(!verbose) { std::cout << std::endl; }
-   
+
     //
     // delete array
     //
     blockedArray.deleteSubarray(V(), theData.shape());
-    
+
     shouldEqual(blockedArray.numBlocks(),0);
 }
 }; /*struct ArrayTest*/

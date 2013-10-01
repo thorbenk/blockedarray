@@ -1,3 +1,32 @@
+/************************************************************************/
+/*                                                                      */
+/*    Copyright 2013 by Thorben Kroeger                                 */
+/*    thorben.kroeger@iwr.uni-heidelberg.de                             */
+/*                                                                      */
+/*    Permission is hereby granted, free of charge, to any person       */
+/*    obtaining a copy of this software and associated documentation    */
+/*    files (the "Software"), to deal in the Software without           */
+/*    restriction, including without limitation the rights to use,      */
+/*    copy, modify, merge, publish, distribute, sublicense, and/or      */
+/*    sell copies of the Software, and to permit persons to whom the    */
+/*    Software is furnished to do so, subject to the following          */
+/*    conditions:                                                       */
+/*                                                                      */
+/*    The above copyright notice and this permission notice shall be    */
+/*    included in all copies or substantial portions of the             */
+/*    Software.                                                         */
+/*                                                                      */
+/*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND    */
+/*    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES   */
+/*    OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND          */
+/*    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT       */
+/*    HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,      */
+/*    WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING      */
+/*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR     */
+/*    OTHER DEALINGS IN THE SOFTWARE.                                   */
+/*                                                                      */
+/************************************************************************/
+
 #include <iostream>
 
 #include <bw/compressedarray.h>
@@ -17,11 +46,11 @@ static void rw(const CompressedArray<N,T> ca) {
     hid_t file = H5Fcreate("test_ca.h5", H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     ca.writeHDF5(file, "ca");
     H5Fclose(file);
-  
+
     file = H5Fopen("test_ca.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
     CompressedArray<N,T> ca2 = CompressedArray<N,T>::readHDF5(file, "ca");
     H5Fclose(file);
-    
+
     shouldEqual(ca.compressedSize_, ca2.compressedSize_);
     shouldEqual(ca.isCompressed_,   ca2.isCompressed_);
     shouldEqual(ca.shape_,   ca2.shape_);
@@ -32,30 +61,30 @@ static void rw(const CompressedArray<N,T> ca) {
     shouldEqualSequence(reinterpret_cast<uint8_t*>(ca.data_),
                         reinterpret_cast<uint8_t*>(ca.data_)+ca.currentSizeBytes(),
                         reinterpret_cast<uint8_t*>(ca2.data_));
-    
+
     should(ca == ca2);
 }
 
 static void testHdf5(typename vigra::MultiArray<N,T>::difference_type dataShape)
 {
     std::cout << "testHdf5" << std::endl;
-    
+
     vigra::MultiArray<N,T> theData(dataShape);
     FillRandom<T, typename vigra::MultiArray<N,T>::iterator>::fillRandom(theData.begin(), theData.end());
     CompressedArray<N,T> ca(theData);
-    
+
     hid_t file = H5Fcreate("test_ca.h5", H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     ca.writeHDF5(file, "ca");
     H5Fclose(file);
-  
+
     file = H5Fopen("test_ca.h5", H5F_ACC_RDONLY, H5P_DEFAULT);
     CompressedArray<N,T> ca2 = CompressedArray<N,T>::readHDF5(file, "ca");
     H5Fclose(file);
-   
+
     vigra::MultiArray<N,T> r(dataShape);
     ca2.readArray(r);
     shouldEqualSequence(theData.begin(), theData.end(), r.begin());
-    
+
     rw(ca);
 }
 
@@ -63,9 +92,9 @@ static void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type
 {
     vigra::MultiArray<N,T> theData(dataShape);
     FillRandom<T, typename vigra::MultiArray<N,T>::iterator>::fillRandom(theData.begin(), theData.end());
-    
+
     typedef CompressedArray<N, T> CA;
-    
+
     {
         CA e; //empty
         rw(e);
@@ -81,19 +110,19 @@ static void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type
     should(!ca.isCompressed());
     shouldEqual(ca.compressedSize(), 0);
     shouldEqual(ca.shape(), theData.shape());
-    
+
     //std::cout << "read" << std::endl;
     vigra::MultiArray<N,T> r(dataShape);
     ca.readArray(r);
-    should(arraysEqual(theData, r)); 
-    
+    should(arraysEqual(theData, r));
+
     //std::cout << "compress & uncompress" << std::endl;
     ca.compress();
     rw(ca);
     std::fill(r.begin(), r.end(), 0);
     ca.readArray(r);
-    should(arraysEqual(theData, r)); 
-    
+    should(arraysEqual(theData, r));
+
     should(ca.isCompressed());
     should(ca.compressedSize() > 0);
     ca.uncompress();
@@ -102,14 +131,14 @@ static void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type
     should(!ca.isCompressed());
     std::fill(r.begin(), r.end(), 0);
     ca.readArray(r);
-    should(arraysEqual(theData, r)); 
+    should(arraysEqual(theData, r));
 
     //std::cout << "compress & read" << std::endl;
     ca.compress();
     should(ca.isCompressed());
     ca.readArray(r);
-    should(arraysEqual(theData, r)); 
-    
+    should(arraysEqual(theData, r));
+
     //std::cout << "copy-construct" << std::endl;
     {
         CA ca2(ca);
@@ -119,7 +148,7 @@ static void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type
         ca2.readArray(r2);
         should(arraysEqual(r1, r2));
     }
-   
+
     //std::cout << "assignment" << std::endl;
     {
         CA ca2;
@@ -130,12 +159,12 @@ static void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type
         ca2.readArray(r2);
         should(arraysEqual(r1, r2));
     }
-   
+
     should(!ca.isDirty());
     ca.setDirty(true);
     rw(ca);
     should(ca.isDirty());
-  
+
     {
         vigra::MultiArray<N,T> toWrite(ca.shape());
         std::fill(toWrite.begin(), toWrite.end(), 42);
@@ -144,7 +173,7 @@ static void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type
         std::fill(r.begin(), r.end(), 0);
         ca.readArray(r);
         should(arraysEqual(r, toWrite));
-       
+
         ca.setDirty(true);
         //now, write only a subset of the data.
         //the whole block has to stay dirty
@@ -155,9 +184,9 @@ static void testCompressedArray(typename vigra::MultiArray<N,T>::difference_type
         ca.writeArray(typename CA::V(), end, toWrite.subarray(typename CA::V(), end));
         should(ca.isDirty());
     }
-    
+
     ca.compress();
-    
+
     {
         vigra::MultiArray<N,T> toWrite(ca.shape());
         std::fill(toWrite.begin(), toWrite.end(), 42);
@@ -173,12 +202,12 @@ struct CompressedArrayTestImpl {
 void dirtyness3() {
     typedef vigra::MultiArray<3, int> Array;
     using vigra::Shape3;
-   
+
     Array data(Shape3(10,30,40));
     std::fill(data.begin(), data.end(), 42);
-   
+
     CompressedArray<3, int> ca(data);
- 
+
     ca.setDirty(true);
     should(ca.isDirty(0,0));
     should(ca.isDirty(0,3));
@@ -197,23 +226,23 @@ void dirtyness3() {
     should(ca.isDirty(3,7));
     ca.setDirty(3,7, false);
     should(!ca.isDirty(3,7));
-    
+
     ca.setDirty(true);
-    
+
     {
         Shape3 p(4,0,0), q(5,30,40); //write a 2D slice
         ca.writeArray(p,q, data.subarray(p,q));
         should(ca.isDirty());
         should(!ca.isDirty(0, 4));
     }
-  
+
     {
         Shape3 p(0,6,0), q(10,7,40); //write a 2D slice
         ca.writeArray(p,q, data.subarray(p,q));
         should(ca.isDirty());
         should(!ca.isDirty(1, 6));
     }
-    
+
     for(int i=0; i<10; ++i) {
         Shape3 p(i,0,0), q(i+1,30,40); //write a 2D slice
         ca.writeArray(p,q, data.subarray(p,q));
@@ -231,7 +260,7 @@ void testDim1() {
     CompressedArrayTest<1, float        >::testCompressedArray(vigra::Shape1(25));
     CompressedArrayTest<1, vigra::Int64 >::testCompressedArray(vigra::Shape1(26));
 }
-    
+
 void testDim2() {
     CompressedArrayTest<1, vigra::UInt8 >::testCompressedArray(vigra::Shape1(20));
     CompressedArrayTest<2, vigra::UInt8 >::testCompressedArray(vigra::Shape2(20,30));
@@ -239,7 +268,7 @@ void testDim2() {
     CompressedArrayTest<2, float        >::testCompressedArray(vigra::Shape2(25,32));
     CompressedArrayTest<2, vigra::Int64 >::testCompressedArray(vigra::Shape2(22,33));
 }
-    
+
 void testDim3() {
     CompressedArrayTest<1, vigra::UInt8 >::testCompressedArray(vigra::Shape1(20));
     CompressedArrayTest<3, vigra::UInt8 >::testCompressedArray(vigra::Shape3(24,31,45));
@@ -247,7 +276,7 @@ void testDim3() {
     CompressedArrayTest<3, float        >::testCompressedArray(vigra::Shape3(26,34,43));
     CompressedArrayTest<3, vigra::Int64 >::testCompressedArray(vigra::Shape3(27,38,41));
 }
-    
+
 void testDim5() {
     CompressedArrayTest<5, vigra::UInt8 >::testCompressedArray(vigra::Shape5(2,20,30,4,1));
     CompressedArrayTest<5, vigra::UInt32>::testCompressedArray(vigra::Shape5(2,18,35,3,1));

@@ -1,3 +1,32 @@
+/************************************************************************/
+/*                                                                      */
+/*    Copyright 2013 by Thorben Kroeger                                 */
+/*    thorben.kroeger@iwr.uni-heidelberg.de                             */
+/*                                                                      */
+/*    Permission is hereby granted, free of charge, to any person       */
+/*    obtaining a copy of this software and associated documentation    */
+/*    files (the "Software"), to deal in the Software without           */
+/*    restriction, including without limitation the rights to use,      */
+/*    copy, modify, merge, publish, distribute, sublicense, and/or      */
+/*    sell copies of the Software, and to permit persons to whom the    */
+/*    Software is furnished to do so, subject to the following          */
+/*    conditions:                                                       */
+/*                                                                      */
+/*    The above copyright notice and this permission notice shall be    */
+/*    included in all copies or substantial portions of the             */
+/*    Software.                                                         */
+/*                                                                      */
+/*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND    */
+/*    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES   */
+/*    OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND          */
+/*    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT       */
+/*    HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,      */
+/*    WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING      */
+/*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR     */
+/*    OTHER DEALINGS IN THE SOFTWARE.                                   */
+/*                                                                      */
+/************************************************************************/
+
 #ifndef BW_COMPRESSEDARRAY_H
 #define BW_COMPRESSEDARRAY_H
 
@@ -19,7 +48,7 @@
        s << #b " = "<<b<<"\n"; \
        s << "in file " << __FILE__ << ", line " << __LINE__ << "\n"; \
        throw std::runtime_error(s.str()); \
-    }     
+    }
 #endif
 
 #include <bw/hdf5utils.h>
@@ -30,10 +59,10 @@ template<int Dim, class Type>
 class CompressedArrayTest;
 
 namespace BW {
-    
+
 /**
  * A multidimensional array which supports in-memory compression.
- * 
+ *
  * CompressedArray<N,T> is an array of dimension N and voxel type T.
  * It supports in memory compression using the google snappy compression
  * algorithm.
@@ -41,14 +70,14 @@ namespace BW {
 template<int N, class T>
 class CompressedArray {
     public:
-   
+
     //give unittest access
     friend class CompressedArrayTest<N, T>;
-        
+
     typedef typename vigra::MultiArray<N, T>::difference_type V;
-    
+
     CompressedArray();
-    
+
     /**
      * construct a CompressedArray from the data 'a'
      */
@@ -59,41 +88,41 @@ class CompressedArray {
      * copy constructor
      */
     CompressedArray(const CompressedArray &other);
-   
+
     /**
      * assignment operator
      */
     CompressedArray& operator=(const CompressedArray& other);
-    
+
     bool operator==(const CompressedArray<N,T>& other) const;
 
     /**
      * destructor
      */
     ~CompressedArray();
-   
+
     static CompressedArray<N,T> readHDF5(hid_t group, const char* name);
-    
+
     void writeHDF5(hid_t group, const char* name) const;
-   
+
     /**
-     * returns whether this array is marked as dirty 
+     * returns whether this array is marked as dirty
      */
     bool isDirty() const { return isDirty_; }
-    
+
     /**
-     * set the dirty flag of this array 
+     * set the dirty flag of this array
      */
     void setDirty(bool dirty);
-    
+
     bool isDirty(int dimension, int slice) const;
-    
+
     bool isDirty(V p, V q) const;
-    
+
     void setDirty(V p, V q, bool dirty);
-    
+
     void setDirty(int dimension, int slice, bool dirty);
-    
+
     /**
      * returns whether this array is currently stored in compressed form
      */
@@ -123,13 +152,13 @@ class CompressedArray {
      * returns (potentially after uncompressing) this array's data
      */
     void readArray(vigra::MultiArray<N,T>& a) const;
-   
+
     /**
      * write the array 'a' into the region of interest [p,q)
      */
     void writeArray(V p, V q,
                     const vigra::MultiArrayView<N,T>& a);
-    
+
     /**
      * returns the size of the array (in elements T)
      */
@@ -139,7 +168,7 @@ class CompressedArray {
      * returns the size of the array in memory (in bytes)
      */
     size_t currentSizeBytes() const;
-    
+
     /**
      * returns the size of the array when uncompressed (in bytes)
      */
@@ -147,12 +176,12 @@ class CompressedArray {
 
     /**
      * returns the compression ratio
-     * 
+     *
      * If this array is compressed, returns the compression ratio.
      * If this array is uncompressed, return 1.0
      */
     double compressionRatio() const;
-    
+
     V shape() const { return shape_; }
 
     private:
@@ -235,7 +264,7 @@ CompressedArray<N,T>& CompressedArray<N,T>::operator=(
         shape_ = other.shape_;
         isDirty_ = other.isDirty_;
         dirtyDimensions_ = other.dirtyDimensions_;
-        
+
         data_ = new T[other.currentSize()];
         std::copy(other.data_, other.data_+other.currentSize(), data_);
     }
@@ -253,7 +282,7 @@ bool CompressedArray<N,T>::operator==(
     if(dirtyDimensions_ != other.dirtyDimensions_) { return false; }
     return std::equal(reinterpret_cast<char*>(data_),
                       reinterpret_cast<char*>(data_)+currentSizeBytes(),
-                      reinterpret_cast<char*>(other.data_)); 
+                      reinterpret_cast<char*>(other.data_));
 }
 
 //==========================================================================//
@@ -261,7 +290,7 @@ bool CompressedArray<N,T>::operator==(
 //==========================================================================//
 
 template<int N, typename T>
-void CompressedArray<N,T>::setDirty(bool dirty) { 
+void CompressedArray<N,T>::setDirty(bool dirty) {
     isDirty_ = dirty;
     std::fill(dirtyDimensions_.begin(), dirtyDimensions_.end(), dirty);
 }
@@ -342,7 +371,7 @@ template<int N, typename T>
 void CompressedArray<N,T>::uncompress() {
     using namespace snappy;
     if(!isCompressed_) return;
-    
+
     T* a = new T[uncompressedSize()];
     size_t r;
     GetUncompressedLength(reinterpret_cast<char*>(data_),
@@ -364,7 +393,7 @@ void CompressedArray<N,T>::compress() {
     using namespace snappy;
     if(compressedSize_ == 0) {
         //this is the first time
-        
+
         const size_t M = snappy::MaxCompressedLength(uncompressedSizeBytes());
         size_t l = CEIL_INT_DIV(M, sizeof(T));
         T* d = new T[l];
@@ -474,7 +503,7 @@ void CompressedArray<N,T>::writeArray(
         setDirty(false);
         std::fill(dirtyDimensions_.begin(), dirtyDimensions_.end(), false);
     }
-    
+
     for(int d=0; d<N; ++d) {
         //all dimension (except d) should have full extent
         bool fullExtent = true;
@@ -485,7 +514,7 @@ void CompressedArray<N,T>::writeArray(
         if(fullExtent) {
             bool allClean = true;
             for(int s=0; s<shape_[d]; ++s) {
-                bool sliceClean = (s>=p[d] && s<q[d]); 
+                bool sliceClean = (s>=p[d] && s<q[d]);
                 if(sliceClean) {
                     setDirty(d, s, false);
                 }
@@ -510,20 +539,20 @@ void CompressedArray<N,T>::writeHDF5(
     const char* name
 ) const {
     hsize_t size = currentSizeBytes();
-  
+
     hid_t dataspace;
     if(size>  0) { dataspace = H5Screate_simple(1, &size, NULL); }
     else {
         hsize_t one = 1;
-        dataspace = H5Screate_simple(1, &one, NULL); 
+        dataspace = H5Screate_simple(1, &one, NULL);
     }
     hid_t dataset = H5Dcreate(group, name, H5T_STD_U8LE, dataspace,
                               H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
     H5A<bool>::write(dataset, "empty", size == 0);
-    if(size > 0) { 
+    if(size > 0) {
         H5Dwrite(dataset, H5T_STD_U8LE, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_);
     }
-  
+
     if(dirtyDimensions_.size() > 0) {
         hsize_t dsSize = dirtyDimensions_.size();
         unsigned char* ds = new unsigned char[dsSize];
@@ -544,20 +573,20 @@ void CompressedArray<N,T>::writeHDF5(
         hsize_t n = N;
         uint32_t* sh = new uint32_t[N];
         std::copy(shape_.begin(), shape_.end(), sh);
-        
+
         hid_t space    = H5Screate_simple(1, &n, NULL);
         hid_t attr     = H5Acreate(dataset, "sh", H5T_STD_U32LE, space,
                                    H5P_DEFAULT, H5P_DEFAULT);
         H5Awrite(attr, H5T_NATIVE_UINT32, sh);
-        
+
         H5Aclose(attr);
         H5Sclose(space);
-        
+
         delete[] sh;
     }
-    
+
     H5Dclose(dataset);
-    H5Sclose(dataspace); 
+    H5Sclose(dataspace);
 }
 
 template<int N, typename T>
@@ -567,15 +596,15 @@ CompressedArray<N,T>::readHDF5(
     const char* name
 ) {
     CompressedArray<N,T> ca;
-    
+
     hid_t dataset   = H5Dopen(group, name, H5P_DEFAULT);
     hid_t filespace = H5Dget_space(dataset);
-    
+
     hsize_t dataSize;
-   
+
     ca.compressedSize_ = H5A<size_t>::read(dataset, "cs");
-    
-    bool empty = false; 
+
+    bool empty = false;
     //data_
     {
         H5Sget_simple_extent_dims(filespace, &dataSize, NULL);
@@ -592,10 +621,10 @@ CompressedArray<N,T>::readHDF5(
     if(H5Aexists(dataset, "ds")) {
         hid_t attr  = H5Aopen(dataset, "ds", H5P_DEFAULT);
         hid_t space = H5Aget_space(attr);
-    
+
         hsize_t dim;
         H5Sget_simple_extent_dims(space, &dim, NULL);
-        
+
         unsigned char* ds = new unsigned char[dim];
         H5Aread(attr, H5T_NATIVE_UINT8, ds);
         ca.dirtyDimensions_.resize(dim);
@@ -604,10 +633,10 @@ CompressedArray<N,T>::readHDF5(
         H5Sclose(space);
         H5Aclose(attr);
     }
-    
+
     ca.isDirty_      = H5A<bool>::read(dataset, "d");
     ca.isCompressed_ = H5A<bool>::read(dataset, "c");
-    
+
     //shape_
     {
         hid_t attr = H5Aopen(dataset, "sh", H5P_DEFAULT);
@@ -616,10 +645,10 @@ CompressedArray<N,T>::readHDF5(
         H5Aclose(attr);
         std::copy(sh, sh+N, ca.shape_.begin());
     }
-    
+
     H5Dclose(dataset);
     H5Sclose(filespace);
-    
+
     return ca;
 }
 

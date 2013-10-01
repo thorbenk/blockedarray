@@ -1,7 +1,36 @@
+/************************************************************************/
+/*                                                                      */
+/*    Copyright 2013 by Thorben Kroeger                                 */
+/*    thorben.kroeger@iwr.uni-heidelberg.de                             */
+/*                                                                      */
+/*    Permission is hereby granted, free of charge, to any person       */
+/*    obtaining a copy of this software and associated documentation    */
+/*    files (the "Software"), to deal in the Software without           */
+/*    restriction, including without limitation the rights to use,      */
+/*    copy, modify, merge, publish, distribute, sublicense, and/or      */
+/*    sell copies of the Software, and to permit persons to whom the    */
+/*    Software is furnished to do so, subject to the following          */
+/*    conditions:                                                       */
+/*                                                                      */
+/*    The above copyright notice and this permission notice shall be    */
+/*    included in all copies or substantial portions of the             */
+/*    Software.                                                         */
+/*                                                                      */
+/*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND    */
+/*    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES   */
+/*    OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND          */
+/*    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT       */
+/*    HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,      */
+/*    WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING      */
+/*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR     */
+/*    OTHER DEALINGS IN THE SOFTWARE.                                   */
+/*                                                                      */
+/************************************************************************/
+
 #define PY_ARRAY_UNIQUE_SYMBOL blockedarray_PyArray_API
 #define NO_IMPORT_ARRAY
 
-#include "Python.h" 
+#include "Python.h"
 
 #include <boost/shared_ptr.hpp>
 #include <boost/python.hpp>
@@ -45,7 +74,7 @@ boost::python::list voxelValuesToPython(
     typedef vigra::NumpyArray<1, uint32_t> PyCoord;
     typedef vigra::NumpyArray<1, T> PyVal;
     typedef vigra::Shape1 Sh;
-    
+
     PyCoord coords[N];
     for(int i=0; i<N; ++i) {
         coords[i].reshape(Sh(vv.first.size()));
@@ -60,7 +89,7 @@ boost::python::list voxelValuesToPython(
     for(size_t i=0; i<vv.first.size(); ++i) {
         vals[i] = vv.second[i];
     }
-    
+
     //convert to python list
     boost::python::list l;
     for(int i=0; i<N; ++i) {
@@ -74,7 +103,7 @@ template<int N, class T>
 struct PyBlockedArray {
     typedef Array<N, T> BA;
     typedef typename BA::V V;
-    
+
     /**
      * Convert from a python sequence into the appropriate shape type.
      * This is useful when the python sequence contains numpy int types
@@ -106,7 +135,7 @@ struct PyBlockedArray {
     	V _q = extractCoordinate(q);
     	ba.readSubarray(_p, _q, out);
     }
-    
+
     static void deleteSubarray(BA& ba, boost::python::object p, boost::python::object q)
     {
     	V _p = extractCoordinate(p);
@@ -119,23 +148,23 @@ struct PyBlockedArray {
     	V _q = extractCoordinate(q);
         ba.writeSubarray(_p, _q, a);
     }
-    
+
     static void writeSubarrayNonzero(BA& ba, boost::python::object p, boost::python::object q, vigra::NumpyArray<N, T> a, T writeAsZero
     ) {
     	V _p = extractCoordinate(p);
     	V _q = extractCoordinate(q);
         ba.writeSubarrayNonzero(_p, _q, a, writeAsZero);
     }
-    
+
     static void sliceToPQ(boost::python::tuple sl, V &p, V &q) {
         vigra_precondition(boost::python::len(sl)==N, "tuple has wrong length");
         for(int k=0; k<N; ++k) {
             boost::python::slice s = boost::python::extract<boost::python::slice>(sl[k]);
-            p[k] = boost::python::extract<int>(s.start()); 
-            q[k] = boost::python::extract<int>(s.stop()); 
+            p[k] = boost::python::extract<int>(s.start());
+            q[k] = boost::python::extract<int>(s.stop());
         }
     }
-    
+
     static vigra::NumpyAnyArray getitem(BA& ba, boost::python::tuple sl) {
         V p,q;
         sliceToPQ(sl, p, q);
@@ -143,13 +172,13 @@ struct PyBlockedArray {
         ba.readSubarray(p, q, out);
         return out;
     }
-    
+
     static void setDirty(BA& ba, boost::python::tuple sl, bool dirty) {
         V p,q;
         sliceToPQ(sl, p, q);
         ba.setDirty(p,q,dirty);
     }
-    
+
     static void setitem(BA& ba, boost::python::tuple sl, vigra::NumpyArray<N,T> a) {
         V p,q;
         sliceToPQ(sl, p, q);
@@ -165,22 +194,22 @@ struct PyBlockedArray {
     	V _q = extractCoordinate(q);
         return blockListToPython(ba, ba.blocks(_p, _q));
     }
-    
+
     static boost::python::tuple dirtyBlocks(BA& ba, boost::python::object p, boost::python::object q) {
     	V _p = extractCoordinate(p);
     	V _q = extractCoordinate(q);
         return blockListToPython(ba, ba.dirtyBlocks(_p, _q));
     }
-    
+
     static boost::python::tuple minMax(const BA& ba) {
         std::pair<T,T> mm = ba.minMax();
-        return boost::python::make_tuple(mm.first, mm.second); 
+        return boost::python::make_tuple(mm.first, mm.second);
     }
-    
+
     static boost::python::list nonzero(const BA& ba) {
         return voxelValuesToPython<N,T>(ba.nonzero());
     }
-    
+
     static void applyRelabeling(BA& ba, vigra::NumpyArray<1, T> relabeling) {
         ba.applyRelabeling(relabeling);
     }
@@ -218,12 +247,12 @@ template<int N, class T>
 void export_blockedArray() {
     typedef Array<N, T> BA;
     typedef PyBlockedArray<N,T> PyBA;
-    
+
     using namespace boost::python;
     using namespace vigra;
-    
+
     std::stringstream name; name << "BlockedArray" << N << DtypeName<T>::dtypeName();
-    
+
     class_<BA, boost::shared_ptr<BA> >(name.str().c_str(), no_init) // No auto-provided init.  Use make_constructor, below.
     	.def("__init__", make_constructor(&PyBA::init))
         .def("__init__", make_constructor(&PyBA::initEmpty))
@@ -265,15 +294,15 @@ void export_blockedArray() {
     export_blockedArray<3, vigra::UInt8>();
     export_blockedArray<4, vigra::UInt8>();
     export_blockedArray<5, vigra::UInt8>();
-    
+
     export_blockedArray<2, vigra::UInt32>();
     export_blockedArray<3, vigra::UInt32>();
     export_blockedArray<4, vigra::UInt32>();
     export_blockedArray<5, vigra::UInt32>();
-    
+
     export_blockedArray<2, float>();
     export_blockedArray<3, float>();
     export_blockedArray<4, float>();
     export_blockedArray<5, float>();
-    
-}  
+
+}

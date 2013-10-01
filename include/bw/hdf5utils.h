@@ -1,3 +1,32 @@
+/************************************************************************/
+/*                                                                      */
+/*    Copyright 2013 by Thorben Kroeger                                 */
+/*    thorben.kroeger@iwr.uni-heidelberg.de                             */
+/*                                                                      */
+/*    Permission is hereby granted, free of charge, to any person       */
+/*    obtaining a copy of this software and associated documentation    */
+/*    files (the "Software"), to deal in the Software without           */
+/*    restriction, including without limitation the rights to use,      */
+/*    copy, modify, merge, publish, distribute, sublicense, and/or      */
+/*    sell copies of the Software, and to permit persons to whom the    */
+/*    Software is furnished to do so, subject to the following          */
+/*    conditions:                                                       */
+/*                                                                      */
+/*    The above copyright notice and this permission notice shall be    */
+/*    included in all copies or substantial portions of the             */
+/*    Software.                                                         */
+/*                                                                      */
+/*    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND    */
+/*    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES   */
+/*    OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND          */
+/*    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT       */
+/*    HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,      */
+/*    WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING      */
+/*    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR     */
+/*    OTHER DEALINGS IN THE SOFTWARE.                                   */
+/*                                                                      */
+/************************************************************************/
+
 #ifndef BW_HDF5UTILS_H
 #define BW_HDF5UTILS_H
 
@@ -51,7 +80,7 @@ struct H5A {
 template<typename T>
 struct H5D {
     static void readShape(hid_t f, const char* name, hsize_t* shape);
-    
+
     static void read(hid_t f, const char* name, int N, hsize_t*& shape, T*& data);
     static void write(hid_t f, const char* name, int N, hsize_t* shape, T* data);
 };
@@ -70,17 +99,17 @@ void H5D<T>::readShape(hid_t f, const char* name, hsize_t* shape) {
 template<typename T>
 void H5D<T>::read(hid_t f, const char* name, int N, hsize_t*& shape, T*& data) {
     throw std::runtime_error("xxxxx ttttt");
-    
+
     hid_t dataset  = H5Dopen(f, name, H5P_DEFAULT);
     hid_t filetype = H5Dget_type(dataset);
     hid_t space    = H5Dget_space(dataset);
-   
+
     H5Sget_simple_extent_dims(space, shape, NULL);
     size_t sz = 1;
     for(size_t i=0; i<N; ++i) { sz *= shape[i]; }
-    data = new T[sz]; 
+    data = new T[sz];
     H5Dread(dataset, H5Type<T>::get_NATIVE(), H5S_ALL, H5S_ALL, H5P_DEFAULT, data);
-    
+
     H5Sclose(space);
     H5Tclose(filetype);
     H5Dclose(dataset);
@@ -89,7 +118,7 @@ void H5D<T>::read(hid_t f, const char* name, int N, hsize_t*& shape, T*& data) {
 template<typename T>
 void H5D<T>::write(hid_t f, const char* name, int N, hsize_t* shape, T* data) {
     throw std::runtime_error("xxxxx ttttt");
-    
+
     hid_t space   = H5Screate_simple(N, shape, NULL);
     hid_t dataset = H5Dcreate(f, name, H5Type<T>::get_STD_LE(), space,
                               H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
