@@ -6,7 +6,7 @@ import copy
 
 from lazyflow.operators import OpBlockedArrayCache, OpArrayPiper, OpSlicedBlockedArrayCache
 from lazyflow.graph import Graph
-from blockedarray.lazyflow_cpp import OpArrayCacheCpp
+from lazyflow.operators.opCxxBlockedArrayCache import OpCxxBlockedArrayCache
 
 def generateSlicings(n=100, twoD = False):
     sl = []
@@ -103,9 +103,10 @@ if __name__ == "__main__":
     opCacheSliced.fixAtCurrent.setValue(False)
 
     #C++ cache
-    opCacheCpp = OpArrayCacheCpp(graph=graph)
+    opCacheCpp = OpCxxBlockedArrayCache(graph=graph)
     opCacheCpp.Input.connect(opProvider.Output)
-    opCacheCpp.blockShape.setValue(blockShape)
+    opCacheCpp.innerBlockShape.setValue(blockShape)
+    opCacheCpp.outerBlockShape.setValue(blockShape)
 
     #make sure that all blocks are in the cache
 
