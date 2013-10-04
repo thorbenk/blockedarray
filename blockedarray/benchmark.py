@@ -39,13 +39,13 @@ def generateSlicings(n=100, twoD = False):
 if __name__ == "__main__":
     numpy.random.seed(0)
     
-    dataShape =  (1,200,200,200,1)
+    dataShape =  (1,200,400,400,1)
     blockShape = (1,32 ,32, 32, 1)
     outerBlockShape = blockShape
     
     sl = generateSlicings(100, twoD=True)
-    for slicing in sl:
-        print slicing
+    #for slicing in sl:
+    #    print slicing
 
     g = Graph()
 
@@ -76,15 +76,6 @@ if __name__ == "__main__":
     opCacheSliced.Input.meta.shape = dataShape
     opCacheSliced.Input.connect(opProvider.Output)
    
-    #these are the actual values in pixel classification
-    #blockDimsX = { 't' : (1,1), 'z' : (128,256), 'y' : (128,256), 'x' : (1,1), 'c' : (100, 100) }
-    #blockDimsY = { 't' : (1,1), 'z' : (128,256), 'y' : (1,1), 'x' : (128,256), 'c' : (100,100) }
-    #blockDimsZ = { 't' : (1,1), 'z' : (1,1), 'y' : (128,256), 'x' : (128,256), 'c' : (100,100) }
-    
-    #blockDimsX = { 't' : (1,1), 'z' : (32,32), 'y' : (32,32), 'x' : (1,1), 'c' : (32,32) }
-    #blockDimsY = { 't' : (1,1), 'z' : (32,32), 'y' : (1,1), 'x' : (32,32), 'c' : (32,32) }
-    #blockDimsZ = { 't' : (1,1), 'z' : (1,1), 'y' : (32,32), 'x' : (32,32), 'c' : (32,32) }
-    
     blockDimsX = { 't' : (1,1), 'z' : (32,32), 'y' : (32,32), 'x' : (32,32), 'c' : (32,32) }
     blockDimsY = { 't' : (1,1), 'z' : (32,32), 'y' : (32,32), 'x' : (32,32), 'c' : (32,32) }
     blockDimsZ = { 't' : (1,1), 'z' : (32,32), 'y' : (32,32), 'x' : (32,32), 'c' : (32,32) }
@@ -113,7 +104,7 @@ if __name__ == "__main__":
     print "request all from cpp",
     t = time.time()
     opCacheCpp.Output[tuple([slice(0, dataShape[i]) for i in range(len(dataShape))])].wait()
-    #opCacheCpp.fixAtCurrent.setValue(True)
+    opCacheCpp.fixAtCurrent.setValue(True)
     print " took ", time.time()-t
 
     print "request all from py (array cached)",
@@ -134,35 +125,29 @@ if __name__ == "__main__":
     ts = []
     ts2 = []
 
-    #sl = [ (slice(0, 1, None), slice(77, 93, None), slice(56, 71, None), slice(138, 145, None), slice(0, 1, None)) ]
-    
-    #sl = [ (slice(0, 1, None), slice(48, 156, None), slice(113, 114, None), slice(188, 200, None), slice(0, 1, None)) ]
-    #sl  = [ (slice(0, 1, None), slice(174, 192, None), slice(193, 200, None), slice(10, 11, None), slice(0, 1, None)) ]
-    #sl = [ (slice(0, 1, None), slice(58, 95, None), slice(10, 97, None), slice(43, 44, None), slice(0, 1, None)) ]
-    
     for slicing in sl:
         dataCachedSlice = None
         dataCpp         = None
         dataPy          = None
        
-        print "size: %f^3" % numpy.power(numpy.prod([s.stop-s.start for s in slicing]), 1/3.0), "slicing =", slicing
+        #print "size: %f^3" % numpy.power(numpy.prod([s.stop-s.start for s in slicing]), 1/3.0), "slicing =", slicing
         
         t0 = time.time()
         dataCacheSliced = opCacheSliced.Output( slicing ).wait() 
         tPySliced = time.time()-t0
         if tPySliced*1000.0 > 10:
             print "&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-        print "py1: %f msec." % (tPySliced*1000.0,)
+        #print "py1: %f msec." % (tPySliced*1000.0,)
 
         t1 = time.time()
         dataPy = opCache.Output( slicing ).wait() 
         tPy = time.time()-t1
-        print "py2: %f msec." % (tPy*1000.0,)
+        #print "py2: %f msec." % (tPy*1000.0,)
 
         t2 = time.time()
         dataCpp = opCacheCpp.Output( slicing ).wait() 
         tCpp = time.time()-t2
-        print "cpp  %f msec." % (tCpp*1000.0,)
+        #print "cpp  %f msec." % (tCpp*1000.0,)
         
         ts.append( tCpp/float(tPy) ) 
         ts2.append( tCpp/float(tPySliced) ) 
