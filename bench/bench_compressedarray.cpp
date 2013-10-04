@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
     typedef CA::V V;
 
     vigra::MultiArray<3,float> theData(V(100,200,300));
-    FillRandom<float, typename vigra::MultiArray<3,float>::iterator>::fillRandom(theData.begin(), theData.end());
+    FillRandom<float, vigra::MultiArray<3,float>::iterator>::fillRandom(theData.begin(), theData.end());
 
     CALLGRIND_START_INSTRUMENTATION;
     CA ca(theData);
