@@ -36,6 +36,8 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
 
+#include <vigra/timing.hxx>
+
 #include "compressedarray.h"
 #include <bw/roi.h>
 
@@ -439,6 +441,8 @@ template<int N, typename T>
 void Array<N,T>::readSubarray(
     V p, V q, vigra::MultiArrayView<N, T>& out
 ) const {
+    USETICTOC;
+    TIC;
     using vigra::MultiArrayView;
 
     //make sure to initialize the array with zeros
@@ -453,10 +457,10 @@ void Array<N,T>::readSubarray(
             //this block does not exist. //do nothing
             continue;
         }
-        it->second->readArray(tmpBlock_);
-        const view_type w = tmpBlock_.subarray(wIt.withinBlock.p, wIt.withinBlock.q);
-        out.subarray(wIt.read.p, wIt.read.q) = w;
+        MultiArrayView<N,T> outView = out.subarray(wIt.read.p, wIt.read.q);
+        it->second->readSubarray(&tmpBlock_, wIt.withinBlock.p, wIt.withinBlock.q, outView);
     }
+    TOC; 
 }
 
 

@@ -151,7 +151,9 @@ class CompressedArray {
     /**
      * returns (potentially after uncompressing) this array's data
      */
-    void readArray(vigra::MultiArray<N,T>& a) const;
+    void readArray(vigra::MultiArrayView<N,T>& a) const;
+    
+    void readSubarray(vigra::MultiArrayView<N,T>* tmpBlock, V p, V q, vigra::MultiArrayView<N, T>& out) const;
 
     /**
      * write the array 'a' into the region of interest [p,q)
@@ -451,7 +453,7 @@ double CompressedArray<N,T>::compressionRatio() const {
 //==========================================================================//
 
 template<int N, typename T>
-void CompressedArray<N,T>::readArray(vigra::MultiArray<N,T>& a) const {
+void CompressedArray<N,T>::readArray(vigra::MultiArrayView<N,T>& a) const {
     using namespace snappy;
     vigra_precondition(a.shape() == shape_, "shapes differ");
     if(isCompressed_) {
@@ -469,6 +471,20 @@ void CompressedArray<N,T>::readArray(vigra::MultiArray<N,T>& a) const {
         vigra::MultiArrayView<N,T> mydata(shape_, (T*)data_);
         a = mydata;
     }
+}
+
+template<int N, typename T>
+void CompressedArray<N,T>::readSubarray(
+    vigra::MultiArrayView<N,T>* tmpBlock, V p, V q, vigra::MultiArrayView<N, T>& out
+) const {
+   if(isCompressed_) {
+        vigra_precondition(tmpBlock != 0, "pointer = 0");
+        readArray(*tmpBlock);
+        out = tmpBlock->subarray(p,q);
+        return;
+    }
+    vigra::MultiArrayView<N,T> mydata(shape_, (T*)data_);
+    out = mydata.subarray(p,q);
 }
 
 //==========================================================================//
