@@ -31,3 +31,4 @@ if(BUILD_COMMON_DTYPES_LIBRARY)
 endif()
 target_link_libraries(bench_compressedarray ${HDF5_LIBRARY})
 
+add_executable(bench_copy bench_copy.cpp)

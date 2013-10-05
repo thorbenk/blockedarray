@@ -8,7 +8,7 @@ from lazyflow.operators import OpBlockedArrayCache, OpArrayPiper, OpSlicedBlocke
 from lazyflow.graph import Graph
 from lazyflow.operators.opCxxBlockedArrayCache import OpCxxBlockedArrayCache
 
-def generateSlicings(n=100, twoD = False):
+def generateSlicings(dataShape, n=100, twoD = False):
     sl = []
     while(True):
         start = numpy.zeros(len(dataShape), numpy.uint32)
@@ -36,128 +36,138 @@ def generateSlicings(n=100, twoD = False):
             break
     return sl
 
+class Benchmark(object):
+    def __init__(self, data, blockShape):
+        numpy.random.seed(0)
+        
+        self.data = data
+        self.blockShape = blockShape
+        
+        outerBlockShape = blockShape
+        ba = BlockedArray5uint8(blockShape)
+
+        print "* setup:"
+
+        self.graph = Graph()
+
+        self.opProvider = OpArrayPiper(graph=self.graph)
+        self.opProvider.Input.setValue(self.data)
+
+        #python cache
+        self.opCachePy = OpBlockedArrayCache(graph=self.graph)
+        self.opCachePy.Input.meta.shape = dataShape
+        self.opCachePy.Input.connect(self.opProvider.Output)
+        self.opCachePy.innerBlockShape.setValue(blockShape)
+        self.opCachePy.outerBlockShape.setValue(outerBlockShape)
+        self.opCachePy.fixAtCurrent.setValue(False)
+
+        #C++ cache
+        self.opCacheCpp = OpCxxBlockedArrayCache(graph=self.graph)
+        self.opCacheCpp.Input.connect(self.opProvider.Output)
+        self.opCacheCpp.innerBlockShape.setValue(blockShape)
+        self.opCacheCpp.outerBlockShape.setValue(blockShape)
+
+        #make sure that all blocks are in the cache
+
+        print "  request all from cpp",
+        self.tSetupCpp = time.time()
+        self.opCacheCpp.Output[tuple([slice(0, self.data.shape[i]) for i in range(len(self.data.shape))])].wait()
+        #opCacheCpp.fixAtCurrent.setValue(True)
+        self.tSetupCpp = time.time() - self.tSetupCpp
+        print " ... took ", self.tSetupCpp
+
+        print "  request all from py ",
+        self.tSetupPy = time.time()
+        self.opCachePy.Output[tuple([slice(0, self.data.shape[i]) for i in range(len(self.data.shape))])].wait()
+        #opCache.fixAtCurrent.setValue(True)
+        self.tSetupPy = time.time() - self.tSetupPy
+        print " ... took ", self.tSetupPy
+        
+    def runSlicings(self, slicings, assertData=False):
+        tCpp = []
+        tPy  = []
+        for slicing in slicings:
+            dataCpp         = None
+            dataPy          = None
+            #print "size: %f^3" % numpy.power(numpy.prod([s.stop-s.start for s in slicing]), 1/3.0), "slicing =", slicing
+        
+            tCpp.append(time.time())
+            dataCpp = self.opCacheCpp.Output( slicing ).wait() 
+            tCpp[-1] = time.time()-tCpp[-1]
+            
+            tPy.append(time.time())
+            dataPy = self.opCachePy.Output( slicing ).wait() 
+            tPy[-1] = time.time()-tPy[-1]
+            
+            if assertData:
+                assert numpy.all(dataPy == dataCpp)
+      
+        tPy  = numpy.asarray(tPy, dtype=numpy.float64)
+        tCpp = numpy.asarray(tCpp, dtype=numpy.float64)
+        return tPy, tCpp
+
+
 if __name__ == "__main__":
-    numpy.random.seed(0)
+    print "* pre-setup:"
+    print "  generate random data"
     
-    dataShape =  (1,200,400,400,1)
-    blockShape = (1,32 ,32, 32, 1)
-    outerBlockShape = blockShape
+    dataShape =  (1,300,300,300,1)
+    if True:
+        data = (255*numpy.random.random(dataShape)).astype(numpy.uint8)
+        data = data.view(vigra.VigraArray)
+        data.axistags = vigra.defaultAxistags('txyzc')
+        
+        sl2 = generateSlicings(data.shape, 100, twoD=True) 
     
-    sl = generateSlicings(100, twoD=True)
-    #for slicing in sl:
-    #    print slicing
-
-    g = Graph()
-
-    ba = BlockedArray5uint8(blockShape)
-
-    print "generate random data"
-    data = (255*numpy.random.random(dataShape)).astype(numpy.uint8)
-
-    data = data.view(vigra.VigraArray)
-    data.axistags = vigra.defaultAxistags('txyzc')
-
-    graph = Graph()
-
-    opProvider = OpArrayPiper(graph=graph)
-    opProvider.Input.setValue(data)
-    opProvider = opProvider
-
-    #python cache
-    opCache = OpBlockedArrayCache(graph=graph)
-    opCache.Input.meta.shape = dataShape
-    opCache.Input.connect(opProvider.Output)
-    opCache.innerBlockShape.setValue(blockShape)
-    opCache.outerBlockShape.setValue(outerBlockShape)
-    opCache.fixAtCurrent.setValue(False)
-
-    #python sliced array cache
-    opCacheSliced = OpSlicedBlockedArrayCache(graph=graph)
-    opCacheSliced.Input.meta.shape = dataShape
-    opCacheSliced.Input.connect(opProvider.Output)
+        l = numpy.linspace(30, 300, 20)
+        
+        res = numpy.zeros((len(l), 6))
+        
+        for i, x in enumerate(l):
+            x = int(x)
+            print "x =", x
+            blockShape = (1,x,x,x,1)
+    
+            b = Benchmark(data, blockShape)
+        
+            tPy, tCpp = b.runSlicings(sl2)
+            
+            res[i,0] = x                       #block side length
+            res[i,1] = numpy.average(tPy)      #average time to request (python)
+            res[i,2] = numpy.average(tCpp)     #average time to request (C++)
+            res[i,3] = numpy.average(tPy/tCpp) #ratio python time / c++ time for requests
+            res[i,4] = b.tSetupPy
+            res[i,5] = b.tSetupCpp
+            print "py: %f  c++ %f" % (numpy.average(tPy), numpy.average(tCpp))
+        
+        numpy.savetxt("/tmp/txt.txt", res)
    
-    blockDimsX = { 't' : (1,1), 'z' : (32,32), 'y' : (32,32), 'x' : (32,32), 'c' : (32,32) }
-    blockDimsY = { 't' : (1,1), 'z' : (32,32), 'y' : (32,32), 'x' : (32,32), 'c' : (32,32) }
-    blockDimsZ = { 't' : (1,1), 'z' : (32,32), 'y' : (32,32), 'x' : (32,32), 'c' : (32,32) }
+    res = numpy.loadtxt("/tmp/txt.txt")
+    if res.ndim == 1:
+        res = res.reshape((1, len(res)))
+    from matplotlib import pyplot as plot
     
-    axisOrder=['t', 'x', 'y', 'z', 'c']
-    innerBlockShapeX = tuple( blockDimsX[k][0] for k in axisOrder )
-    outerBlockShapeX = tuple( blockDimsX[k][1] for k in axisOrder )
-    innerBlockShapeY = tuple( blockDimsY[k][0] for k in axisOrder )
-    outerBlockShapeY = tuple( blockDimsY[k][1] for k in axisOrder )
-    innerBlockShapeZ = tuple( blockDimsZ[k][0] for k in axisOrder )
-    outerBlockShapeZ = tuple( blockDimsZ[k][1] for k in axisOrder )
+    plot.clf()
+    plot.title("read requests\ncache for %r data" % (dataShape,))
+    plot.plot(res[:,0], res[:,1], label="time py")
+    plot.plot(res[:,0], res[:,2], label="time c++")
+    plot.xlabel("block side length")
+    plot.ylabel("seconds")
+    plot.legend()
+    plot.savefig("/tmp/a01.png")
     
-    opCacheSliced.innerBlockShape.setValue( (innerBlockShapeX, innerBlockShapeY, innerBlockShapeZ) )
-    opCacheSliced.outerBlockShape.setValue( (outerBlockShapeX, outerBlockShapeY, outerBlockShapeZ) )
+    plot.clf()
+    plot.title("read requests\ncache for %r data" % (dataShape,))
+    plot.plot(res[:,0], res[:,3], label="Py/C++")
+    plot.xlabel("block side length")
+    plot.legend()
+    plot.savefig("/tmp/a02.png")
     
-    opCacheSliced.fixAtCurrent.setValue(False)
-
-    #C++ cache
-    opCacheCpp = OpCxxBlockedArrayCache(graph=graph)
-    opCacheCpp.Input.connect(opProvider.Output)
-    opCacheCpp.innerBlockShape.setValue(blockShape)
-    opCacheCpp.outerBlockShape.setValue(blockShape)
-
-    #make sure that all blocks are in the cache
-
-    print "request all from cpp",
-    t = time.time()
-    opCacheCpp.Output[tuple([slice(0, dataShape[i]) for i in range(len(dataShape))])].wait()
-    opCacheCpp.fixAtCurrent.setValue(True)
-    print " took ", time.time()-t
-
-    print "request all from py (array cached)",
-    t = time.time()
-    opCache.Output[tuple([slice(0, dataShape[i]) for i in range(len(dataShape))])].wait()
-    #opCache.fixAtCurrent.setValue(True)
-    print " took ", time.time()-t
-
-    print "request all from py (sliced array cached)",
-    t = time.time()
-    opCacheSliced.Output[tuple([slice(0, dataShape[i]) for i in range(len(dataShape))])].wait()
-    #opCacheSliced.fixAtCurrent.setValue(True)
-    print " took ", time.time()-t
-
-    slicings = []
-    iter = 0
-
-    ts = []
-    ts2 = []
-
-    for slicing in sl:
-        dataCachedSlice = None
-        dataCpp         = None
-        dataPy          = None
-       
-        #print "size: %f^3" % numpy.power(numpy.prod([s.stop-s.start for s in slicing]), 1/3.0), "slicing =", slicing
-        
-        t0 = time.time()
-        dataCacheSliced = opCacheSliced.Output( slicing ).wait() 
-        tPySliced = time.time()-t0
-        if tPySliced*1000.0 > 10:
-            print "&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-        #print "py1: %f msec." % (tPySliced*1000.0,)
-
-        t1 = time.time()
-        dataPy = opCache.Output( slicing ).wait() 
-        tPy = time.time()-t1
-        #print "py2: %f msec." % (tPy*1000.0,)
-
-        t2 = time.time()
-        dataCpp = opCacheCpp.Output( slicing ).wait() 
-        tCpp = time.time()-t2
-        #print "cpp  %f msec." % (tCpp*1000.0,)
-        
-        ts.append( tCpp/float(tPy) ) 
-        ts2.append( tCpp/float(tPySliced) ) 
-
-        assert numpy.all(dataPy == dataCpp)
-        if dataPy is not None and dataCachedSlice is not None:
-            assert numpy.all(dataPy == dataCacheSliced)
-
-        iter += 1
-
-    print "average ratio: cpp/py:         ", numpy.average(ts)
-    print "average ratio: cpp/py(sliced): ", numpy.average(ts2)
+    plot.clf()
+    plot.title("setup time\ncache for %r data" % (dataShape,))
+    plot.plot(res[:,0], res[:,4], label="Py")
+    plot.plot(res[:,0], res[:,5], label="C++")
+    plot.xlabel("block side length")
+    plot.legend()
+    plot.savefig("/tmp/a03.png")
 
