@@ -11,6 +11,7 @@ find_package(Boost COMPONENTS python REQUIRED)
 find_package(VIGRA REQUIRED)
 find_package(HDF5 REQUIRED)
 find_package(Valgrind)
+find_package(Snappy)
 
 include(CheckCXXSourceCompiles)
 
@@ -26,20 +27,33 @@ if(BUILD_COMMON_DTYPES_LIBRARY)
     endif()
 endif()
 
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/thirdparty ${VIGRA_INCLUDE_DIR})
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/snappy)
-include_directories(
-    ${PROJECT_SOURCE_DIR}/include
-    ${Boost_INCLUDE_DIR}
-)
+if(NOT SNAPPY_FOUND)
+    message(STATUS "using internal copy of snappy")
+    include_directories(${CMAKE_CURRENT_BINARY_DIR}/thirdparty ${VIGRA_INCLUDE_DIR})
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/snappy)
+    include_directories(
+        ${PROJECT_SOURCE_DIR}/include
+        ${Boost_INCLUDE_DIR}
+    )
+else()
+    message(STATUS "using snappy ${SNAPPY_LIBRARY}")
+endif()
 
+include_directories(
+    ${VIGRA_INCLUDE_DIR}
+    ${Boost_INCLUDE_DIRS}
+    ${HDF5_INCLUDE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
 if(WIN32)
     find_package(NUMPY REQUIRED)
     include_directories(${NUMPY_INCLUDE_DIR})
 endif()
 
 add_subdirectory(src)
-add_subdirectory(thirdparty)
+if(NOT SNAPPY_FOUND)
+    add_subdirectory(thirdparty)
+endif()
 add_subdirectory(test)
 if(VALGRIND_FOUND)
     add_subdirectory(bench)
