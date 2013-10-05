@@ -111,7 +111,7 @@ if __name__ == "__main__":
     print "* pre-setup:"
     print "  generate random data"
     
-    dataShape =  (1,300,300,300,1)
+    dataShape =  (1,400,400,400,1)
     if True:
         data = (255*numpy.random.random(dataShape)).astype(numpy.uint8)
         data = data.view(vigra.VigraArray)
@@ -119,7 +119,7 @@ if __name__ == "__main__":
         
         sl2 = generateSlicings(data.shape, 100, twoD=True) 
     
-        l = numpy.linspace(30, 300, 20)
+        l = numpy.linspace(30, 400, 50)
         
         res = numpy.zeros((len(l), 6))
         
@@ -140,11 +140,14 @@ if __name__ == "__main__":
             res[i,5] = b.tSetupCpp
             print "py: %f  c++ %f" % (numpy.average(tPy), numpy.average(tCpp))
         
-        numpy.savetxt("/tmp/txt.txt", res)
+        numpy.savetxt("ba_bench.csv", res)
    
-    res = numpy.loadtxt("/tmp/txt.txt")
+    res = numpy.loadtxt("ba_bench.csv")
     if res.ndim == 1:
         res = res.reshape((1, len(res)))
+    
+    ### plot the benchmark results
+    
     from matplotlib import pyplot as plot
     
     plot.clf()
@@ -154,14 +157,14 @@ if __name__ == "__main__":
     plot.xlabel("block side length")
     plot.ylabel("seconds")
     plot.legend()
-    plot.savefig("/tmp/a01.png")
+    plot.savefig("01_read.png")
     
     plot.clf()
     plot.title("read requests\ncache for %r data" % (dataShape,))
     plot.plot(res[:,0], res[:,3], label="Py/C++")
     plot.xlabel("block side length")
     plot.legend()
-    plot.savefig("/tmp/a02.png")
+    plot.savefig("02_read.png")
     
     plot.clf()
     plot.title("setup time\ncache for %r data" % (dataShape,))
@@ -169,5 +172,5 @@ if __name__ == "__main__":
     plot.plot(res[:,0], res[:,5], label="C++")
     plot.xlabel("block side length")
     plot.legend()
-    plot.savefig("/tmp/a03.png")
+    plot.savefig("03_setup.png")
 
