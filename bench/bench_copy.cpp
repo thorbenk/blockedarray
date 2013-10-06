@@ -249,21 +249,11 @@ int main() {
     std::cout << std::endl;
         
     MultiArray<N,T> dataCpp(sh);
+    for(int i=0; i<dataCpp.size(); ++i) {
+        *(&dataCpp[0]+i) = i;
+    }
     typedef MultiArray<N,T>::view_type view_type;
     
-    /*
-    std::cout << "data has strides: " << a.stride() << std::endl;
-    std::cout << "out has strides:  " << out.stride() << std::endl;
-    MultiArrayView<N, T> outViewP = out.view();
-    outViewP = outViewP.permuteStridesAscending();
-    std::cout << "outViewP has strides:  " << outViewP.stride() << ", " << outViewP.strideOrdering() << std::endl;
-    outViewP = outViewP.permuteStridesDescending();
-    std::cout << "outViewP has strides:  " << outViewP.stride() << ", " << outViewP.strideOrdering() << std::endl;
-    TIC;
-    outViewP = mydata.subarray(ShapeN(),sh);
-    std::cout << "strides differ " << TOCS << std::endl;
-    */
-
     using namespace boost::python;
     Py_Initialize();
     _import_array();
@@ -274,7 +264,10 @@ int main() {
     pyCode << "import numpy; ";
     pyCode << "a = numpy.zeros((";
     for(int i=0; i<N; ++i) { pyCode << dataCpp.shape(i); if(i<N-1) { pyCode << ","; } }
-    pyCode << "), dtype=numpy.uint8);";
+    pyCode << "), dtype=numpy.uint8); ";
+    pyCode << "a[:] = numpy.arange(0,"<< size << ").reshape(";
+    for(int i=0; i<N; ++i) { pyCode << dataCpp.shape(i); if(i<N-1) { pyCode << ","; } }
+    pyCode << ");";
     std::cout << "running python code \"" << pyCode.str() << "\"" << std::endl;
     
     handle<> ignored((PyRun_String(pyCode.str().c_str(), 
@@ -290,6 +283,17 @@ int main() {
     std::cout << "            strides = ";
     std::copy(PyArray_STRIDES(pyA), PyArray_STRIDES(pyA)+PyArray_NDIM(pyA), std::ostream_iterator<int>(std::cout, " "));
     std::cout << std::endl;
+    
+    T* pyData = reinterpret_cast<T*>(PyArray_DATA(pyA));
+   
+    std::cout << "C++ data: ";
+    std::cout << (int)dataCpp(0,0,0,0,0) << ", ";
+    std::cout << (int)dataCpp(0,1,0,0,0) << ", ";
+    std::cout << (int)dataCpp(0,2,0,0,0) <<  " | strides = " << dataCpp.stride() << std::endl;
+    
+    std::cout << "py  data: " << (int)*(pyData) << ", " << (int)*(pyData+1) << ", " << (int)*(pyData+2) << " | strides = (";
+    std::copy(PyArray_STRIDES(pyA), PyArray_STRIDES(pyA)+PyArray_NDIM(pyA), std::ostream_iterator<int>(std::cout, ", "));
+    std::cout << ")" << std::endl;
     
     vigra::NumpyArray<N,T> numpyA((PyObject*)pyA);
     std::cout << "vigra::NumpyArray strides = " << numpyA.stride() << std::endl;
