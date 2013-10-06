@@ -58,6 +58,7 @@ void bench_allocator_fill(size_t size, size_t testIter) {
             alloc.deallocate(ptr, size);
             throw;
         }
+        alloc.deallocate(ptr, size);
     }
     std::cout << "  alloc fill:  " << t/testIter << " msec." << std::endl;
 }
@@ -122,6 +123,22 @@ void bench_stdcopy(size_t size, size_t testIter) {
         delete[] d2;
     }
     std::cout << "  std::copy                 " << t/testIter << " msec. " << std::endl;
+}
+
+template<typename T>
+void bench_memcpy(size_t size, size_t testIter) {
+    USETICTOC;
+    double t = 0.0;
+    for(int tI=0; tI<testIter; ++tI) {
+        T* d  = new T[size];
+        T* d2 = new T[size];
+        TIC;
+        memcpy(d2, d, size*sizeof(T));
+        t += TOCN;
+        delete[] d;
+        delete[] d2;
+    }
+    std::cout << "  memcpy                    " << t/testIter << " msec. " << std::endl;
 }
 
 template<int N, class T>
@@ -221,6 +238,7 @@ int main() {
     
     std::cout << "* full copy" << std::endl;
     bench_stdcopy<T>(size, testIter);
+    bench_memcpy<T>(size, testIter);
     bench_MultiArray_copy_assignment<N,T>(sh, testIter);
     bench_MultiArray_copy_view<N,T>(sh, testIter);
     std::cout << std::endl;
@@ -228,6 +246,7 @@ int main() {
     std::cout << "* write ascending numbers" << std::endl;
     bench_writeasc<T>(size, testIter);
     bench_MultiArray_writeasc<N,T>(sh, testIter);
+    std::cout << std::endl;
         
     MultiArray<N,T> dataCpp(sh);
     typedef MultiArray<N,T>::view_type view_type;
