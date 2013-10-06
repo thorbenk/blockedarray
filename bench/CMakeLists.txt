@@ -31,4 +31,12 @@ if(BUILD_COMMON_DTYPES_LIBRARY)
 endif()
 target_link_libraries(bench_compressedarray ${HDF5_LIBRARY})
 
+include_directories(
+    ${PYTHON_INCLUDE_DIR}
+    ${PYTHON_NUMPY_INCLUDE_DIR}
+)
 add_executable(bench_copy bench_copy.cpp)
+target_link_libraries(bench_copy
+    ${PYTHON_LIBRARY}
+    ${Boost_PYTHON_LIBRARY}
+)
