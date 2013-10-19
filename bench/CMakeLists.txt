@@ -34,7 +34,9 @@ target_link_libraries(bench_compressedarray ${HDF5_LIBRARY})
 include_directories(
     ${PYTHON_INCLUDE_DIR}
     ${PYTHON_NUMPY_INCLUDE_DIR}
+    ${PROJECT_SOURCE_DIR}/test
 )
+
 add_executable(bench_copy bench_copy.cpp)
 target_link_libraries(bench_copy
     ${PYTHON_LIBRARY}

@@ -1,36 +1,35 @@
 #include <Python.h>
+
+#include <map>
+#include <vector>
+#include <algorithm>
+#include <numeric>
+
 #include <vigra/timing.hxx>
 #include <vigra/multi_array.hxx>
 #include <vigra/numpy_array.hxx>
-#include <boost/python.hpp>
 
-void thrashCache() {
-    char* d  = new char[1024*1024*50];
-    char* d2 = new char[1024*1024*50];
-    std::copy(d, d+1024*1024*50, d2);
-    char* d3 = new char[1024*1024*50];
-    std::copy(d2, d2+1024*1024*50, d3);
-    
-    delete[] d;
-    delete[] d2;
-    delete[] d3;
-}
+#include <boost/python.hpp>
+#include <boost/function.hpp>
+#include <boost/bind.hpp>
+#include <boost/concept_check.hpp>
+#include <boost/foreach.hpp>
+#include <boost/format.hpp>
+
+#include "test_utils.h"
 
 template<typename T>
-void bench_new(size_t size, size_t testIter) {
+double bench_new(size_t size) {
     USETICTOC;
     double t = 0.0;
-    for(int tI=0; tI<testIter; ++tI) {
-        TIC;
-        T* d = new T[size];
-        t += TOCN;
-        delete[] d;
-    }
-    std::cout << "  new:      " << t/testIter << " msec." << std::endl;
+    TIC;
+    T* d = new T[size];
+    delete[] d;
+    return TOCN;
 }
 
 template<typename T>
-void bench_allocator_fill(size_t size, size_t testIter) {
+double bench_allocator_fill(size_t size) {
     //TODO:
     //
     //read http://stackoverflow.com/questions/6047840/does-an-allocator-construct-loop-equal-stduninitialized-copy
@@ -38,176 +37,297 @@ void bench_allocator_fill(size_t size, size_t testIter) {
     
     USETICTOC;
     std::allocator<T> alloc; 
+    
+    T* ptr = alloc.allocate(size);
+    const T zero = 0;
+    const T& zeroRef = zero;
+    const vigra::MultiArrayIndex s = size;
     double t = 0.0;
-    for(int tI=0; tI<testIter; ++tI) {
-        T* ptr = alloc.allocate(size);
-        const T zero = 0;
-        const T& zeroRef = zero;
-        const vigra::MultiArrayIndex s = size;
-        try {
-            TIC; 
-            for (vigra::MultiArrayIndex i = 0; i < s; ++i) {
-                alloc.construct (ptr + i, zeroRef /*init*/);
-            }
-            t += TOCN;
+    try {
+        TIC; 
+        for (vigra::MultiArrayIndex i = 0; i < s; ++i) {
+            alloc.construct (ptr + i, zeroRef /*init*/);
         }
-        catch (...) {
-            for(size_t j = 0; j < size; ++j) {
-                alloc.destroy (ptr + j);
-            }
-            alloc.deallocate(ptr, size);
-            throw;
+        t = TOCN;
+    }
+    catch (...) {
+        for(size_t j = 0; j < size; ++j) {
+            alloc.destroy (ptr + j);
         }
         alloc.deallocate(ptr, size);
+        throw;
     }
-    std::cout << "  alloc fill:  " << t/testIter << " msec." << std::endl;
+    alloc.deallocate(ptr, size);
+    return t;
 }
 
 template<typename T>
-void bench_writeasc(size_t size, size_t testIter) {
+double bench_writeasc(size_t size) {
     USETICTOC;
     double t = 0.0;
-    for(int tI=0; tI<testIter; ++tI) {
-        T* d = new T[size];
-        TIC;
-        for(size_t j=0; j<size; ++j) {
-            d[j] = j;
+    T* d = new T[size];
+    FillRandom<T, T*>::fillRandom(d, d+size);
+    TIC;
+    for(size_t j=0; j<size; ++j) {
+        d[j] = j;
+    }
+    t = TOCN;
+    delete[] d;
+    return t;
+}
+
+template<typename T>
+double bench_fill(size_t size) {
+    USETICTOC;
+    double t = 0.0;
+    T* d = new T[size];
+    FillRandom<T, T*>::fillRandom(d, d+size);
+    
+    TIC;
+    std::fill(d, d+size, 0);
+    t = TOCN;
+    
+    delete[] d;
+    return t; 
+}
+
+template<typename T>
+double bench_memset(size_t size) {
+    USETICTOC;
+    T* d = new T[size];
+    FillRandom<T, T*>::fillRandom(d, d+size);
+    
+    double t = 0.0;
+    TIC;
+    memset(d, 0, size*sizeof(T));
+    t = TOCN;
+    
+    delete[] d;
+    return t;
+}
+
+template<typename T>
+double bench_stdcopy(size_t size) {
+    USETICTOC;
+    double t = 0.0;
+    T* d1  = new T[size];
+    T* d2 = new T[size];
+    FillRandom<T, T*>::fillRandom(d1, d1+size);
+    FillRandom<T, T*>::fillRandom(d2, d2+size);
+    
+    TIC;
+    std::copy(d1, d1+size, d2);
+    t = TOCN;
+    
+    delete[] d1;
+    delete[] d2;
+    return t;
+}
+
+template<typename T>
+double bench_memcpy(size_t size) {
+    USETICTOC;
+    double t = 0.0;
+    T* d1 = new T[size];
+    T* d2 = new T[size];
+    FillRandom<T, T*>::fillRandom(d1, d1+size);
+    FillRandom<T, T*>::fillRandom(d2, d2+size);
+    
+    TIC;
+    memcpy(d2, d1, size*sizeof(T));
+    t = TOCN;
+    
+    delete[] d1;
+    delete[] d2;
+    return t;
+}
+
+template<int N, class T>
+double bench_MultiArray_new(
+    typename vigra::MultiArrayShape<N>::type shape
+) {
+    USETICTOC;
+    double t;
+    TIC;
+    vigra::MultiArray<N,T> a(shape);
+    t = TOCN;
+    
+    FillRandom<T, T*>::fillRandom(&a[0], &a[0]+a.size());
+    return t;
+}
+
+template<int N, class T>
+double bench_MultiArray_writeasc(
+    typename vigra::MultiArrayShape<N>::type shape
+) {
+    USETICTOC;
+    vigra::MultiArray<N,T> a(shape);
+    FillRandom<T, T*>::fillRandom(&a[0], &a[0]+a.size());
+    
+    double t = 0.0;
+    TIC;
+    for(size_t j=0; j<a.size(); ++j) {
+        a(j) = j; //ATTENTION: this is much faster than a[j], but still slow
+    }
+    t = TOCN;
+    
+    return t;
+}
+
+template<int N, class T>
+double bench_MultiArray_copy_assignment(
+    typename vigra::MultiArrayShape<N>::type shape
+) {
+    USETICTOC;
+    vigra::MultiArray<N,T> a(shape);
+    FillRandom<T, T*>::fillRandom(&a[0], &a[0]+a.size());
+    vigra::MultiArray<N,T> b(a.shape());
+    FillRandom<T, T*>::fillRandom(&b[0], &b[0]+b.size());
+    
+    double t = 0.0;
+    TIC;
+    b = a;
+    t = TOCN;
+    
+    return t;
+}
+
+template<int N, class T>
+double bench_MultiArray_copy_view(
+    typename vigra::MultiArrayShape<N>::type shape
+) {
+    USETICTOC;
+    double t;
+    vigra::MultiArray<N,T> a(shape);
+    FillRandom<T, T*>::fillRandom(&a[0], &a[0]+a.size());
+    vigra::MultiArray<N,T> b(shape);
+    FillRandom<T, T*>::fillRandom(&b[0], &b[0]+b.size());
+    vigra::MultiArrayView<N,T> bView = b.view();
+    
+    TIC;
+    b = a.subarray(typename vigra::MultiArrayShape<N>::type(),shape);
+    return TOCN;
+}
+
+class Benchmark {
+    public:
+    Benchmark() {}
+    Benchmark(std::string group, std::string name, boost::function<double()> bmark)
+        : group_(group)
+        , name_(name)
+        , bmark_(bmark)
+        {}
+    std::string name() const { return name_; }
+    void run() { timings_.push_back(bmark_()); }
+    
+    double avg() { return std::accumulate(timings_.begin(), timings_.end(), 0.0)/double(timings_.size()); }
+    double std() {
+        double mean = avg();
+        std::vector<double> zeroMean(timings_);
+        std::transform(zeroMean.begin(), zeroMean.end(), zeroMean.begin(), std::bind2nd(std::minus<float>(), mean));
+        double deviation = std::inner_product(zeroMean.begin(),zeroMean.end(), zeroMean.begin(), 0.0);
+        return std::sqrt(deviation/double(timings_.size()-1));
+    }
+    
+    private:
+    std::string group_;
+    std::string name_;
+    boost::function<double()> bmark_; 
+    std::vector<double> timings_;
+};
+
+class Benchmarks {
+    public:
+    typedef std::map<std::string, std::vector<int> > Groups;
+    
+    Benchmarks() : size_(0), repetitions_(10) {}
+    
+    void setRepetitions(int r) { repetitions_ = r; }
+        
+    void add(std::string group, std::string name, boost::function<double()> bmark) {
+        bmarks_.push_back(Benchmark(group, name, bmark));
+        groups_[group].push_back(size_);
+        ++size_;
+    }
+    
+    void run() {
+        std::vector<int> x(size_);
+        for(int i=0; i<x.size(); ++i) { x[i] = i; }
+        
+        for(int n=0; n<repetitions_; ++n) {
+            std::random_shuffle(x.begin(), x.end());
+            int m=0;
+            for(std::vector<int>::iterator i=x.begin(); i!=x.end(); ++i, ++m) {
+                std::cout << "repetition " << n << "/" << repetitions_
+                          << " : benchmark " << m << "/" << size_ << " "
+                          << "    \r" << std::flush;
+                Benchmark& bm = bmarks_[*i];
+                bm.run();
+            }
         }
-        t += TOCN;
-        delete[] d;
-    }
-    std::cout << "  write asc:           " << t/testIter << " msec." << std::endl;
-}
-
-template<typename T>
-void bench_fill(size_t size, size_t testIter) {
-    USETICTOC;
-    double t = 0.0;
-    for(int tI=0; tI<testIter; ++tI) {
-        T* d = new T[size];
-        for(int i=0; i<size; ++i) { d[i] = i; }
-        TIC;
-        std::fill(d, d+size, 0);
-        t += TOCN;
-        delete[] d;
-    }
-    std::cout << "  fill:        " << t/testIter << " msec." << std::endl;
-}
-
-template<typename T>
-void bench_memset(size_t size, size_t testIter) {
-    USETICTOC;
-    double t = 0.0;
-    for(int tI=0; tI<testIter; ++tI) {
-        T* d = new T[size];
-        for(int i=0; i<size; ++i) { d[i] = i; }
-        TIC;
-        memset(d, 0, size*sizeof(T));
-        t += TOCN;
-        delete[] d;
-    }
-    std::cout << "  memset:      " << t/testIter << " msec." << std::endl;
-}
-
-template<typename T>
-void bench_stdcopy(size_t size, size_t testIter) {
-    USETICTOC;
-    double t = 0.0;
-    for(int tI=0; tI<testIter; ++tI) {
-        T* d  = new T[size];
-        T* d2 = new T[size];
-        TIC;
-        std::copy(d, d+size, d2);
-        t += TOCN;
-        delete[] d;
-        delete[] d2;
-    }
-    std::cout << "  std::copy                 " << t/testIter << " msec. " << std::endl;
-}
-
-template<typename T>
-void bench_memcpy(size_t size, size_t testIter) {
-    USETICTOC;
-    double t = 0.0;
-    for(int tI=0; tI<testIter; ++tI) {
-        T* d  = new T[size];
-        T* d2 = new T[size];
-        TIC;
-        memcpy(d2, d, size*sizeof(T));
-        t += TOCN;
-        delete[] d;
-        delete[] d2;
-    }
-    std::cout << "  memcpy                    " << t/testIter << " msec. " << std::endl;
-}
-
-template<int N, class T>
-void bench_MultiArray_new(
-    typename vigra::MultiArrayShape<N>::type shape,
-    size_t testIter
-) {
-    USETICTOC;
-    double t;
-    for(int tI=0; tI<testIter; ++tI) {
-        TIC;
-        vigra::MultiArray<N,T> a(shape);
-        t += TOCN;
-    }
-    std::cout << "  MultiArray() " << t/testIter << " msec. " << std::endl;
-}
-
-template<int N, class T>
-void bench_MultiArray_writeasc(
-    typename vigra::MultiArrayShape<N>::type shape,
-    size_t testIter
-) {
-    USETICTOC;
-    double t;
-    for(int tI=0; tI<testIter; ++tI) {
-        vigra::MultiArray<N,T> a(shape);
-        TIC;
-        for(size_t j=0; j<a.size(); ++j) {
-            a(j) = j; //ATTENTION: this is much faster than a[j], but still slow
+        std::cout << std::endl << std::endl;
+        
+        size_t w = 0;
+        BOOST_FOREACH(const Benchmark& bm, bmarks_) {
+            w = std::max(w, bm.name().size());
         }
-        t += TOCN;
+        
+        for(Groups::const_iterator i=groups_.begin();
+            i!=groups_.end(); ++i)
+        {
+            std::cout << "* " << i->first << std::endl;
+            std::cout << "  " << std::string(i->first.size(), '-') << std::endl;
+            std::cout << std::endl;
+            
+            for(std::vector<int>::const_iterator j=i->second.begin();
+                j != i->second.end(); ++j)
+            {
+                Benchmark& bm = bmarks_[*j];
+                std::cout << "  " << bm.name()
+                          << std::string(w-bm.name().size(), ' ')
+                          << " : "
+                          << std::setw(6) << std::fixed << std::setprecision(2) << bm.avg()
+                          << " +- "
+                          << std::setw(6) << std::fixed << std::setprecision(2) << bm.std() << std::endl;
+            }
+            std::cout << std::endl << std::endl;
+        }
     }
-    std::cout << "  MultiArray write asc " << t/testIter << " msec. " << std::endl;
-}
+    
+    private:
+    std::vector<Benchmark> bmarks_;
+    std::map<std::string, std::vector<int> > groups_;
+    int size_;
+    int repetitions_;
+};
 
-template<int N, class T>
-void bench_MultiArray_copy_assignment(
-    typename vigra::MultiArrayShape<N>::type shape,
-    size_t testIter
-) {
-    USETICTOC;
-    double t;
-    for(int tI=0; tI<testIter; ++tI) {
-        vigra::MultiArray<N,T> a(shape);
-        //for(int i=0; i<a.size(); ++i) { a[i] = i; }
-        vigra::MultiArray<N,T> b(a.shape());
-        TIC;
-        b = a;
-        t += TOCN;
-    }
-    std::cout << "  MultiArray::operator=     " << t/testIter << " msec. " << std::endl;
-}
-
-template<int N, class T>
-void bench_MultiArray_copy_view(
-    typename vigra::MultiArrayShape<N>::type shape,
-    size_t testIter
-) {
-    USETICTOC;
-    double t;
-    for(int tI=0; tI<testIter; ++tI) {
-        vigra::MultiArray<N,T> a(shape);
-        vigra::MultiArray<N,T> b(shape);
-        vigra::MultiArrayView<N,T> bView = b.view();
-        TIC;
-        b = a.subarray(typename vigra::MultiArrayShape<N>::type(),shape);
-        t += TOCN;
-    }
-    std::cout << "  MultiArrayView::operator= " << t/testIter << " msec." << std::endl;
+template<class T>
+void addBenchmarks(Benchmarks& b, const std::string& t) {
+    const int N = 5;
+    
+    vigra::Shape5 sh(1,300,310,320,1);
+    size_t size = 1; for(int i=0; i<N; ++i) { size *= sh[i]; };
+    std::cout << "*** size " << size*sizeof(T)/(1024*1024) << "MB:" << std::endl;
+    
+    using boost::bind;
+    using boost::format;
+    
+    b.setRepetitions(5);
+    
+    b.add("new", "new", bind(bench_new<T>, size));
+    
+    b.add((format("initialize with 0 <%s>") % t).str(), "std::fill",      bind(bench_fill<T>, size));
+    b.add((format("initialize with 0 <%s>") % t).str(), "allocator fill", bind(bench_allocator_fill<T>, size));
+    b.add((format("initialize with 0 <%s>") % t).str(), "std::memset",    bind(bench_memset<T>, size));
+    b.add((format("initialize with 0 <%s>") % t).str(), "MultiArray()",   bind(bench_MultiArray_new<N,T>, sh));
+          
+    b.add((format("full copy <%s>") % t).str(), "std::copy", bind(bench_stdcopy<T>, size));
+    b.add((format("full copy <%s>") % t).str(), "std::memcpy", bind(bench_memcpy<T>, size));
+    b.add((format("full copy <%s>") % t).str(), "MultiArray::operator=", bind(bench_MultiArray_copy_assignment<N,T>, sh));
+    b.add((format("full copy <%s>") % t).str(), "MultiArrayView::operator=", bind(bench_MultiArray_copy_view<N,T>, sh));
+          
+    b.add((format("write ascending numbers <%s>") % t).str(), "T* ascending", bind(bench_writeasc<T>, size));
+    b.add((format("write ascending numbers <%s>") % t).str(), "MultiArray ascending", bind(bench_MultiArray_writeasc<N, T>, sh));
 }
 
 int main() {
@@ -216,41 +336,28 @@ int main() {
     USETICTOC;
     
     const int N = 5;
-    typedef unsigned char T;
+    typedef unsigned int T;
     
     Shape5 sh(1,300,310,320,1);
+    Shape5 shR(1,320,310,300,1);
     
     size_t size = 1; for(int i=0; i<N; ++i) { size *= sh[i]; };
     std::cout << "*** size " << size*sizeof(T)/(1024*1024) << "MB:" << std::endl;
     
-    const int testIter = 20;
-   
-    std::cout << "* new" << std::endl;
-    bench_new<T>(size, testIter);
-    std::cout << std::endl;
+    using boost::bind;
+    Benchmarks b;
     
-    std::cout << "* initialize with 0" << std::endl;
-    bench_fill<T>(size, testIter);
-    bench_allocator_fill<T>(size, testIter);
-    bench_memset<T>(size, testIter);
-    bench_MultiArray_new<N,T>(sh, testIter);
-    std::cout << std::endl;
+    addBenchmarks<unsigned char>(b, "uint8");
+    addBenchmarks<vigra::UInt32> (b, "uint32");
+    addBenchmarks<float> (b, "float");
+    addBenchmarks<double> (b, "double");
     
-    std::cout << "* full copy" << std::endl;
-    bench_stdcopy<T>(size, testIter);
-    bench_memcpy<T>(size, testIter);
-    bench_MultiArray_copy_assignment<N,T>(sh, testIter);
-    bench_MultiArray_copy_view<N,T>(sh, testIter);
-    std::cout << std::endl;
-    
-    std::cout << "* write ascending numbers" << std::endl;
-    bench_writeasc<T>(size, testIter);
-    bench_MultiArray_writeasc<N,T>(sh, testIter);
-    std::cout << std::endl;
+    b.setRepetitions(5);
+    b.run();
         
     MultiArray<N,T> dataCpp(sh);
     for(int i=0; i<dataCpp.size(); ++i) {
-        *(&dataCpp[0]+i) = i;
+        dataCpp(i) = i;
     }
     typedef MultiArray<N,T>::view_type view_type;
     
@@ -264,7 +371,7 @@ int main() {
     pyCode << "import numpy; ";
     pyCode << "a = numpy.zeros((";
     for(int i=0; i<N; ++i) { pyCode << dataCpp.shape(i); if(i<N-1) { pyCode << ","; } }
-    pyCode << "), dtype=numpy.uint8); ";
+    pyCode << "), dtype=numpy.uint32); ";
     pyCode << "a[:] = numpy.arange(0,"<< size << ").reshape(";
     for(int i=0; i<N; ++i) { pyCode << dataCpp.shape(i); if(i<N-1) { pyCode << ","; } }
     pyCode << ");";
@@ -284,7 +391,13 @@ int main() {
     std::copy(PyArray_STRIDES(pyA), PyArray_STRIDES(pyA)+PyArray_NDIM(pyA), std::ostream_iterator<int>(std::cout, " "));
     std::cout << std::endl;
     
-    T* pyData = reinterpret_cast<T*>(PyArray_DATA(pyA));
+    unsigned int* pyData = reinterpret_cast<T*>(PyArray_DATA(pyA));
+    
+    for(int i=0; i<dataCpp.size(); ++i) {
+        if(*(&dataCpp[0]+i) != *(pyData+i)) {
+            throw std::runtime_error("bad");
+        }
+    }
    
     std::cout << "C++ data: ";
     std::cout << (int)dataCpp(0,0,0,0,0) << ", ";
@@ -309,5 +422,6 @@ int main() {
     std::cout << "copy from c++ into Numpy array (2):" << TOCS << std::endl;
     
     return 0;
+    
 }
     
