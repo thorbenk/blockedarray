@@ -2,6 +2,7 @@ import numpy
 import vigra
 import h5py
 
+from adaptors import TestSource
 from _blockedarray import *
 
 def rw(ba):
@@ -73,6 +74,14 @@ def test1():
     
     ba.setCompressionEnabled(True)
     ba.setCompressionEnabled(False)
+
+
+def test2():
+    CC = dim3.ConnectedComponents
+    s = TestSource()
+    v = numpy.asarray((10, 10, 10), dtype=numpy.long)
+    cc = CC(s, v)
+    #cc = CC(s)
 
 if __name__ == "__main__":
     test1()
