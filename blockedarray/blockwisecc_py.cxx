@@ -107,6 +107,8 @@ void blockwiseCC() {
 
     class_<Source<N, T> >("Source", no_init);
     class_<Sink<N, T> >("Sink", no_init);
+//     class_<Source<N, T> >("Source");
+//     class_<Sink<N, T> >("Sink");
 
     class_<SourceHDF5<N, T>, bases<Source<N, T> > >("SourceHDF5",
         init<std::string, std::string>())
@@ -129,71 +131,14 @@ void blockwiseCC() {
 
     class_<BCC>("ConnectedComponents",
         init<Source<N, vigra::UInt8>*, typename BCC::V>())
-        .def(init<Source<N, vigra::UInt8>*>())
-        .def(init<Source<N, vigra::UInt8>& >())
         .def("writeResult", &BCC::writeResult,
              (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
     ;
 }
 
 
-/* expose Source / Sink to python with inheritance callable from C++ */
-template<int N, class T>
-struct SourceWrap : Source<N,T>, boost::python::wrapper<Source<N,T> > 
-{
-public:
-    
-    SourceWrap() {};
-    SourceWrap(SourceWrap<N,T> *other) {/* TODO */};
-
-    typedef boost::python::override override;
-    void setRoi(Roi<N> roi)
-    {
-        if (override foo = this->get_override("setRoi"))
-            foo(roi);
-        Source<N,T>::setRoi(roi);
-    }
-    
-    void default_setRoi(Roi<N> roi) {this->Source<N,T>::setRoi(roi);}
-
-    typename Source<N,T>::V shape() const 
-    {
-        if (override foo = this->get_override("shape"))
-            return foo();
-        return Source<N,T>::shape();
-    };
-    
-    typename Source<N,T>::V default_shape() const {return this->Source<N,T>::shape();}
-    
-    bool readBlock(Roi<N> roi, vigra::MultiArrayView<N,T>& block) const 
-    {
-        if (override foo = this->get_override("readBlock"))
-            return foo(roi, block);
-        return Source<N,T>::readBlock(roi, block);
-    };
-    
-    bool default_readBlock(Roi<N> roi, vigra::MultiArrayView<N,T>& block) const
-    {
-        return this->Source<N,T>::readBlock(roi, block);
-    }
-};
-
-template<int N, class T>
-void exposeSource(const char* exposedName) {
-    using namespace boost::python;
-
-    //implicitly_convertible<SourceWrap, Source>();
-    
-    class_<SourceWrap<N,T>, boost::noncopyable>(exposedName)
-        .def("setRoi", &Source<N,T>::setRoi, &SourceWrap<N,T>::default_setRoi)
-        .def("shape", &Source<N,T>::shape, &SourceWrap<N,T>::default_shape)
-        .def("readBlock", &Source<N,T>::readBlock, &SourceWrap<N,T>::default_readBlock)
-        ;
-    
-}
 
 void export_blockwiseCC() {
     blockwiseCC<2, float>();
     blockwiseCC<3, float>();
-    exposeSource<3,vigra::UInt8>("Source3U8");
 }

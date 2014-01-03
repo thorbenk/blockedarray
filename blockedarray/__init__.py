@@ -1,2 +1,2 @@
 from _blockedarray import *
-import adaptors
+import adapters

@@ -2,7 +2,7 @@ import numpy
 import vigra
 import h5py
 
-from adaptors import TestSource
+from adapters import TestSource
 from _blockedarray import *
 
 def rw(ba):

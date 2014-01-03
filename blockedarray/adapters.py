@@ -12,26 +12,29 @@ class SourceABC(Source):
      * underlying data source. When readBlock() is used, the coordinates
      * are relative to roi.q
     '''
-    def setRoi(self, roi):
+    def pySetRoi(self, roi):
         raise NotImplementedError
         #pass
 
-    def shape(self):
+    def pyShape(self):
         raise NotImplementedError
         #return (10, 10, 10)
 
-    def readBlock(self, roi, output):
+    def pyReadBlock(self, roi, output):
         raise NotImplementedError
         #return True
 
 
 class TestSource(SourceABC):
-    def setRoi(self, roi):
+    def __init__(self):
+        super(TestSource, self).__init__()
+
+    def pySetRoi(self, roi):
         pass
 
-    def shape(self):
+    def pyShape(self):
         return numpy.asarray((100, 100, 10), dtype=numpy.long)
 
-    def readBlock(self, roi, output):
+    def pyReadBlock(self, roi, output):
         output[...] = 0
         return True

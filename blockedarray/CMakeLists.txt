@@ -24,6 +24,7 @@ add_library(_blockedarray SHARED
     module_py.cxx
     blockedarray_py.cxx
     blockwisecc_py.cxx
+    adapters_py.cxx
     ${EXTRA_SRCS}
 )
 

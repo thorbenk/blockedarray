@@ -34,15 +34,19 @@
 #include <boost/python.hpp>
 
 #include <vigra/numpy_array.hxx>
+#include <vigra/numpy_array_converters.hxx>
 
 #include "blockedarray_py.h"
 #include "blockwisecc_py.h"
+#include "adapters_py.h"
+
 
 BOOST_PYTHON_MODULE_INIT(_blockedarray) {
-    _import_array();
+    //_import_array();
     vigra::import_vigranumpy();
     boost::python::numeric::array::set_module_and_type("numpy", "ndarray");
 
     export_blockedArray();
     export_blockwiseCC();
+    export_adapters();
 }
