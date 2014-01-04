@@ -271,6 +271,11 @@ class ConnectedComponents {
         std::cout << std::endl;
         out.close();
     }
+    
+    void writeToSink(Sink<N,vigra::UInt8>* sink, V blockShape) //TODO blockShape needed?
+    {
+        return;
+    }
 
     private:
     Source<N,vigra::UInt8>* blockProvider_;

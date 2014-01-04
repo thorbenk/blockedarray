@@ -25,9 +25,9 @@ class SourceABC(Source):
         #return True
 
 
-class TestSource(SourceABC):
+class ExampleSource(SourceABC):
     def __init__(self):
-        super(TestSource, self).__init__()
+        super(ExampleSource, self).__init__()
 
     def pySetRoi(self, roi):
         pass
@@ -36,5 +36,7 @@ class TestSource(SourceABC):
         return numpy.asarray((100, 100, 10), dtype=numpy.long)
 
     def pyReadBlock(self, roi, output):
+        print(roi)
+        print(output)
         output[...] = 0
         return True

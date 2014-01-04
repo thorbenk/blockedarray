@@ -2,7 +2,7 @@ import numpy
 import vigra
 import h5py
 
-from adapters import TestSource
+from adapters import ExampleSource
 from _blockedarray import *
 
 def rw(ba):
@@ -76,9 +76,9 @@ def test1():
     ba.setCompressionEnabled(False)
 
 
-def test2():
+def testConnectedComponents():
     CC = dim3.ConnectedComponents
-    s = TestSource()
+    s = ExampleSource()
     v = numpy.asarray((10, 10, 10), dtype=numpy.long)
     cc = CC(s, v)
     #cc = CC(s)
