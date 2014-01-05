@@ -44,13 +44,15 @@ class Sink {
     public:
     typedef typename Roi<N>::V V;
 
-    Sink() {}
+    Sink() {};
     virtual ~Sink() {};
 
+    /* has to be called before any calls to writeBlock */
     void setShape(V shape) {
         shape_ = shape;
     }
 
+    /* has to be called before any calls to writeBlock */
     void setBlockShape(V shape) {
         blockShape_ = shape;
     }

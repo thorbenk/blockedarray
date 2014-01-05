@@ -22,6 +22,14 @@ using namespace BW;
 
 
 /* ROI conversion */
+
+template<int N>
+boost::python::list tinyVecToList(const typename Roi<N>::V &vec)
+{
+    boost::python::object iterator = boost::python::iterator<typename Roi<N>::V>()(vec);
+    return boost::python::list(iterator);
+}
+
 template<int N>
 struct Roi_to_python_tuple
 {
@@ -29,11 +37,9 @@ struct Roi_to_python_tuple
     static PyObject* convert(const Roi<N> &roi)
     {
         // p
-        boost::python::object iteratorP = boost::python::iterator<TinyVec>()(roi.p);
-        boost::python::list p(iteratorP);
+        boost::python::list p = tinyVecToList<N>(roi.p);
         // q
-        boost::python::object iteratorQ = boost::python::iterator<TinyVec>()(roi.q);
-        boost::python::list q(iteratorQ);
+        boost::python::list q = tinyVecToList<N>(roi.q);
         
         boost::python::tuple t = boost::python::make_tuple(p, q);
         return boost::python::incref(t.ptr());
@@ -102,7 +108,7 @@ public:
 };
 
 template<int N, class T>
-class PySinkABC : Sink<N,T> {
+struct PySinkABC : Sink<N,T>, boost::python::wrapper<Sink<N,T> > {
     public:
     typedef typename Roi<N>::V V;
 
@@ -111,17 +117,35 @@ class PySinkABC : Sink<N,T> {
 
     bool writeBlock(Roi<N> roi, const vigra::MultiArrayView<N,T>& block)
     {
-        bool ret;
-        
         vigra::NumpyArray<N,T> tempArray(block);
-        
+        return this->pyWriteBlock(roi, tempArray);
     }
     
     bool pyWriteBlock(Roi<N> roi, const vigra::NumpyArray<N,T>& block)
     {
-        return this->get_override("pyReadBlock")(roi, block);
+        return this->get_override("pyWriteBlock")(roi, block);
     };
+    
+    /* Accessor functions for the shapes */
+    boost::python::list getShape() const
+    {
+        return tinyVecToList<N>(this->shape_);
+    }
+    
+    void setShape(V shape)
+    {
+        this->shape_ = shape;
+    }
 
+    boost::python::list getBlockShape() const
+    {
+        return tinyVecToList<N>(this->blockShape_);
+    }
+    
+    void setBlockShape(V shape)
+    {
+        this->blockShape_ = shape;
+    }
 };
 
 
@@ -135,10 +159,21 @@ void exposeSource(const char* exposedName) {
         .def("pyShape", pure_virtual(&PySourceABC<N,T>::pyShape))
         .def("pyReadBlock", pure_virtual(&PySourceABC<N,T>::pyReadBlock))
         ;
+}
+
+template<int N, class T>
+void exposeSink(const char* exposedName) {
+    using namespace boost::python;
     
+    class_<PySinkABC<N,T>, boost::noncopyable>(exposedName)
+        .def("pyWriteBlock", pure_virtual(&PySinkABC<N,T>::pyWriteBlock))
+        .add_property("shape", &PySinkABC<N,T>::getShape, &PySinkABC<N,T>::setShape)
+        .add_property("blockShape", &PySinkABC<N,T>::getBlockShape, &PySinkABC<N,T>::setBlockShape)
+        ;
 }
 
 void export_adapters() {
     exposeSource<3,vigra::UInt8>("Source3U8");
+    exposeSink<3,vigra::UInt8>("Sink3U8");
     registerConverters();
 }
