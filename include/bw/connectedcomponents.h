@@ -255,6 +255,7 @@ class ConnectedComponents {
         vigra_precondition(compression >= 1 && compression <= 9, "compression must be >= 1 and <= 9");
 
         std::cout << "* write " << hdf5file << "/" << hdf5group << std::endl;
+        
         HDF5File out(hdf5file, HDF5File::Open);
         out.createDataset<N, LabelType>(hdf5group, blockProvider_->shape(), 0, blockShape_, compression);
         for(size_t i=0; i<blockRois_.size(); ++i) {
@@ -272,9 +273,23 @@ class ConnectedComponents {
         out.close();
     }
     
-    void writeToSink(Sink<N,vigra::UInt8>* sink, V blockShape) //TODO blockShape needed?
+    void writeToSink(Sink<N,LabelType>* sink)
     {
-        return;
+        std::cout << "* writing to sink" << std::endl;
+        
+        sink->setShape(blockProvider_->shape());
+        sink->setBlockShape(blockShape_);
+        
+        for(size_t i=0; i<blockRois_.size(); ++i) {
+            std::cout << "  block " << i+1 << "/" << blockRois_.size() << "        \r" << std::flush;
+            const Roi<N>& roi = blockRois_[i].second;
+
+            vigra::MultiArray<N,LabelType> cc(roi.q-roi.p);
+            ccBlocks_[i].readArray(cc);
+            
+            sink->writeBlock(roi, cc);
+        }
+        std::cout << std::endl;
     }
 
     private:

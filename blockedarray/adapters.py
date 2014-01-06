@@ -1,7 +1,7 @@
 
 import numpy as np
 from _blockedarray import Source3U8 as Source
-from _blockedarray import Sink3U8 as Sink
+from _blockedarray import Sink3 as Sink
 
 
 class SourceABC(Source):

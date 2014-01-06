@@ -134,7 +134,7 @@ void blockwiseCC() {
         .def("writeResult", &BCC::writeResult,
              (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
         .def("writeToSink", &BCC::writeToSink,
-             (arg("sink"), arg("blockShape")))
+             (arg("sink")))
     ;
 }
 

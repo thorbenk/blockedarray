@@ -53,6 +53,9 @@ void registerConverters()
     boost::python::to_python_converter<Roi<3>, Roi_to_python_tuple<3> >();
     boost::python::to_python_converter<Roi<4>, Roi_to_python_tuple<4> >();
     boost::python::to_python_converter<Roi<5>, Roi_to_python_tuple<5> >();
+    
+    // I really don't know why this is not called in vigra
+    vigra::NumpyArrayConverter<vigra::NumpyArray<3, ConnectedComponents<3>::LabelType> >();
 }
 
 
@@ -174,6 +177,6 @@ void exposeSink(const char* exposedName) {
 
 void export_adapters() {
     exposeSource<3,vigra::UInt8>("Source3U8");
-    exposeSink<3,vigra::UInt8>("Sink3U8");
+    exposeSink<3,ConnectedComponents<3>::LabelType>("Sink3");
     registerConverters();
 }
