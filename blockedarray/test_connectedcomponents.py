@@ -47,6 +47,8 @@ class TestConnectedComponents(unittest.TestCase):
 
             cc.writeResult(h5f[0], h5f[1])
             labels = vigra.readHDF5(h5f[0], h5f[1])
+        except Exception:
+            raise
         finally:
             pass
             os.remove(h5f[0])

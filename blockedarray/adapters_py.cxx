@@ -56,6 +56,7 @@ void registerConverters()
     
     // I really don't know why this is not called in vigra
     vigra::NumpyArrayConverter<vigra::NumpyArray<3, ConnectedComponents<3>::LabelType> >();
+    vigra::NumpyArrayConverter<vigra::NumpyArray<1, npy_int32> >();
 }
 
 

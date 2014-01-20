@@ -43,7 +43,7 @@ class DummySource(SourceABC):
         pass
 
     def pyShape(self):
-        return np.asarray((100, 100, 10), dtype=np.long)
+        return (100, 100, 10)
 
     def pyReadBlock(self, roi, output):
         output[...] = 0

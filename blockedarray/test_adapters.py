@@ -7,7 +7,7 @@ from adapters import ExampleSource, ExampleSink
 class TestSource(unittest.TestCase):
 
     def setUp(self):
-        self.vol = np.random.randint(0, 2**32, (100, 100, 10)).astype(np.uint32)
+        self.vol = np.random.randint(0, 2**16-1, (100, 100, 10)).astype(np.uint32)
 
     def testExampleSource(self):
         vol = self.vol
