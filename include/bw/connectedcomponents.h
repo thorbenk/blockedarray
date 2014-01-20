@@ -139,13 +139,13 @@ class ConnectedComponents {
         vector<LabelType> offsets(blockRois_.size()+1);
         ccBlocks_.resize(blockRois_.size());
 
-        std::cout << "* run connected components on each of " << blockRois_.size() << " blocks separately" << std::endl;
+//         std::cout << "* run connected components on each of " << blockRois_.size() << " blocks separately" << std::endl;
 
         size_t sizeBytes = 0;
         size_t sizeBytesUncompressed = 0;
 
         for(size_t i=0; i<blockRois_.size(); ++i) {
-            std::cout << "  block " << i+1 << "/" << blockRois_.size() << " (#components: " << offsets[i] << ", curr compressed size: " << sizeBytes/(1024.0*1024.0) << " MB)                  \r" << std::flush;
+//             std::cout << "  block " << i+1 << "/" << blockRois_.size() << " (#components: " << offsets[i] << ", curr compressed size: " << sizeBytes/(1024.0*1024.0) << " MB)                  \r" << std::flush;
             Roi<N>& block = blockRois_[i].second;
             //std::cout << "  - CC on block " << block << std::endl;
 
@@ -175,18 +175,18 @@ class ConnectedComponents {
 
             offsets[i+1] = offsets[i] + maxLabel + 1;
         }
-        std::cout << std::endl;
-        std::cout << "  " << sizeBytes/(1024.0*1024.0) << " MB (vs. " << sizeBytesUncompressed/(1024.0*1024.0) << "MB uncompressed)" << std::endl;
+//         std::cout << std::endl;
+//         std::cout << "  " << sizeBytes/(1024.0*1024.0) << " MB (vs. " << sizeBytesUncompressed/(1024.0*1024.0) << "MB uncompressed)" << std::endl;
 
         LabelType maxOffset = offsets[offsets.size()-1];
 
-        std::cout << "  initialize union find datastructure with maxOffset = " << maxOffset << std::endl;
+//         std::cout << "  initialize union find datastructure with maxOffset = " << maxOffset << std::endl;
         UnionFindArray<LabelType> ufd(maxOffset);
 
         //
         // merge adjacent blocks
         //
-        std::cout << "* merge adjacent blocks" << std::endl;
+//         std::cout << "* merge adjacent blocks" << std::endl;
 
         //FIXME: use adjacency relation of blocks
         std::vector< std::pair<size_t, size_t> > adjBlocks;
@@ -202,7 +202,7 @@ class ConnectedComponents {
         }
 
         for(vector<pair<size_t, size_t> >::iterator it=adjBlocks.begin(); it!=adjBlocks.end(); ++it) {
-            std::cout << "  pair " << std::distance(adjBlocks.begin(), it)+1 << "/" << adjBlocks.size() << "        \r" << std::flush;
+//             std::cout << "  pair " << std::distance(adjBlocks.begin(), it)+1 << "/" << adjBlocks.size() << "        \r" << std::flush;
             size_t i = it->first;
             size_t j = it->second;
 
@@ -220,15 +220,15 @@ class ConnectedComponents {
                 block1, offsets[i], cc1,
                 block2, offsets[j], cc2);
         }
-        std::cout << std::endl;
+//         std::cout << std::endl;
 
         LabelType maxLabel = ufd.makeContiguous();
 
-        std::cout << "* relabel" << std::endl;
+//         std::cout << "* relabel" << std::endl;
         sizeBytes = 0;
         sizeBytesUncompressed = 0;
         for(size_t i=0; i<blockRois_.size(); ++i) {
-            std::cout << "  block " << i+1 << "/" << blockRois_.size() << "        \r" << std::flush;
+//             std::cout << "  block " << i+1 << "/" << blockRois_.size() << "        \r" << std::flush;
             Roi<N>& roi = blockRois_[i].second;
 
             //MultiArray<N,LabelType> cc = ccBlocks_[i];
@@ -244,8 +244,8 @@ class ConnectedComponents {
             sizeBytes += ccBlocks_[i].currentSizeBytes();
             sizeBytesUncompressed += ccBlocks_[i].uncompressedSizeBytes();
         }
-        std::cout << std::endl;
-        std::cout << "  " << sizeBytes/(1024.0*1024.0) << " MB (vs. " << sizeBytesUncompressed/(1024.0*1024.0) << "MB uncompressed)" << std::endl;
+//         std::cout << std::endl;
+//         std::cout << "  " << sizeBytes/(1024.0*1024.0) << " MB (vs. " << sizeBytesUncompressed/(1024.0*1024.0) << "MB uncompressed)" << std::endl;
 
     }
 
@@ -254,12 +254,12 @@ class ConnectedComponents {
 
         vigra_precondition(compression >= 1 && compression <= 9, "compression must be >= 1 and <= 9");
 
-        std::cout << "* write " << hdf5file << "/" << hdf5group << std::endl;
+//         std::cout << "* write " << hdf5file << "/" << hdf5group << std::endl;
         
         HDF5File out(hdf5file, HDF5File::Open);
         out.createDataset<N, LabelType>(hdf5group, blockProvider_->shape(), 0, blockShape_, compression);
         for(size_t i=0; i<blockRois_.size(); ++i) {
-            std::cout << "  block " << i+1 << "/" << blockRois_.size() << "        \r" << std::flush;
+//             std::cout << "  block " << i+1 << "/" << blockRois_.size() << "        \r" << std::flush;
             const Roi<N>& roi = blockRois_[i].second;
 
             //cc = ccBlocks_[i];
@@ -269,19 +269,19 @@ class ConnectedComponents {
             out.writeBlock(hdf5group, roi.p, cc);
 
         }
-        std::cout << std::endl;
+//         std::cout << std::endl;
         out.close();
     }
     
     void writeToSink(Sink<N,LabelType>* sink)
     {
-        std::cout << "* writing to sink" << std::endl;
+//         std::cout << "* writing to sink" << std::endl;
         
         sink->setShape(blockProvider_->shape());
         sink->setBlockShape(blockShape_);
         
         for(size_t i=0; i<blockRois_.size(); ++i) {
-            std::cout << "  block " << i+1 << "/" << blockRois_.size() << "        \r" << std::flush;
+//             std::cout << "  block " << i+1 << "/" << blockRois_.size() << "        \r" << std::flush;
             const Roi<N>& roi = blockRois_[i].second;
 
             vigra::MultiArray<N,LabelType> cc(roi.q-roi.p);
@@ -289,7 +289,7 @@ class ConnectedComponents {
             
             sink->writeBlock(roi, cc);
         }
-        std::cout << std::endl;
+//         std::cout << std::endl;
     }
 
     private:
