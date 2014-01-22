@@ -1,35 +1,64 @@
 
 import numpy as np
-from _blockedarray import Source3U8 as Source
-from _blockedarray import Sink3 as Sink
+from _blockedarray import Source3U8 as _Source
+from _blockedarray import Sink3 as _Sink
 
+## Source Interface
+#
+# This class provides the python interface to the C++ class `BW::Source`. If
+# you inherit from this class, be sure to implement *all* abstract methods.
+class SourceABC(_Source):
 
-class SourceABC(Source):
+    ## Constructor
+    #
+    # Be sure to call super().__init__ if you override the constructor!
     def __init__(self):
         super(SourceABC, self).__init__()
 
-    '''
-     * selects only the region of interest given from the
-     * underlying data source. When readBlock() is used, the coordinates
-     * are relative to roi[0]
-    '''
+    ## Set a custom ROI
+    # selects only the region of interest given from the
+    # underlying data source. When readBlock() is used, the coordinates
+    # are relative to roi[0]
+    #
+    # @param roi a tuple containing 2 lists of length 3 (incl. start, excl. stop)
     def pySetRoi(self, roi):
         raise NotImplementedError
         #pass
 
+    ## Volume shape getter
+    #
+    # @return must be a tuple of (python) integers
     def pyShape(self):
         raise NotImplementedError
         #return (10, 10, 10)
 
+    ## Block getter
+    #
+    # read a block of data into a 3d numpy array 
+    #
+    # @param roi a tuple containing 2 lists of length 3 (incl. start, excl. stop)
+    # @param output a 3d numpy.ndarray with shape roi[1]-roi[0] and dtype uint8
     def pyReadBlock(self, roi, output):
         raise NotImplementedError
         #return True
 
 
-class SinkABC(Sink):
+## Sink Interface
+#
+# This class provides the python interface to the C++ class `BW::Sink`. If
+# you inherit from this class, be sure to implement *all* abstract methods.
+class SinkABC(_Sink):
+
+    ## Constructor
+    #
+    # Be sure to call super().__init__ if you override the constructor!
     def __init__(self):
         super(SinkABC, self).__init__()
 
+    ## Write a block of data
+    #
+    # @param roi a tuple containing 2 lists of length 3 (incl. start, excl. stop)
+    # @param block a 3d numpy.ndarray with shape roi[1]-roi[0] and dtype int32
     def pyWriteBlock(self, roi, block):
         raise NotImplementedError
         #return True
