@@ -48,42 +48,6 @@
 
 using namespace BW;
 
-template<int N>
-struct PyConnectedComponents {
-    typedef ConnectedComponents<N> BCC;
-};
-
-template<int N, class V>
-struct ExportV {
-    static void export_();
-};
-
-template<class V>
-struct ExportV<2, V> {
-    static void export_() {
-        using namespace boost::python;
-        class_<V>("V", init<int, int>());
-    }
-};
-
-
-template<class V>
-struct ExportV<3, V> {
-    static void export_() {
-        using namespace boost::python;
-        class_<V>("V", init<int, int, int>());
-    }
-};
-
-template<class V>
-struct ExportV<4, V> {
-    static void export_() {
-        using namespace boost::python;
-        class_<V>("V", init<int, int, int, int>());
-    }
-};
-
-
 template <int N, class T>
 void exportSpecificSource(std::string suffix)
 {
@@ -110,6 +74,7 @@ void exportSourceForDim()
     exportSpecificSource<N,double>("D");
 }
 
+
 template <int N>
 void exportAllForDim()
 {
@@ -132,6 +97,7 @@ void exportAllForDim()
     exportSourceForDim<N>();
     
     
+    // connected components class
     typedef ConnectedComponents<N> BCC;
     class_<BCC>("ConnectedComponents",
                 init<Source<N, vigra::UInt8>*, typename BCC::V>())
@@ -139,6 +105,15 @@ void exportAllForDim()
          (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
     .def("writeToSink", &BCC::writeToSink,
          (arg("sink")))
+    ;
+    
+    
+    // ROI
+    typedef typename Roi<N>::V V;
+    
+    class_< Roi<N> >("Roi", init<V,V>())
+    .def_readonly("p", &Roi<N>::p)
+    .def_readonly("q", &Roi<N>::p)
     ;
     
 }

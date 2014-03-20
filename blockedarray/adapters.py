@@ -1,4 +1,6 @@
 
+import vigra
+
 import numpy as np
 from _blockedarray import Source3U8 as _Source
 from _blockedarray import Sink3 as _Sink
@@ -117,7 +119,8 @@ class ExampleSink(SinkABC):
     def pyWriteBlock(self, roi, block):
         assert len(roi) == 2
         if self.vol is None:
-            shape = _v2tup(self.shape)
+            shape = self.shape
+            shape = _v2tup(shape)
             self.vol = np.zeros(shape, dtype=np.uint8)
         s = _roi2slice(roi[0], roi[1])
         self.vol[s] = block

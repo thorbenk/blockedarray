@@ -171,13 +171,13 @@ void exposeSink(const char* exposedName) {
     
     class_<PySinkABC<N,T>, boost::noncopyable>(exposedName)
         .def("pyWriteBlock", pure_virtual(&PySinkABC<N,T>::pyWriteBlock))
-        .add_property("shape", &PySinkABC<N,T>::getShape, &PySinkABC<N,T>::setShape)
-        .add_property("blockShape", &PySinkABC<N,T>::getBlockShape, &PySinkABC<N,T>::setBlockShape)
+        //.add_property("shape", &PySinkABC<N,T>::getShape, &PySinkABC<N,T>::setShape)
+        //.add_property("blockShape", &PySinkABC<N,T>::getBlockShape, &PySinkABC<N,T>::setBlockShape)
         ;
 }
 
 void export_adapters() {
     exposeSource<3,vigra::UInt8>("Source3U8");
     exposeSink<3,ConnectedComponents<3>::LabelType>("Sink3");
-    registerConverters();
+//     registerConverters();
 }
