@@ -83,64 +83,69 @@ struct ExportV<4, V> {
     }
 };
 
-template<int N, class T>
-void blockwiseCC() {
 
+template <int N, class T>
+void exportSpecificSource(std::string suffix)
+{
+    
     using namespace boost::python;
-    typedef ConnectedComponents<N> BCC;
-    typedef Thresholding<N, T> BWT;
-    typedef ChannelSelector<N+1, T> BWCS;
-    typedef PyConnectedComponents<N> PyBCC;
-    typedef SourceHDF5<N, T> HDF5BP_T;
+    const char *source = ("Source"+suffix).c_str();
+    const char *sink = ("Sink"+suffix).c_str();
+    class_<Source<N, T> >(source, no_init);
+    class_<Sink<N, T> >(sink, no_init);
+}
 
+template <int N>
+void exportSourceForDim()
+{
+    exportSpecificSource<N,vigra::UInt8>("U8");
+    //exportSpecificSource<N,vigra::UInt16>("U16");
+    exportSpecificSource<N,vigra::UInt32>("U32");
+
+    exportSpecificSource<N,vigra::Int8>("S8");
+    //exportSpecificSource<N,vigra::Int16>("S16");
+    exportSpecificSource<N,vigra::Int32>("S32");
+
+    exportSpecificSource<N,float>("F");
+    exportSpecificSource<N,double>("D");
+}
+
+template <int N>
+void exportAllForDim()
+{
+    
+    using namespace boost::python;
+    
+    // set the correct module
     std::stringstream n; n << N;
-
+    
     std::stringstream fullModname; fullModname << "_blockedarray.dim" << N;
     std::stringstream modName; modName << "dim" << N;
-
+    
     //see: http://isolation-nation.blogspot.de/2008/09/packages-in-python-extension-modules.html
     object module(handle<>(borrowed(PyImport_AddModule(fullModname.str().c_str()))));
     scope().attr(modName.str().c_str()) = module;
     scope s = module;
-
-    ExportV<N, typename BCC::V>::export_();
-
-    class_<Source<N, T> >("Source", no_init);
-    class_<Sink<N, T> >("Sink", no_init);
-//     class_<Source<N, T> >("Source");
-//     class_<Sink<N, T> >("Sink");
-
-    class_<SourceHDF5<N, T>, bases<Source<N, T> > >("SourceHDF5",
-        init<std::string, std::string>())
-    ;
-    class_<SinkHDF5<N, T>, bases<Sink<N, T> > >("SinkHDF5",
-        init<std::string, std::string>())
-    ;
-
-    class_<BWT>("Thresholding",
-        init<Source<N,T>*, typename BWT::V>())
-        .def("run", vigra::registerConverters(&BWT::run),
-             (arg("threshold"), arg("ifLower"), arg("ifHigher"), arg("sink")))
-    ;
-
-    class_<BWCS>("ChannelSelector",
-        init<Source<N+1,T>*, typename BWCS::V>())
-        .def("run", vigra::registerConverters(&BWCS::run),
-            (arg("dimension"), arg("channel"), arg("sink")))
-    ;
-
+    
+    
+    // export source and sink
+    exportSourceForDim<N>();
+    
+    
+    typedef ConnectedComponents<N> BCC;
     class_<BCC>("ConnectedComponents",
-        init<Source<N, vigra::UInt8>*, typename BCC::V>())
-        .def("writeResult", &BCC::writeResult,
-             (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
-        .def("writeToSink", &BCC::writeToSink,
-             (arg("sink")))
+                init<Source<N, vigra::UInt8>*, typename BCC::V>())
+    .def("writeResult", &BCC::writeResult,
+         (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
+    .def("writeToSink", &BCC::writeToSink,
+         (arg("sink")))
     ;
+    
 }
 
 
-
-void export_blockwiseCC() {
-    blockwiseCC<2, float>();
-    blockwiseCC<3, float>();
+void export_blockwiseCC() 
+{
+    exportAllForDim<2>();
+    exportAllForDim<3>();
 }
