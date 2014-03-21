@@ -43,10 +43,43 @@
 #include <bw/channelselector.h>
 
 #include "blockwisecc_py.h"
+#include "adapters_py.h"
 
 #include <bw/extern_templates.h>
 
 using namespace BW;
+
+
+/* CC conversion */
+template <int N>
+void exportCCForDim()
+{
+    using namespace boost::python;
+    using namespace BW;
+    typedef ConnectedComponents<N> BCC;
+    class_<BCC>("ConnectedComponents",
+                init<Source<N, vigra::UInt8>*, typename BCC::V>())
+    .def("writeResult", &BCC::writeResult,
+        (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
+    .def("writeToSink", &BCC::writeToSink,
+        (arg("sink")))
+    ;
+}
+
+/* ROI conversion */
+template <int N>
+void exportRoiForDim()
+{
+    using namespace boost::python;
+    using namespace BW;
+    typedef typename Roi<N>::V V;
+    
+    class_< Roi<N> >("Roi", init<V,V>())
+    .def_readonly("p", &Roi<N>::p)
+    .def_readonly("q", &Roi<N>::p)
+    ;
+}
+
 
 template <int N, class T>
 void exportSpecificSource(std::string suffix)
@@ -96,25 +129,11 @@ void exportAllForDim()
     // export source and sink
     exportSourceForDim<N>();
     
+    exportCCForDim<N>();
     
-    // connected components class
-    typedef ConnectedComponents<N> BCC;
-    class_<BCC>("ConnectedComponents",
-                init<Source<N, vigra::UInt8>*, typename BCC::V>())
-    .def("writeResult", &BCC::writeResult,
-         (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
-    .def("writeToSink", &BCC::writeToSink,
-         (arg("sink")))
-    ;
+    exportRoiForDim<N>();
     
-    
-    // ROI
-    typedef typename Roi<N>::V V;
-    
-    class_< Roi<N> >("Roi", init<V,V>())
-    .def_readonly("p", &Roi<N>::p)
-    .def_readonly("q", &Roi<N>::p)
-    ;
+    exportSourceAdaptersForDim<N>();
     
 }
 

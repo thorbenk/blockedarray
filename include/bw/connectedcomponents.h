@@ -51,12 +51,14 @@
 #include <bw/compressedarray.h>
 
 namespace BW {
+    
+typedef unsigned int LabelType;
 
 using vigra::detail::UnionFindArray;
 
 template<int N, class T>
 void blockMerge(
-    UnionFindArray<int>& ufd,
+    UnionFindArray<LabelType>& ufd,
     Roi<N> roi1,
     T offset1,
     const vigra::MultiArrayView<N,T>& block1,
@@ -76,8 +78,8 @@ void blockMerge(
     typename ArrayView::iterator it1 = ov1.begin();
     typename ArrayView::iterator it2 = ov2.begin();
     for(; it1 != ov1.end(); ++it1, ++it2) {
-        int x = *it1+offset1;
-        int y = *it2+offset2;
+        LabelType x = *it1+offset1;
+        LabelType y = *it2+offset2;
         //if(*it1 == 0) ufd.makeUnion(0,y);
         //if(*it2 == 0) ufd.makeUnion(x,0);
         ufd.makeUnion(x, y);
@@ -110,16 +112,14 @@ struct ConnectedComponentsComputer<3,T,LabelType> {
 /**
  * Compute connected components block-wise (less limited to RAM)
  */
-template<int N>
+template<int N, class SourceType=vigra::UInt8>
 class ConnectedComponents {
     public:
     typedef typename Roi<N>::V V;
 
-    typedef int LabelType;
-
     typedef CompressedArray<N,LabelType> Compressed;
 
-    ConnectedComponents(Source<N,vigra::UInt8>* blockProvider, V blockShape)
+    ConnectedComponents(Source<N,SourceType>* blockProvider, V blockShape)
         : blockProvider_(blockProvider)
         , blockShape_(blockShape)
     {

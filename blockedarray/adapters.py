@@ -2,8 +2,10 @@
 import vigra
 
 import numpy as np
-from _blockedarray import Source3U8 as _Source
-from _blockedarray import Sink3 as _Sink
+from _blockedarray import *
+
+_Source = dim3.PySourceU8
+_Sink = dim3.PySinkU32
 
 ## Source Interface
 #

@@ -21,43 +21,6 @@
 using namespace BW;
 
 
-/* ROI conversion */
-
-template<int N>
-boost::python::list tinyVecToList(const typename Roi<N>::V &vec)
-{
-    boost::python::object iterator = boost::python::iterator<typename Roi<N>::V>()(vec);
-    return boost::python::list(iterator);
-}
-
-template<int N>
-struct Roi_to_python_tuple
-{
-    typedef typename Roi<N>::V TinyVec;
-    static PyObject* convert(const Roi<N> &roi)
-    {
-        // p
-        boost::python::list p = tinyVecToList<N>(roi.p);
-        // q
-        boost::python::list q = tinyVecToList<N>(roi.q);
-        
-        boost::python::tuple t = boost::python::make_tuple(p, q);
-        return boost::python::incref(t.ptr());
-    }
-};
-
-void registerConverters()
-{
-    boost::python::to_python_converter<Roi<1>, Roi_to_python_tuple<1> >();
-    boost::python::to_python_converter<Roi<2>, Roi_to_python_tuple<2> >();
-    boost::python::to_python_converter<Roi<3>, Roi_to_python_tuple<3> >();
-    boost::python::to_python_converter<Roi<4>, Roi_to_python_tuple<4> >();
-    boost::python::to_python_converter<Roi<5>, Roi_to_python_tuple<5> >();
-    
-    // I really don't know why this is not called in vigra
-    vigra::NumpyArrayConverter<vigra::NumpyArray<3, ConnectedComponents<3>::LabelType> >();
-    vigra::NumpyArrayConverter<vigra::NumpyArray<1, npy_int32> >();
-}
 
 
 template<int N, class T>
@@ -130,10 +93,11 @@ struct PySinkABC : Sink<N,T>, boost::python::wrapper<Sink<N,T> > {
         return this->get_override("pyWriteBlock")(roi, block);
     };
     
-    /* Accessor functions for the shapes */
-    boost::python::list getShape() const
+    
+    /* UNNEEDED
+    V getShape() const
     {
-        return tinyVecToList<N>(this->shape_);
+        return this->shape_;
     }
     
     void setShape(V shape)
@@ -150,34 +114,44 @@ struct PySinkABC : Sink<N,T>, boost::python::wrapper<Sink<N,T> > {
     {
         this->blockShape_ = shape;
     }
+    */
 };
 
 
 
 template<int N, class T>
-void exposeSource(const char* exposedName) {
+void exportSpecificSourceAdapter(std::string suffix) {
     using namespace boost::python;
     
-    class_<PySourceABC<N,T>, boost::noncopyable>(exposedName)
+    class_<PySourceABC<N,T>, boost::noncopyable>(("PySource" + suffix).c_str())
         .def("pySetRoi", pure_virtual(&PySourceABC<N,T>::pySetRoi))
         .def("pyShape", pure_virtual(&PySourceABC<N,T>::pyShape))
         .def("pyReadBlock", pure_virtual(&PySourceABC<N,T>::pyReadBlock))
-        ;
-}
-
-template<int N, class T>
-void exposeSink(const char* exposedName) {
-    using namespace boost::python;
-    
-    class_<PySinkABC<N,T>, boost::noncopyable>(exposedName)
+    ;
+        
+    class_<PySinkABC<N,T>, boost::noncopyable>(("PySink" + suffix).c_str())
         .def("pyWriteBlock", pure_virtual(&PySinkABC<N,T>::pyWriteBlock))
         //.add_property("shape", &PySinkABC<N,T>::getShape, &PySinkABC<N,T>::setShape)
         //.add_property("blockShape", &PySinkABC<N,T>::getBlockShape, &PySinkABC<N,T>::setBlockShape)
-        ;
+    ;
 }
 
-void export_adapters() {
-    exposeSource<3,vigra::UInt8>("Source3U8");
-    exposeSink<3,ConnectedComponents<3>::LabelType>("Sink3");
-//     registerConverters();
+template <int N>
+void exportSourceAdaptersForDim()
+{
+    
+    exportSpecificSourceAdapter<N,vigra::UInt8>("U8");
+    //exportSpecificSourceAdapter<N,vigra::UInt16>("U16");
+    exportSpecificSourceAdapter<N,vigra::UInt32>("U32");
+    
+    exportSpecificSourceAdapter<N,vigra::Int8>("S8");
+    //exportSpecificSourceAdapter<N,vigra::Int16>("S16");
+    exportSpecificSourceAdapter<N,vigra::Int32>("S32");
+    
+    exportSpecificSourceAdapter<N,float>("F");
+    exportSpecificSourceAdapter<N,double>("D");
 }
+
+template void exportSourceAdaptersForDim<2>();
+template void exportSourceAdaptersForDim<3>();
+

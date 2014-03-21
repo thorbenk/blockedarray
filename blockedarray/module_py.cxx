@@ -38,7 +38,6 @@
 
 #include "blockedarray_py.h"
 #include "blockwisecc_py.h"
-#include "adapters_py.h"
 
 
 BOOST_PYTHON_MODULE_INIT(_blockedarray) {
@@ -48,5 +47,4 @@ BOOST_PYTHON_MODULE_INIT(_blockedarray) {
 
     export_blockedArray();
     export_blockwiseCC();
-    export_adapters();
 }
