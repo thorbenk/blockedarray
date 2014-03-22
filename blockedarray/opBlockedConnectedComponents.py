@@ -19,6 +19,9 @@ class OpBlockedConnectedComponents(OpNonLazyCC):
         self._sourceMap3 = dict(zip(self.supportedDtypes, 
                                     [dim3.PySourceU8, dim3.PySourceU32]))
         self._sinkMap3 = {np.uint32: dim3.PySinkU32}
+        self._ccMap3 = dict(zip(self.supportedDtypes, 
+                                [dim3.ConnectedComponentsU8,
+                                 dim3.ConnectedComponentsU32]))
 
     def _updateSlice(self, c, t, bg):
         bg = self.Background[0, 0, 0, c, t].wait()
@@ -27,8 +30,8 @@ class OpBlockedConnectedComponents(OpNonLazyCC):
         sink = self._getSink(c, t)
         #TODO enable 2d
         blockShape = tuple([int(s) for s in self._cache.BlockShape.value[:3]])
-        print(blockShape)
-        cc = dim3.ConnectedComponents(source, blockShape)
+        CC = self._ccMap3[self.Input.meta.dtype]
+        cc = CC(source, blockShape)
 
         cc.writeToSink(sink)
 

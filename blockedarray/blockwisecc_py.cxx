@@ -50,30 +50,28 @@
 using namespace BW;
 
 
+template <int N, class T>
+void exportSpecificCC(std::string suffix)
+{
+    using namespace boost::python;
+    using namespace BW;
+    typedef ConnectedComponents<N, T> BCC;
+    
+    class_<BCC>(("ConnectedComponents"+suffix).c_str(),
+                init<Source<N, T>*, typename BCC::V>())
+    .def("writeResult", &BCC::writeResult,
+        (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
+    .def("writeToSink", &BCC::writeToSink,
+        (arg("sink")))
+    ;
+}
+
 /* CC conversion */
 template <int N>
 void exportCCForDim()
 {
-    using namespace boost::python;
-    using namespace BW;
-    typedef ConnectedComponents<N> BCC;
-    
-    class_<ConnectedComponents<N, vigra::UInt8> >("ConnectedComponents",
-                init<Source<N, vigra::UInt8>*, typename BCC::V>())
-    .def("writeResult", &BCC::writeResult,
-        (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
-    .def("writeToSink", &BCC::writeToSink,
-        (arg("sink")))
-    ;
-    /*
-    class_<ConnectedComponents<N, vigra::UInt32> >("ConnectedComponents",
-                init<Source<N, vigra::UInt32>*, typename BCC::V>())
-    .def("writeResult", &BCC::writeResult,
-        (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
-    .def("writeToSink", &BCC::writeToSink,
-        (arg("sink")))
-    ;
-    */
+    exportSpecificCC<N, vigra::UInt8>("U8");
+    exportSpecificCC<N, vigra::UInt32>("U32");
 }
 
 /* ROI conversion */

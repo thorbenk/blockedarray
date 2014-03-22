@@ -51,6 +51,24 @@ class TestOpBlockedConnectedComponents(unittest.TestCase):
 
         assert_array_equal(vol, out)
 
+    def testCorrectLabelingInt(self):
+        vol = np.zeros((1000, 100, 10))
+        vol = vol.astype(np.uint32)
+        vol = vigra.taggedView(vol, axistags='xyz')
+
+        vol[20:40, 10:30, 2:4] = 1
+        vol = vol.withAxes(*'xyzct')
+
+        op = OpBlockedConnectedComponents(graph=Graph())
+        op.Input.setValue(vol)
+        op.Background.setValue(self.bg)
+
+        out = op.Output[...].wait()
+        tags = op.Output.meta.getTaggedShape()
+        out = vigra.taggedView(out, axistags=op.Output.meta.axistags)
+
+        assert_array_equal(vol, out)
+
 
 class TestSimpleThings(unittest.TestCase):
     def testRoi(self):
