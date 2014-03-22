@@ -153,12 +153,12 @@ class ConnectedComponents {
             //    vigra::srcMultiArrayRange( labels_.subarray(block.p, block.q) ),
             //    vigra::destMultiArray( ccBlocks[i] ), vigra::NeighborCode3DSix(), 0);
 
-            MultiArray<N, vigra::UInt8> inBlock(block.q-block.p);
+            MultiArray<N, SourceType> inBlock(block.q-block.p);
             blockProvider_->readBlock(block, inBlock);
 
             MultiArray<N, LabelType> cc(block.q-block.p);
 
-            LabelType maxLabel = ConnectedComponentsComputer<N, vigra::UInt8, LabelType>::compute(inBlock, cc);
+            LabelType maxLabel = ConnectedComponentsComputer<N, SourceType, LabelType>::compute(inBlock, cc);
             //LabelType maxLabel = vigra::labelImageWithBackground(
             //    inBlock,
             //    cc,
@@ -293,7 +293,7 @@ class ConnectedComponents {
     }
 
     private:
-    Source<N,vigra::UInt8>* blockProvider_;
+    Source<N,SourceType>* blockProvider_;
     V blockShape_;
 
     std::vector< std::pair<V, Roi<N> > > blockRois_;

@@ -182,6 +182,16 @@ class Roi {
         }
         return ret;
     }
+    
+    V getP()
+    {
+        return p;
+    }
+    
+    V getQ()
+    {
+        return q;
+    }
 
     V p;
     V q;

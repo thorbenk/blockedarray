@@ -57,13 +57,23 @@ void exportCCForDim()
     using namespace boost::python;
     using namespace BW;
     typedef ConnectedComponents<N> BCC;
-    class_<BCC>("ConnectedComponents",
+    
+    class_<ConnectedComponents<N, vigra::UInt8> >("ConnectedComponents",
                 init<Source<N, vigra::UInt8>*, typename BCC::V>())
     .def("writeResult", &BCC::writeResult,
         (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
     .def("writeToSink", &BCC::writeToSink,
         (arg("sink")))
     ;
+    /*
+    class_<ConnectedComponents<N, vigra::UInt32> >("ConnectedComponents",
+                init<Source<N, vigra::UInt32>*, typename BCC::V>())
+    .def("writeResult", &BCC::writeResult,
+        (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
+    .def("writeToSink", &BCC::writeToSink,
+        (arg("sink")))
+    ;
+    */
 }
 
 /* ROI conversion */
@@ -75,8 +85,10 @@ void exportRoiForDim()
     typedef typename Roi<N>::V V;
     
     class_< Roi<N> >("Roi", init<V,V>())
-    .def_readonly("p", &Roi<N>::p)
-    .def_readonly("q", &Roi<N>::p)
+    .def_readwrite("p", &Roi<N>::p)
+    .def_readwrite("q", &Roi<N>::p)
+    .def("getP", &Roi<N>::getP)
+    .def("getQ", &Roi<N>::getQ)
     ;
 }
 
