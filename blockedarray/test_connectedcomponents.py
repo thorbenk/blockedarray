@@ -10,7 +10,7 @@ from adapters import DummySource, ExampleSource, ExampleSink
 from _blockedarray import dim3
 
 
-CC = dim3.ConnectedComponents
+CC = dim3.ConnectedComponentsU8
 
 class TestConnectedComponents(unittest.TestCase):
 

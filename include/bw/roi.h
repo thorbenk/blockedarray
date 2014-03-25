@@ -192,6 +192,16 @@ class Roi {
     {
         return q;
     }
+    
+    void setP(V p)
+    {
+        this->p = p;
+    }
+    
+    void setQ(V q)
+    {
+        this->q = q;
+    }
 
     V p;
     V q;

@@ -83,10 +83,12 @@ void exportRoiForDim()
     typedef typename Roi<N>::V V;
     
     class_< Roi<N> >("Roi", init<V,V>())
-    .def_readwrite("p", &Roi<N>::p)
-    .def_readwrite("q", &Roi<N>::p)
-    .def("getP", &Roi<N>::getP)
-    .def("getQ", &Roi<N>::getQ)
+    //.def_readwrite("p", &Roi<N>::p)
+    //.def_readwrite("q", &Roi<N>::p)
+    //.def("getP", &Roi<N>::getP)
+    //.def("getQ", &Roi<N>::getQ)
+    .add_property("p", &Roi<N>::getP, &Roi<N>::setP)
+    .add_property("q", &Roi<N>::getQ, &Roi<N>::setQ)
     ;
 }
 

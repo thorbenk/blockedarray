@@ -4,8 +4,22 @@ import vigra
 import numpy as np
 from _blockedarray import *
 
+
+# This file contains examples for using the Source and Sink classes from 
+# blockedarray. These should be viewed as guidelines on how to use the exported
+# interfaces
+#       dim[2|3].Source[U|S][8|16|32|64]
+#       dim[2|3].Sink[U|S][8|16|32|64]
+# The ABC classes are for reference on what methods are exposed, the Example
+# classes show how the base classes can be used. There is a complete workflow
+# for blockwise connected components in the test file 
+#       test_connectedcomponents.py
+
+
+# examples deal with 8bit image input and 32bit image output
 _Source = dim3.PySourceU8
 _Sink = dim3.PySinkU32
+
 
 ## Source Interface
 #
@@ -92,17 +106,15 @@ class ExampleSource(SourceABC):
         self._q = np.asarray(vol.shape, dtype=np.long)
 
     def pySetRoi(self, roi):
-        assert len(roi) == 2
-        self._p = np.asarray(roi[0], dtype=np.long)
-        self._q = np.asarray(roi[1], dtype=np.long)
+        self._p = np.asarray(roi.p, dtype=np.long)
+        self._q = np.asarray(roi.q, dtype=np.long)
 
     def pyShape(self):
         return self._vol.shape
 
     def pyReadBlock(self, roi, output):
-        assert len(roi) == 2
-        roiP = np.asarray(roi[0])
-        roiQ = np.asarray(roi[1])
+        roiP = np.asarray(roi.p)
+        roiQ = np.asarray(roi.q)
         p = self._p + roiP
         q = p + roiQ - roiP
         if np.any(q > self._q):
@@ -119,12 +131,11 @@ class ExampleSink(SinkABC):
         self.vol = None
 
     def pyWriteBlock(self, roi, block):
-        assert len(roi) == 2
         if self.vol is None:
             shape = self.shape
             shape = _v2tup(shape)
             self.vol = np.zeros(shape, dtype=np.uint8)
-        s = _roi2slice(roi[0], roi[1])
+        s = _roi2slice(roi.p, roi.q)
         self.vol[s] = block
 
 

@@ -94,7 +94,6 @@ struct PySinkABC : Sink<N,T>, boost::python::wrapper<Sink<N,T> > {
     };
     
     
-    /* UNNEEDED
     V getShape() const
     {
         return this->shape_;
@@ -105,16 +104,15 @@ struct PySinkABC : Sink<N,T>, boost::python::wrapper<Sink<N,T> > {
         this->shape_ = shape;
     }
 
-    boost::python::list getBlockShape() const
+    V getBlockShape() const
     {
-        return tinyVecToList<N>(this->blockShape_);
+        return this->blockShape_;
     }
     
     void setBlockShape(V shape)
     {
         this->blockShape_ = shape;
     }
-    */
 };
 
 
@@ -131,8 +129,8 @@ void exportSpecificSourceAdapter(std::string suffix) {
         
     class_<PySinkABC<N,T>, boost::noncopyable>(("PySink" + suffix).c_str())
         .def("pyWriteBlock", pure_virtual(&PySinkABC<N,T>::pyWriteBlock))
-        //.add_property("shape", &PySinkABC<N,T>::getShape, &PySinkABC<N,T>::setShape)
-        //.add_property("blockShape", &PySinkABC<N,T>::getBlockShape, &PySinkABC<N,T>::setBlockShape)
+        .add_property("shape", &PySinkABC<N,T>::getShape, &PySinkABC<N,T>::setShape)
+        .add_property("blockShape", &PySinkABC<N,T>::getBlockShape, &PySinkABC<N,T>::setBlockShape)
     ;
 }
 

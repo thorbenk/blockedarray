@@ -74,5 +74,6 @@ class TestSimpleThings(unittest.TestCase):
     def testRoi(self):
         from blockedarray import dim3
         roi = dim3.Roi((0,0,0), (2,3,4))
-        p = roi.getP()
+        p = roi.p
+        assert isinstance(p, tuple)
         

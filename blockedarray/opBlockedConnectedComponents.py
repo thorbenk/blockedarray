@@ -10,6 +10,10 @@ from lazyflow.rtype import SubRegion
 from _blockedarray import dim2, dim3
 
 
+## compute connected components blockwise
+#
+# Input must be 'xyzct' so this operator can be wrapped with 
+# lazyflow.OpLabelVolume
 class OpBlockedConnectedComponents(OpNonLazyCC):
     name = "OpBlockedConnectedComponents"
     supportedDtypes = [np.uint8, np.uint32]
@@ -50,8 +54,8 @@ class OpBlockedConnectedComponents(OpNonLazyCC):
             def pyShape(self):
                 return shape
             def pyReadBlock(self, roi, block):
-                start = roi.getP() + (c, t)
-                stop = roi.getQ() + (c+1, t+1)
+                start = roi.p + (c, t)
+                stop = roi.q + (c+1, t+1)
                 subr = SubRegion(self._slot, start=start, stop=stop)
                 block[:] = self._slot.get(subr).wait()[..., 0, 0]
                 return True
@@ -67,28 +71,27 @@ class OpBlockedConnectedComponents(OpNonLazyCC):
                 self._cache = kwargs['cache']
                 del kwargs['cache']
                 super(TempSink, self).__init__(*args, **kwargs)
+                self.shape = _v2tup(self._cache.Input.meta.shape)
+                self.blockShape = _v2tup(self._cache.BlockShape.value)
             def pyWriteBlock(self, roi, block):
                 block = vigra.taggedView(block, axistags='xyz')
                 block = block.withAxes(*'xyzct')
-                start = roi.getP() + (c, t)
-                stop = roi.getQ() + (c+1, t+1)
+                start = roi.p + (c, t)
+                stop = roi.q + (c+1, t+1)
                 subr = SubRegion(self._cache.Input, start=start, stop=stop)
                 self._cache.setInSlot(self._cache.Input, (), subr, block)
                 return True
 
         return TempSink(cache=self._cache)
 
+    def setupOutputs(self):
+        super(OpBlockedConnectedComponents, self).setupOutputs()
+        assert len(self.Input.meta.shape) == 5, "Input must be 5d"
+        if self.Input.meta.axistags:
+            # if axistags are given, they must be xyzct
+            s = "".join(self.Input.meta.getAxisKeys())
+            assert s == "xyzct", "Input must be in xyzct order, if any"
 
-def printParents(obj, indent=0):
-    def printIndented(s):
-        print("{}{}".format(" "*indent, s))
-    if type(obj) != type:
-        print("Class hierarchy for {} (is a {})".format(obj, type(obj)))
-        printParents(type(obj))
-    else:
-        if indent > 15:
-            return
-        printIndented(obj)
-        for sub in obj.__bases__:
-            printParents(sub, indent=indent+1)
 
+def _v2tup(v, d=3):
+    return tuple([int(v[i]) for i in range(d)])
