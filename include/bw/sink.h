@@ -44,7 +44,7 @@ class Sink {
     public:
     typedef typename Roi<N>::V V;
 
-    Sink() {};
+    Sink() {}
     virtual ~Sink() {};
 
     /* has to be called before any calls to writeBlock */

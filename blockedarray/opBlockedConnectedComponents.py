@@ -33,7 +33,7 @@ class OpBlockedConnectedComponents(OpNonLazyCC):
         source = self._getSource(c, t)
         sink = self._getSink(c, t)
         #TODO enable 2d
-        blockShape = tuple([int(s) for s in self._cache.BlockShape.value[:3]])
+        blockShape = _v2tup(self._cache.BlockShape.value, dim=3)
         CC = self._ccMap3[self.Input.meta.dtype]
         cc = CC(source, blockShape)
 
@@ -93,5 +93,5 @@ class OpBlockedConnectedComponents(OpNonLazyCC):
             assert s == "xyzct", "Input must be in xyzct order, if any"
 
 
-def _v2tup(v, d=3):
-    return tuple([int(v[i]) for i in range(d)])
+def _v2tup(v, dim=3):
+    return tuple([int(v[i]) for i in range(dim)])

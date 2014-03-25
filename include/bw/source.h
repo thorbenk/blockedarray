@@ -44,7 +44,7 @@ class Source {
     public:
     typedef typename Roi<N>::V V;
 
-    Source() {};
+    Source() {}
     virtual ~Source() {};
 
     /**
