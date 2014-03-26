@@ -1,10 +1,13 @@
 import threading
+import unittest
 import numpy
 import vigra
 from lazyflow.graph import Graph
 from lazyflow.roi import sliceToRoi, roiToSlice
 from lazyflow.operators import OpArrayPiper
-from lazyflow.operators.opArrayCacheCpp import OpArrayCacheCpp
+
+# does not exist anymore!!
+#from lazyflow.operators.opArrayCacheCpp import OpArrayCacheCpp
 
 class KeyMaker():
     def __getitem__(self, *args):
@@ -26,7 +29,8 @@ class OpArrayPiperWithAccessCount(OpArrayPiper):
         super(OpArrayPiperWithAccessCount, self).execute(slot, subindex, roi, result)
         
 
-class TestOpArrayCache(object):
+@unittest.skip("OpArrayCacheCpp is outdated")
+class TestOpArrayCache(unittest.TestCase):
 
     def setUp(self):
         print "RRRRRRRRRRRRRRRRRRRRRRRRRR"
@@ -285,31 +289,5 @@ if __name__ == "__main__":
     sys.argv.append("--nologcapture") # Don't set the logging level to DEBUG.  Leave it alone.
     ret = nose.run(defaultTest=__file__)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    if not ret: sys.exit(1)
+    if not ret:
+        sys.exit(1)
