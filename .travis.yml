@@ -14,3 +14,4 @@ before_script:
    - "export PYTHONPATH=$VIRTUAL_ENV/lib/python2.7/site-packages:$PYTHONPATH"
 script:
    - make test
+   - nosetests

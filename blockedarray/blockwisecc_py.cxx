@@ -43,98 +43,108 @@
 #include <bw/channelselector.h>
 
 #include "blockwisecc_py.h"
+#include "adapters_py.h"
 
 #include <bw/extern_templates.h>
 
 using namespace BW;
 
-template<int N>
-struct PyConnectedComponents {
-    typedef ConnectedComponents<N> BCC;
-};
 
-template<int N, class V>
-struct ExportV {
-    static void export_();
-};
-
-template<class V>
-struct ExportV<2, V> {
-    static void export_() {
-        using namespace boost::python;
-        class_<V>("V", init<int, int>());
-    }
-};
-
-
-template<class V>
-struct ExportV<3, V> {
-    static void export_() {
-        using namespace boost::python;
-        class_<V>("V", init<int, int, int>());
-    }
-};
-
-template<class V>
-struct ExportV<4, V> {
-    static void export_() {
-        using namespace boost::python;
-        class_<V>("V", init<int, int, int, int>());
-    }
-};
-
-template<int N, class T>
-void blockwiseCC() {
-
+template <int N, class T>
+void exportSpecificCC(std::string suffix) {
     using namespace boost::python;
-    typedef ConnectedComponents<N> BCC;
-    typedef Thresholding<N, T> BWT;
-    typedef ChannelSelector<N+1, T> BWCS;
-    typedef PyConnectedComponents<N> PyBCC;
-    typedef SourceHDF5<N, T> HDF5BP_T;
+    using namespace BW;
+    typedef ConnectedComponents<N, T> BCC;
+    
+    class_<BCC>(("ConnectedComponents"+suffix).c_str(),
+                init<Source<N, T>*, typename BCC::V>())
+    .def("writeResult", &BCC::writeResult,
+        (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
+    .def("writeToSink", &BCC::writeToSink,
+        (arg("sink")))
+    ;
+}
 
+/* CC conversion */
+template <int N>
+void exportCCForDim() {
+    exportSpecificCC<N, vigra::UInt8>("U8");
+    exportSpecificCC<N, vigra::UInt32>("U32");
+}
+
+/* ROI conversion */
+template <int N>
+void exportRoiForDim() {
+    using namespace boost::python;
+    using namespace BW;
+    typedef typename Roi<N>::V V;
+    
+    class_< Roi<N> >("Roi", init<V,V>())
+    //.def_readwrite("p", &Roi<N>::p)
+    //.def_readwrite("q", &Roi<N>::p)
+    //.def("getP", &Roi<N>::getP)
+    //.def("getQ", &Roi<N>::getQ)
+    .add_property("p", &Roi<N>::getP, &Roi<N>::setP)
+    .add_property("q", &Roi<N>::getQ, &Roi<N>::setQ)
+    ;
+}
+
+
+template <int N, class T>
+void exportSpecificSource(std::string suffix) {
+    
+    using namespace boost::python;
+    const char *source = ("Source"+suffix).c_str();
+    const char *sink = ("Sink"+suffix).c_str();
+    class_<Source<N, T> >(source, no_init);
+    class_<Sink<N, T> >(sink, no_init);
+}
+
+template <int N>
+void exportSourceForDim() {
+    exportSpecificSource<N,vigra::UInt8>("U8");
+    //exportSpecificSource<N,vigra::UInt16>("U16");
+    exportSpecificSource<N,vigra::UInt32>("U32");
+
+    exportSpecificSource<N,vigra::Int8>("S8");
+    //exportSpecificSource<N,vigra::Int16>("S16");
+    exportSpecificSource<N,vigra::Int32>("S32");
+
+    exportSpecificSource<N,float>("F");
+    exportSpecificSource<N,double>("D");
+}
+
+
+template <int N>
+void exportAllForDim() {
+    
+    using namespace boost::python;
+    
+    // set the correct module
     std::stringstream n; n << N;
-
+    
     std::stringstream fullModname; fullModname << "_blockedarray.dim" << N;
     std::stringstream modName; modName << "dim" << N;
-
+    
     //see: http://isolation-nation.blogspot.de/2008/09/packages-in-python-extension-modules.html
     object module(handle<>(borrowed(PyImport_AddModule(fullModname.str().c_str()))));
     scope().attr(modName.str().c_str()) = module;
     scope s = module;
-
-    ExportV<N, typename BCC::V>::export_();
-
-    class_<Source<N, T> >("Source", no_init);
-    class_<Sink<N, T> >("Sink", no_init);
-
-    class_<SourceHDF5<N, T>, bases<Source<N, T> > >("SourceHDF5",
-        init<std::string, std::string>())
-    ;
-    class_<SinkHDF5<N, T>, bases<Sink<N, T> > >("SinkHDF5",
-        init<std::string, std::string>())
-    ;
-
-    class_<BWT>("Thresholding",
-        init<Source<N,T>*, typename BWT::V>())
-        .def("run", vigra::registerConverters(&BWT::run),
-             (arg("threshold"), arg("ifLower"), arg("ifHigher"), arg("sink")))
-    ;
-
-    class_<BWCS>("ChannelSelector",
-        init<Source<N+1,T>*, typename BWCS::V>())
-        .def("run", vigra::registerConverters(&BWCS::run),
-            (arg("dimension"), arg("channel"), arg("sink")))
-    ;
-
-    class_<BCC>("ConnectedComponents",
-        init<Source<N, vigra::UInt8>*, typename BCC::V>())
-        .def("writeResult", &BCC::writeResult,
-             (arg("hdf5file"), arg("hdf5group"), arg("compression")=1))
-    ;
+    
+    
+    // export source and sink
+    exportSourceForDim<N>();
+    
+    exportCCForDim<N>();
+    
+    exportRoiForDim<N>();
+    
+    exportSourceAdaptersForDim<N>();
+    
 }
 
+
 void export_blockwiseCC() {
-    blockwiseCC<2, float>();
-    blockwiseCC<3, float>();
+    exportAllForDim<2>();
+    exportAllForDim<3>();
 }

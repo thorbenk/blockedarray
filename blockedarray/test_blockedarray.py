@@ -74,6 +74,7 @@ def test1():
     ba.setCompressionEnabled(True)
     ba.setCompressionEnabled(False)
 
+
 if __name__ == "__main__":
     test1()
     print "success"
