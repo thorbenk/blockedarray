@@ -1,2 +1,3 @@
 _blockedarray.so
 *.pyc
+*.h5

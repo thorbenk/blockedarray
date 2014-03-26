@@ -182,6 +182,22 @@ class Roi {
         }
         return ret;
     }
+    
+    V getP() const {
+        return p;
+    }
+    
+    V getQ() const {
+        return q;
+    }
+    
+    void setP(V p) {
+        this->p = p;
+    }
+    
+    void setQ(V q) {
+        this->q = q;
+    }
 
     V p;
     V q;

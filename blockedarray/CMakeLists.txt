@@ -24,6 +24,7 @@ add_library(_blockedarray SHARED
     module_py.cxx
     blockedarray_py.cxx
     blockwisecc_py.cxx
+    adapters_py.cxx
     ${EXTRA_SRCS}
 )
 
@@ -34,9 +35,9 @@ else()
 endif()
 
 target_link_libraries(_blockedarray
+    ${Boost_PYTHON_LIBRARIES}
     snappy
     ${PYTHON_LIBRARY}
-    ${Boost_PYTHON_LIBRARIES}
     ${HDF5_LIBRARY}
     ${HDF5_HL_LIBRARY}
     ${VIGRA_IMPEX_LIBRARY}
