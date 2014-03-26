@@ -51,8 +51,7 @@ using namespace BW;
 
 
 template <int N, class T>
-void exportSpecificCC(std::string suffix)
-{
+void exportSpecificCC(std::string suffix) {
     using namespace boost::python;
     using namespace BW;
     typedef ConnectedComponents<N, T> BCC;
@@ -68,16 +67,14 @@ void exportSpecificCC(std::string suffix)
 
 /* CC conversion */
 template <int N>
-void exportCCForDim()
-{
+void exportCCForDim() {
     exportSpecificCC<N, vigra::UInt8>("U8");
     exportSpecificCC<N, vigra::UInt32>("U32");
 }
 
 /* ROI conversion */
 template <int N>
-void exportRoiForDim()
-{
+void exportRoiForDim() {
     using namespace boost::python;
     using namespace BW;
     typedef typename Roi<N>::V V;
@@ -94,8 +91,7 @@ void exportRoiForDim()
 
 
 template <int N, class T>
-void exportSpecificSource(std::string suffix)
-{
+void exportSpecificSource(std::string suffix) {
     
     using namespace boost::python;
     const char *source = ("Source"+suffix).c_str();
@@ -105,8 +101,7 @@ void exportSpecificSource(std::string suffix)
 }
 
 template <int N>
-void exportSourceForDim()
-{
+void exportSourceForDim() {
     exportSpecificSource<N,vigra::UInt8>("U8");
     //exportSpecificSource<N,vigra::UInt16>("U16");
     exportSpecificSource<N,vigra::UInt32>("U32");
@@ -121,8 +116,7 @@ void exportSourceForDim()
 
 
 template <int N>
-void exportAllForDim()
-{
+void exportAllForDim() {
     
     using namespace boost::python;
     
@@ -150,8 +144,7 @@ void exportAllForDim()
 }
 
 
-void export_blockwiseCC() 
-{
+void export_blockwiseCC() {
     exportAllForDim<2>();
     exportAllForDim<3>();
 }

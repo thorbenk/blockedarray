@@ -76,4 +76,16 @@ class TestSimpleThings(unittest.TestCase):
         roi = dim3.Roi((0,0,0), (2,3,4))
         p = roi.p
         assert isinstance(p, tuple)
+        assert len(p) ==3
+        q = roi.q
+        assert isinstance(q, tuple)
+        assert len(q) ==3
+
+        roi.p = q
+        roi.q = p
         
+        tempQ = roi.p
+        assert isinstance(tempQ, tuple)
+        assert tempQ == q
+
+

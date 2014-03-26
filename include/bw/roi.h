@@ -183,23 +183,19 @@ class Roi {
         return ret;
     }
     
-    V getP()
-    {
+    V getP() {
         return p;
     }
     
-    V getQ()
-    {
+    V getQ() {
         return q;
     }
     
-    void setP(V p)
-    {
+    void setP(V p) {
         this->p = p;
     }
     
-    void setQ(V q)
-    {
+    void setQ(V q) {
         this->q = q;
     }
 

@@ -45,17 +45,17 @@ class Source {
     typedef typename Roi<N>::V V;
 
     Source() {}
-    virtual ~Source() {};
+    virtual ~Source() {}
 
     /**
      * selects only the region of interest given from the
      * underlying data source. When readBlock() is used, the coordinates
      * are relative to roi.q
      */
-    virtual void setRoi(Roi<N> roi) {};
+    virtual void setRoi(Roi<N> roi) {}
 
-    virtual V shape() const { return V(); };
-    virtual bool readBlock(Roi<N> roi, vigra::MultiArrayView<N,T>& block) const { return true; };
+    virtual V shape() const { return V(); }
+    virtual bool readBlock(Roi<N> roi, vigra::MultiArrayView<N,T>& block) const { return true; }
 };
 
 } /* namespace BW */

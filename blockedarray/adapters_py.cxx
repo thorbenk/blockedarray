@@ -21,8 +21,6 @@
 using namespace BW;
 
 
-
-
 template<int N, class T>
 struct PySourceABC : Source<N,T>, boost::python::wrapper<Source<N,T> > 
 {
@@ -30,21 +28,18 @@ public:
     
     typedef typename Source<N,T>::V TinyVec;
     
-    PySourceABC() {};
-    virtual ~PySourceABC() {};
+    PySourceABC() {}
+    virtual ~PySourceABC() {}
 
-    void setRoi(Roi<N> roi)
-    {
+    void setRoi(Roi<N> roi) {
         this->pySetRoi(roi);
     }
     
-    TinyVec shape() const 
-    {
+    TinyVec shape() const {
         return this->pyShape();
     }
     
-    bool readBlock(Roi<N> roi, vigra::MultiArrayView<N,T>& block) const 
-    {
+    bool readBlock(Roi<N> roi, vigra::MultiArrayView<N,T>& block) const {
         bool ret;
         
         //temporary NumpyArray, because MultiArrayView is not convertible to python
@@ -58,18 +53,15 @@ public:
         return true;
     }
     
-    void pySetRoi(Roi<N> roi)
-    {
+    void pySetRoi(Roi<N> roi) {
         this->get_override("pySetRoi")(roi);
     }
 
-    TinyVec pyShape() const 
-    {
+    TinyVec pyShape() const {
         return this->get_override("pyShape")();
     };
 
-    bool pyReadBlock(Roi<N> roi, vigra::NumpyArray<N,T>& block) const 
-    {
+    bool pyReadBlock(Roi<N> roi, vigra::NumpyArray<N,T>& block) const {
         return this->get_override("pyReadBlock")(roi, block);
     };
 };
@@ -82,35 +74,29 @@ struct PySinkABC : Sink<N,T>, boost::python::wrapper<Sink<N,T> > {
     PySinkABC() {};
     virtual ~PySinkABC() {};
 
-    bool writeBlock(Roi<N> roi, const vigra::MultiArrayView<N,T>& block)
-    {
+    bool writeBlock(Roi<N> roi, const vigra::MultiArrayView<N,T>& block) {
         vigra::NumpyArray<N,T> tempArray(block);
         return this->pyWriteBlock(roi, tempArray);
     }
     
-    bool pyWriteBlock(Roi<N> roi, const vigra::NumpyArray<N,T>& block)
-    {
+    bool pyWriteBlock(Roi<N> roi, const vigra::NumpyArray<N,T>& block) {
         return this->get_override("pyWriteBlock")(roi, block);
     };
     
     
-    V getShape() const
-    {
+    V getShape() const {
         return this->shape_;
     }
     
-    void setShape(V shape)
-    {
+    void setShape(V shape) {
         this->shape_ = shape;
     }
 
-    V getBlockShape() const
-    {
+    V getBlockShape() const {
         return this->blockShape_;
     }
     
-    void setBlockShape(V shape)
-    {
+    void setBlockShape(V shape) {
         this->blockShape_ = shape;
     }
 };
@@ -135,8 +121,7 @@ void exportSpecificSourceAdapter(std::string suffix) {
 }
 
 template <int N>
-void exportSourceAdaptersForDim()
-{
+void exportSourceAdaptersForDim() {
     
     exportSpecificSourceAdapter<N,vigra::UInt8>("U8");
     //exportSpecificSourceAdapter<N,vigra::UInt16>("U16");

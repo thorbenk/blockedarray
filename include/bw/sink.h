@@ -45,7 +45,7 @@ class Sink {
     typedef typename Roi<N>::V V;
 
     Sink() {}
-    virtual ~Sink() {};
+    virtual ~Sink() {}
 
     /* has to be called before any calls to writeBlock */
     void setShape(V shape) {
@@ -57,10 +57,10 @@ class Sink {
         blockShape_ = shape;
     }
 
-    V shape() { return shape_; };
-    V blockShape() { return blockShape_; };
+    V shape() { return shape_; }
+    V blockShape() { return blockShape_; }
 
-    virtual bool writeBlock(Roi<N> roi, const vigra::MultiArrayView<N,T>& block) { return true; };
+    virtual bool writeBlock(Roi<N> roi, const vigra::MultiArrayView<N,T>& block) { return true; }
 
     protected:
     V shape_;
