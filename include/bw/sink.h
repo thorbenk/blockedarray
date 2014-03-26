@@ -57,8 +57,8 @@ class Sink {
         blockShape_ = shape;
     }
 
-    V shape() { return shape_; }
-    V blockShape() { return blockShape_; }
+    V shape() const { return shape_; }
+    V blockShape() const { return blockShape_; }
 
     virtual bool writeBlock(Roi<N> roi, const vigra::MultiArrayView<N,T>& block) { return true; }
 

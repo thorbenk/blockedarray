@@ -183,11 +183,11 @@ class Roi {
         return ret;
     }
     
-    V getP() {
+    V getP() const {
         return p;
     }
     
-    V getQ() {
+    V getQ() const {
         return q;
     }
     
