@@ -13,6 +13,8 @@ find_package(HDF5 REQUIRED)
 find_package(Valgrind)
 find_package(Snappy)
 
+add_definitions(-std=c++11)
+
 include(CheckCXXSourceCompiles)
 
 option(BUILD_COMMON_DTYPES_LIBRARY "BuildCommonDtypesLibrary" OFF)

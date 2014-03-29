@@ -1,6 +1,6 @@
 if(BUILD_COMMON_DTYPES_LIBRARY)
     include_directories(${PROJECT_SOURCE_DIR}/include)
     #add_definitions(-fno-implicit-templates)
-    add_library(bw SHARED roi.cpp multiarray.cpp compressedarray.cpp array.cpp)
+    add_library(bw SHARED roi.cpp multiarray.cpp compressedarray.cpp array.cpp meshextractor.cpp)
     target_link_libraries(bw snappy ${HDF5_LIBRARY})
 endif()
