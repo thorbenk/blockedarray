@@ -22,7 +22,6 @@ target_link_libraries(extractmesh
     ${VIGRA_IMPEX_LIBRARY}
     ${HDF5_LIBRARY}
     ${HDF5_HL_LIBRARY}
-    
 )
 if(BUILD_COMMON_DTYPES_LIBRARY)
     target_link_libraries(extractmesh bw)
@@ -37,4 +36,16 @@ include(${VTK_USE_FILE})
 add_executable(showmesh showmesh.cpp)
 target_link_libraries(showmesh vtkHybrid ${VIGRA_IMPEX_LIBRARY} ${HDF5_HL_LIBRARY} ${HDF5_LIBRARY})
 
+endif()
+
+add_executable(resampleimage resampleimage.cpp)
+target_link_libraries(resampleimage
+    ${VIGRA_IMPEX_LIBRARY}
+    ${HDF5_LIBRARY}
+    ${HDF5_HL_LIBRARY}
+)
+if(BUILD_COMMON_DTYPES_LIBRARY)
+    target_link_libraries(resampleimage bw)
+else()
+    target_link_libraries(resampleimage snappy)
 endif()
