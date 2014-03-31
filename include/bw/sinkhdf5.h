@@ -51,7 +51,7 @@ class SinkHDF5 : public Sink<N,T> {
         , compression_(compression)
         , fileCreated_(false)
     {
-        vigra_precondition(compression >= 1 && compression <= 9, "compression must be >= 1 and <= 9");
+        vigra_precondition(compression >= 0 && compression <= 9, "compression must be >= 0 and <= 9");
     }
 
     virtual bool writeBlock(Roi<N> roi, const vigra::MultiArrayView<N,T>& block) {
