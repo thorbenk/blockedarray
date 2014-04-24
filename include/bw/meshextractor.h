@@ -30,8 +30,9 @@
 #ifndef BW_MESHEXTRACTOR_H
 #define BW_MESHEXTRACTOR_H
 
-#include <unordered_map>
-#include <unordered_set>
+#include <boost/unordered_map.hpp>
+#include <boost/unordered_set.hpp>
+#include <boost/functional/hash.hpp>
 
 #include <vigra/hdf5impex.hxx>
 
@@ -40,13 +41,7 @@
 
 typedef vigra::TinyVector<vigra::MultiArrayIndex, 3> Coor;
 
-namespace std {
-
-template <class T>
-inline void hash_combine(std::size_t & seed, const T & v) {
-  std::hash<T> hasher;
-  seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-}
+namespace boost {
 
 template<>
 struct hash<Coor> {
@@ -69,13 +64,13 @@ struct hash<std::pair<size_t, size_t> > {
     }
 };
 
-} /* namespace std */
+} /* namespace boost */
 
 
 namespace detail {
 
-typedef std::unordered_map<Coor, size_t> CoorMap;
-typedef std::unordered_set<std::pair<size_t, size_t> > LinesSet;
+typedef boost::unordered_map<Coor, size_t> CoorMap;
+typedef boost::unordered_set<std::pair<size_t, size_t> > LinesSet;
 
 short normalOrientation(Coor tc);
 void cartesianCorners(Coor tc, std::vector<Coor>& corners);
@@ -122,7 +117,7 @@ extractMesh(
                     //to the corner points
                     for(size_t m=0; m<4; ++m) {
                         const Coor& coor = cornerPoints[m];
-                        const auto it = h.find(coor);
+                        const CoorMap::const_iterator it = h.find(coor);
                         if(it == h.end()) {
                             h[coor] = h.size()-1;
                         }
@@ -209,7 +204,7 @@ class MeshExtractor {
         vigra:MultiArray<2, uint32_t> outLines(vigra::Shape2(lines.size(), 2));
         {
             size_t i = 0;
-            for(auto it = h.begin(); it != h.end(); ++it, ++i) {
+            for(CoorMap::const_iterator it = h.begin(); it != h.end(); ++it, ++i) {
                 for(size_t j=0; j<3; ++j) {
                     outVerts(it->second, j) = it->first[j];
                 }
@@ -217,17 +212,17 @@ class MeshExtractor {
         }
         {
             size_t i = 0;
-            for(const auto& l : lines) {
-                outLines(i,0) = l.first;
-                outLines(i,1) = l.second;
+            for(LinesSet::const_iterator l = lines.begin(); l != lines.end(); ++l) {
+                outLines(i,0) = l->first;
+                outLines(i,1) = l->second;
                 ++i;
             }
         }
         {
             size_t i = 0;
-            for(const auto& face: faces) {
+            for(typename std::vector<std::vector<size_t> >::const_iterator face = faces.begin(); face != faces.end(); ++face) {
                 for(size_t j=0; j<4; ++j) {
-                    outFaces(i, j) = face[j];
+                    outFaces(i, j) = (*face)[j];
                 }
                 ++i;
             }

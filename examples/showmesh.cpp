@@ -72,7 +72,8 @@ int main(int argc, char **argv) {
     }
     std::string hdf5file(argv[1]);
    
-    auto d = readMesh(hdf5file);
+    std::pair< vtkSmartPointer<vtkPolyData>,
+               vtkSmartPointer<vtkPolyData> > d = readMesh(hdf5file);
     
     vtkSmartPointer<vtkPolyDataMapper> mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
     mapper->SetInput(d.second);

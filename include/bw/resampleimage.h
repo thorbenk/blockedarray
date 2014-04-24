@@ -49,8 +49,8 @@ void resample(
     typedef typename A::difference_type V;
     V s;
     std::fill(s.begin(), s.end(), std::abs(1.0/factor));
-    auto v = in.stridearray(s);
-    auto end = vigra::min(out.shape(), v.shape());
+    A v = in.stridearray(s);
+    typename A::difference_type end = vigra::min(out.shape(), v.shape());
     out.subarray(V(), end).copy(v.subarray(V(), end));
 }
 

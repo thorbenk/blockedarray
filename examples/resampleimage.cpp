@@ -20,7 +20,7 @@ std::ostream& operator<<(std::ostream& o, const H5DataDescriptor d)
 
 H5DataDescriptor H5DataDescriptor::fromString(const std::string& s)
 {
-    auto pos = s.find_last_of("/");
+    size_t pos = s.find_last_of("/");
     
     H5DataDescriptor d;
     d.filename  = s.substr(0, pos);
