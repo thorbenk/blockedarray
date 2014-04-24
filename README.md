@@ -1,7 +1,7 @@
 blockedarray
 ============
 
-[![Build Status](https://travis-ci.org/thorbenk/blockedarray.png?branch=master)](https://travis-ci.org/thorbenk/blockedarray)
+[![Build Status](https://travis-ci.org/thorbenk/blockedarray.svg?branch=master)](https://travis-ci.org/thorbenk/blockedarray)
 
 C++ code and boost::python wrapper for a blocked,
 in-memory compressed array that supports read/write
